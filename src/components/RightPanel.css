@@ -1,0 +1,18 @@
+.right-panel {
+  width: 280px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.right-panel-section {
+  flex-shrink: 0;
+}
+
+.right-panel-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0 12px;
+}

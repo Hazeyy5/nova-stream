@@ -1,0 +1,59 @@
+.source-inspector {
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.inspector-header button {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.inspector-header button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.inspector-body {
+  padding: 0 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspector-body input {
+  width: 100%;
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.inspector-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.inspector-presets button {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--bg-dock);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.inspector-presets button:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}

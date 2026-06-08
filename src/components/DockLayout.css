@@ -1,0 +1,28 @@
+.dock-layout {
+  height: var(--dock-height);
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.dock-col {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.scenes-col {
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.sources-col {
+  flex: 1.4;
+}
+
+.mixer-col {
+  width: 220px;
+  flex-shrink: 0;
+}

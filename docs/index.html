@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Stream — Votre studio de streaming</title>
+  <meta name="description" content="Connectez Twitch à Nova Stream. Chat, alertes et widgets synchronisés avec votre application desktop." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">▶</div>
+        Nova Stream
+      </a>
+      <div class="nav-links">
+        <a href="https://github.com/Hazeyy5/nova-stream" target="_blank">GitHub</a>
+        <a href="dashboard.html" id="nav-dashboard" style="display:none">Mon compte</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <h1>Votre compte.<br>Votre stream.<br>Connectés.</h1>
+      <p>
+        Connectez-vous avec Twitch sur le web, puis liez votre compte à l'application
+        Nova Stream pour synchroniser chat, alertes et widgets.
+      </p>
+      <button class="btn btn-twitch" id="btn-connect">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 0L4 4v16l4.4 2.5V11.6h2.8L17.6 20 24 16.4V0H11.6zm1.2 11.6H9.2V4.4h3.6v7.2z"/></svg>
+        Se connecter avec Twitch
+      </button>
+    </section>
+
+    <section class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Liaison cloud → desktop</h3>
+        <p>Authentifiez-vous ici, puis reliez en un clic à Nova Stream sur votre PC.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Chat Box</h3>
+        <p>Le chat Twitch s'affiche en direct dans vos scènes et votre mini flux.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h3>Alertes</h3>
+        <p>Follows, subs, dons et raids — synchronisés avec l'application.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
+        <h3>Kick (bientôt)</h3>
+        <p>La connexion Kick arrive prochainement, comme sur Streamlabs.</p>
+      </div>
+    </section>
+
+    <section class="link-card" style="margin-bottom:60px">
+      <h3>Comment ça marche ?</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <p>Connectez-vous avec Twitch sur ce site</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <p>Lancez Nova Stream sur votre PC</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <p>Cliquez « Lier à Nova Stream » — c'est fait !</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>© Nova Stream — Propulsé par GitHub Pages</footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    if (NovaAuth.getSession()) {
+      document.getElementById('nav-dashboard').style.display = 'inline'
+      document.getElementById('btn-connect').textContent = 'Accéder au tableau de bord →'
+      document.getElementById('btn-connect').onclick = () => location.href = NovaAuth.asset('/dashboard.html')
+    } else {
+      document.getElementById('btn-connect').onclick = () => NovaAuth.startTwitchLogin()
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+.activity-feed {
+  height: var(--feed-height);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: linear-gradient(90deg, var(--bg-secondary) 0%, rgba(26, 30, 42, 0.8) 100%);
+  border-top: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+
+.activity-feed-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  white-space: nowrap;
+  padding-right: 12px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.feed-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: feedPulse 2s infinite;
+}
+
+@keyframes feedPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.activity-feed-scroll {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.15s;
+}
+
+.activity-item:hover {
+  border-color: var(--evt-color, var(--accent-dim));
+}
+
+.activity-alert {
+  border-color: color-mix(in srgb, var(--evt-color) 40%, transparent);
+  background: color-mix(in srgb, var(--evt-color) 8%, var(--bg-elevated));
+}
+
+.activity-chat {
+  border-color: rgba(145, 70, 255, 0.3);
+}
+
+.activity-icon {
+  font-size: 14px;
+}
+
+.activity-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}

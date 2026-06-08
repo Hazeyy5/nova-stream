@@ -1,0 +1,135 @@
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  gap: 16px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.bottom-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  min-width: 70px;
+}
+
+.stat-chip.live {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.stat-chip.record {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.stat-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-chip.live .stat-value { color: var(--danger); }
+.stat-chip.record .stat-value { color: var(--danger); }
+
+.bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: underline;
+  margin-right: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-btn.record {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.action-btn.record:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.action-btn.stream {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.action-btn.stream:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.action-btn.both {
+  background: linear-gradient(135deg, var(--accent), #5b21b6);
+  color: white;
+}
+
+.action-btn.stop-all {
+  background: var(--danger);
+  color: white;
+  box-shadow: 0 0 24px var(--live-glow);
+  padding: 9px 28px;
+}
+
+.action-btn.stop-all:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.bottom-error {
+  position: absolute;
+  bottom: 100%;
+  left: 16px;
+  right: 16px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fca5a5;
+  margin-bottom: 4px;
+}

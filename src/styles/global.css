@@ -1,0 +1,101 @@
+:root {
+  --bg-deep: #080a10;
+  --bg-primary: #0e1018;
+  --bg-secondary: #151820;
+  --bg-dock: #1a1e2a;
+  --bg-elevated: #222636;
+  --bg-hover: #2a3044;
+  --border: #353b52;
+  --border-subtle: #252a3a;
+  --border-glow: rgba(0, 194, 168, 0.2);
+  --text-primary: #f2f4fa;
+  --text-secondary: #a8b0c8;
+  --text-muted: #6e7894;
+  --accent: #00d4b8;
+  --accent-hover: #00b89e;
+  --accent-dim: rgba(0, 212, 184, 0.45);
+  --accent-bg: rgba(0, 212, 184, 0.14);
+  --accent-glow: rgba(0, 212, 184, 0.4);
+  --twitch: #9146FF;
+  --kick: #53FC18;
+  --danger: #ff4d6a;
+  --record: #ff4d6a;
+  --live-glow: rgba(255, 77, 106, 0.5);
+  --success: #2ee6a8;
+  --meter-green: #2ee6a8;
+  --meter-yellow: #ffd43b;
+  --meter-red: #ff4d6a;
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.55);
+  --nav-width: 58px;
+  --dock-height: 215px;
+  --action-height: 58px;
+  --feed-height: 48px;
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, select {
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-size: 12px;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+input:disabled, select:disabled {
+  opacity: 0.45;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dim);
+}

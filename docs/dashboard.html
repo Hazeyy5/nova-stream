@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tableau de bord — Nova Stream</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">▶</div>
+        Nova Stream
+      </a>
+      <div class="nav-links">
+        <a href="#" id="btn-logout">Déconnexion</a>
+      </div>
+    </nav>
+
+    <section class="dashboard">
+      <div class="profile-card" id="profile" style="display:none">
+        <img id="avatar" src="" alt="" />
+        <div>
+          <h2 id="display-name"></h2>
+          <span class="tag">● Connecté via Twitch</span>
+        </div>
+      </div>
+
+      <div class="link-card">
+        <h3>Lier à Nova Stream</h3>
+        <p>Assurez-vous que l'application Nova Stream est ouverte sur votre PC, puis cliquez ci-dessous.</p>
+
+        <div class="status-dot offline" id="desktop-status">
+          Nova Stream : vérification...
+        </div>
+
+        <button class="btn btn-primary" id="btn-link" disabled>
+          🔗 Lier à Nova Stream
+        </button>
+
+        <div id="link-msg" class="status-msg" style="display:none"></div>
+      </div>
+
+      <div class="features" style="padding-top:32px">
+        <div class="feature-card">
+          <div class="feature-icon">✅</div>
+          <h3>Après la liaison</h3>
+          <p>Chat Box, Alert Box et mini flux seront actifs dans l'application desktop.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📥</div>
+          <h3>Télécharger l'app</h3>
+          <p>Clonez le repo GitHub et lancez <code>npm run dev</code> pour utiliser Nova Stream.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>© Nova Stream</footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/link.js"></script>
+  <script>
+    const session = NovaAuth.getSession()
+    if (!session) location.href = NovaAuth.asset('/index.html')
+
+    document.getElementById('avatar').src = session.avatarUrl
+    document.getElementById('display-name').textContent = session.displayName
+    document.getElementById('profile').style.display = 'flex'
+
+    document.getElementById('btn-logout').onclick = (e) => {
+      e.preventDefault()
+      NovaAuth.logout()
+    }
+
+    const statusEl = document.getElementById('desktop-status')
+    const linkBtn = document.getElementById('btn-link')
+    const msgEl = document.getElementById('link-msg')
+
+    async function refreshStatus() {
+      const status = await NovaLink.checkDesktopOnline()
+      if (status?.online) {
+        statusEl.className = 'status-dot online'
+        statusEl.textContent = `Nova Stream détecté (v${status.version})`
+        linkBtn.disabled = false
+      } else {
+        statusEl.className = 'status-dot offline'
+        statusEl.textContent = 'Nova Stream non détecté — lancez l\'application'
+        linkBtn.disabled = true
+      }
+    }
+
+    refreshStatus()
+    setInterval(refreshStatus, 4000)
+
+    linkBtn.onclick = async () => {
+      msgEl.style.display = 'none'
+      linkBtn.disabled = true
+      linkBtn.textContent = 'Liaison en cours...'
+      try {
+        await NovaLink.linkToDesktop()
+        msgEl.className = 'status-msg success'
+        msgEl.textContent = '✓ Compte lié avec succès ! Retournez sur Nova Stream — chat et alertes sont actifs.'
+        msgEl.style.display = 'block'
+      } catch (err) {
+        msgEl.className = 'status-msg error'
+        msgEl.textContent = err.message
+        msgEl.style.display = 'block'
+      } finally {
+        linkBtn.textContent = '🔗 Lier à Nova Stream'
+        refreshStatus()
+      }
+    }
+  </script>
+</body>
+</html>

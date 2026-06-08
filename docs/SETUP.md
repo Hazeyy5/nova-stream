@@ -1,0 +1,41 @@
+# Configuration du site Nova Stream (GitHub Pages)
+
+## 1. Application Twitch
+
+Sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), créez une application avec :
+
+| Champ | Valeur |
+|-------|--------|
+| OAuth Redirect URLs | `https://hazeyy5.github.io/nova-stream/oauth/callback.html` |
+| | `http://localhost:3456/auth/twitch/callback` (app desktop) |
+| Category | Website Integration |
+
+## 2. Client ID sur le site
+
+Éditez `docs/js/config.js` :
+
+```javascript
+TWITCH_CLIENT_ID: 'votre_client_id_ici',
+```
+
+## 3. App desktop (.env)
+
+```env
+TWITCH_CLIENT_ID=votre_client_id
+TWITCH_CLIENT_SECRET=votre_client_secret
+```
+
+## 4. Déploiement GitHub Pages
+
+1. Poussez le code sur `main`
+2. GitHub → Settings → Pages → Source : **GitHub Actions**
+3. Le workflow `.github/workflows/pages.yml` déploie automatiquement le dossier `docs/`
+
+Site : **https://hazeyy5.github.io/nova-stream**
+
+## 5. Flux utilisateur
+
+1. L'utilisateur ouvre le site et se connecte avec Twitch
+2. Il lance Nova Stream sur son PC
+3. Sur le tableau de bord web, il clique **Lier à Nova Stream**
+4. L'app reçoit le token via `localhost:3847` et active chat + alertes
