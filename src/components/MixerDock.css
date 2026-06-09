@@ -33,6 +33,33 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+}
+
+.mixer-channel-label-btn {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.mixer-channel-label-btn:hover .mixer-channel-label {
+  color: var(--purple);
+}
+
+.mixer-channel-device {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 
 .mixer-channel-db {
@@ -143,4 +170,9 @@
 
 .mixer-icon-btn.muted {
   color: var(--pink);
+}
+
+.mixer-icon-btn.monitor-on {
+  color: var(--purple);
+  background: var(--purple-bg);
 }

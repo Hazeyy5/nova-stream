@@ -31,6 +31,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
   const [form, setForm] = useState<StreamSettings>({ ...settings })
   const [tab, setTab] = useState<Tab>('Stream')
   const [devices, setDevices] = useState<MediaDevice[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(true)
   const [speedtestRunning, setSpeedtestRunning] = useState(false)
   const [speedtestProgress, setSpeedtestProgress] = useState(0)
   const [speedtestResult, setSpeedtestResult] = useState<SpeedtestResult | null>(null)
@@ -40,11 +41,25 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
     return match?.name ?? 'Personnalisé'
   })
 
+  const loadDevices = () => {
+    setDevicesLoading(true)
+    window.novaStream.devices.listMedia()
+      .then(setDevices)
+      .finally(() => setDevicesLoading(false))
+  }
+
   useEffect(() => {
-    window.novaStream.devices.listMedia().then(setDevices)
+    loadDevices()
   }, [])
 
-  const audioDevices = devices.filter((d) => d.type === 'audio')
+  const micDevices = devices.filter(
+    (d) => d.type === 'audio' && d.audioRole === 'input'
+  )
+  const desktopDevices = devices.filter(
+    (d) => d.type === 'audio' && (d.audioRole === 'output' || d.audioRole === 'loopback')
+  )
+  const outputDevices = devices.filter((d) => d.type === 'audio' && d.audioRole === 'output')
+  const hasNativeDesktop = outputDevices.some((d) => d.backend === 'native')
   const videoDevices = devices.filter((d) => d.type === 'video')
 
   const update = (partial: Partial<StreamSettings>) => {
@@ -225,30 +240,49 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               </div>
 
               <label className="settings-field">
-                Webcam
+                Webcam (entrée vidéo)
                 <select value={form.webcamDevice} onChange={(e) => update({ webcamDevice: e.target.value })}>
                   <option value="">— Sélectionner —</option>
                   {videoDevices.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
                 </select>
               </label>
+              {!devicesLoading && videoDevices.length === 0 && (
+                <p className="settings-hint warn">
+                  Aucune webcam détectée. Cliquez « Actualiser » dans l&apos;onglet Audio ou redémarrez l&apos;app.
+                </p>
+              )}
             </>
           )}
 
           {tab === 'Audio' && (
             <>
+              <div className="settings-devices-bar">
+                <span>
+                  {devicesLoading
+                    ? 'Détection des périphériques…'
+                    : `${micDevices.length} micro(s) · ${outputDevices.length} sortie(s)`}
+                </span>
+                <button type="button" className="settings-refresh-btn" onClick={loadDevices} disabled={devicesLoading}>
+                  Actualiser
+                </button>
+              </div>
+
               <label className="settings-checkbox">
                 <input type="checkbox" checked={form.audioEnabled}
                   onChange={(e) => update({ audioEnabled: e.target.checked })} />
-                Activer le microphone (stream en direct)
+                Activer le microphone
               </label>
               <label className="settings-field">
-                Microphone
+                Microphone (entrée)
                 <select value={form.audioDevice} onChange={(e) => update({ audioDevice: e.target.value })}
-                  disabled={!form.audioEnabled}>
+                  disabled={!form.audioEnabled || devicesLoading}>
                   <option value="">— Sélectionner —</option>
-                  {audioDevices.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                  {micDevices.map((d) => <option key={d.name + (d.deviceId ?? '')} value={d.name}>{d.name}</option>)}
                 </select>
               </label>
+              {!devicesLoading && micDevices.length === 0 && (
+                <p className="settings-hint warn">Aucun microphone détecté.</p>
+              )}
               <label className="settings-field">
                 Bitrate audio (kbps)
                 <input type="number" value={form.audioBitrate} min={64} max={320}
@@ -259,17 +293,31 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               <label className="settings-checkbox">
                 <input type="checkbox" checked={form.desktopAudioEnabled}
                   onChange={(e) => update({ desktopAudioEnabled: e.target.checked })} />
-                Capturer l'audio du bureau
+                Capturer l&apos;audio du bureau (Desktop Audio)
               </label>
               <label className="settings-field">
-                Périphérique audio bureau
+                Sortie son (Desktop Audio)
                 <select value={form.desktopAudioDevice}
                   onChange={(e) => update({ desktopAudioDevice: e.target.value })}
-                  disabled={!form.desktopAudioEnabled}>
+                  disabled={!form.desktopAudioEnabled || devicesLoading}>
                   <option value="">— Sélectionner —</option>
-                  {audioDevices.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                  {desktopDevices.map((d) => (
+                    <option key={d.name + (d.deviceId ?? '')} value={d.name}>
+                      {d.name}{d.isDefault ? ' (par défaut)' : ''}{d.audioRole === 'loopback' ? ' · capture' : ''}
+                    </option>
+                  ))}
                 </select>
               </label>
+              <p className="settings-hint">
+                {hasNativeDesktop
+                  ? 'Capture WASAPI automatique — aucun pilote virtuel requis, comme Streamlabs.'
+                  : 'Les haut-parleurs et casques apparaissent ici. La capture du son du PC utilise WASAPI sous Windows.'}
+              </p>
+              {!devicesLoading && desktopDevices.length === 0 && (
+                <p className="settings-hint warn">
+                  Aucune sortie détectée. Vérifiez vos pilotes audio puis cliquez Actualiser.
+                </p>
+              )}
             </>
           )}
 

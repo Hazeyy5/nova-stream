@@ -1,33 +1,41 @@
 .dock-layout {
-  height: var(--dock-height);
+  flex: 1;
+  min-height: var(--dock-height);
   display: flex;
-  gap: 8px;
-  padding: 8px 12px;
-  flex-shrink: 0;
-  min-height: 0;
+  gap: 6px;
+  padding: 4px 12px 8px;
+  min-width: 0;
+  align-items: stretch;
 }
 
 .dock-col {
   display: flex;
   min-width: 0;
   min-height: 0;
+  flex: 1;
 }
 
 .scenes-col {
-  width: 200px;
-  flex-shrink: 0;
+  flex: 0.9;
+  min-width: 140px;
 }
 
 .sources-col {
-  flex: 1.4;
+  flex: 1.25;
+  min-width: 180px;
 }
 
 .mixer-col {
-  width: 240px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 200px;
 }
 
 .controls-col {
-  width: 180px;
-  flex-shrink: 0;
+  flex: 0.85;
+  min-width: 150px;
+}
+
+.dock-col .dock-panel {
+  flex: 1;
+  width: 100%;
 }

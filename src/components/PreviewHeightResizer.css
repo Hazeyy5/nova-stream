@@ -1,0 +1,28 @@
+.preview-height-resizer {
+  flex-shrink: 0;
+  height: 6px;
+  margin: 0 12px;
+  cursor: row-resize;
+  border-radius: 3px;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.preview-height-resizer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--border-subtle);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.preview-height-resizer:hover::after,
+.preview-height-resizer:active::after {
+  background: var(--accent-dim);
+  box-shadow: 0 0 8px var(--accent-glow);
+}

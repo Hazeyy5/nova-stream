@@ -1,6 +1,18 @@
-import { useState } from 'react'
-import type { StreamSettings } from '../types'
-import { useAudioMeter, formatMeterDb, type AudioMeterReading } from '../hooks/useAudioMeter'
+import { useEffect, useState } from 'react'
+import type { AudioChannelId, StreamSettings } from '../types'
+import { useAudioMeter } from '../hooks/useAudioMeter'
+import { useDesktopAudioMeter } from '../hooks/useDesktopAudioMeter'
+import { useMicMonitor } from '../hooks/useMicMonitor'
+import {
+  formatGainDb,
+  gainDbToSliderPercent,
+  MAX_GAIN_DB,
+  MIN_GAIN_DB,
+  parseGainDb,
+  resolveDesktopGainDb,
+  resolveMicGainDb
+} from '../lib/audioGain'
+import type { AudioMeterReading } from '../hooks/useAudioMeter'
 import './MixerDock.css'
 
 interface MixerDockProps {
@@ -10,6 +22,10 @@ interface MixerDockProps {
 }
 
 const METER_SEGMENTS = 48
+
+function openChannelProperties(channel: AudioChannelId, settings: StreamSettings) {
+  window.novaStream.audioProps.open(channel, settings)
+}
 
 function LevelMeterBars({ peak, rms }: { peak: number; rms: number }) {
   return (
@@ -42,31 +58,55 @@ function LevelMeterRow({ level }: { level: number }) {
 function MixerChannel({
   label,
   deviceName,
-  value,
+  gainDb,
   muted,
   meter,
-  onVolumeChange,
+  onGainChange,
   onMuteToggle,
-  onOpenSettings
+  onOpenProperties,
+  onToggleMonitor,
+  monitorOn
 }: {
   label: string
   deviceName: string
-  value: number
+  gainDb: number
   muted: boolean
   meter: AudioMeterReading
-  onVolumeChange: (v: number) => void
+  onGainChange: (db: number) => void
   onMuteToggle: () => void
-  onOpenSettings?: () => void
+  onOpenProperties?: () => void
+  onToggleMonitor?: () => void
+  monitorOn?: boolean
 }) {
+  const [localGainDb, setLocalGainDb] = useState(gainDb)
   const active = !muted && !!deviceName
-  const displayDb = active ? meter.displayDb : -60
+
+  useEffect(() => {
+    setLocalGainDb(gainDb)
+  }, [gainDb])
+
+  const handleGainInput = (raw: string) => {
+    const db = parseGainDb(Number(raw))
+    setLocalGainDb(db)
+    onGainChange(db)
+  }
 
   return (
     <div className="mixer-channel">
       <div className="mixer-channel-header">
-        <span className="mixer-channel-label">{label}</span>
-        <span className={`mixer-channel-db ${active && displayDb > -6 ? 'hot' : ''}`}>
-          {formatMeterDb(displayDb, muted)}
+        <button
+          type="button"
+          className="mixer-channel-label-btn"
+          onClick={onOpenProperties}
+          title="Propriétés"
+        >
+          <span className="mixer-channel-label">{label}</span>
+          {deviceName && (
+            <span className="mixer-channel-device">{deviceName}</span>
+          )}
+        </button>
+        <span className="mixer-channel-db">
+          {formatGainDb(localGainDb, muted)}
         </span>
       </div>
 
@@ -75,13 +115,15 @@ function MixerChannel({
       <div className="mixer-slider-row">
         <input
           type="range"
-          min={0}
-          max={100}
-          value={value}
+          min={MIN_GAIN_DB}
+          max={MAX_GAIN_DB}
+          step={0.5}
+          value={localGainDb}
           disabled={muted}
-          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          onInput={(e) => handleGainInput(e.currentTarget.value)}
+          onChange={(e) => handleGainInput(e.currentTarget.value)}
           className="mixer-slider"
-          style={{ '--vol': `${value}%` } as React.CSSProperties}
+          style={{ '--vol': gainDbToSliderPercent(localGainDb) } as React.CSSProperties}
         />
         <button
           type="button"
@@ -104,11 +146,25 @@ function MixerChannel({
             )}
           </svg>
         </button>
-        {onOpenSettings && (
-          <button type="button" className="mixer-icon-btn" onClick={onOpenSettings} title="Paramètres audio">
+        {onToggleMonitor && (
+          <button
+            type="button"
+            className={`mixer-icon-btn ${monitorOn ? 'monitor-on' : ''}`}
+            onClick={onToggleMonitor}
+            title={monitorOn ? 'Couper le retour voix' : 'Retour voix — écouter comme sur le stream'}
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              <path d="M3 18v-6a9 9 0 0118 0v6" />
+              <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3v5z" />
+              <path d="M3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3v5z" />
+            </svg>
+          </button>
+        )}
+        {onOpenProperties && (
+          <button type="button" className="mixer-icon-btn" onClick={onOpenProperties} title="Propriétés">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
           </button>
         )}
@@ -118,18 +174,23 @@ function MixerChannel({
 }
 
 export default function MixerDock({ settings, onUpdateSettings, onOpenSettings }: MixerDockProps) {
-  const [desktopVol, setDesktopVol] = useState(80)
+  const [micMonitor, setMicMonitor] = useState(false)
+  const micGainDb = resolveMicGainDb(settings)
+  const desktopGainDb = resolveDesktopGainDb(settings)
 
   const micMeter = useAudioMeter(
     settings.audioDevice,
     settings.audioEnabled,
-    settings.audioVolume
+    micGainDb,
+    settings.micMono ?? false
   )
-
-  const desktopMeter = useAudioMeter(
-    settings.desktopAudioDevice,
-    settings.desktopAudioEnabled,
-    desktopVol
+  const desktopMeter = useDesktopAudioMeter(settings.desktopAudioEnabled, desktopGainDb)
+  useMicMonitor(
+    settings.audioDevice,
+    settings.audioEnabled,
+    micGainDb,
+    micMonitor,
+    settings.micMono ?? false
   )
 
   return (
@@ -149,22 +210,24 @@ export default function MixerDock({ settings, onUpdateSettings, onOpenSettings }
         <MixerChannel
           label="Desktop Audio"
           deviceName={settings.desktopAudioDevice}
-          value={desktopVol}
+          gainDb={desktopGainDb}
           muted={!settings.desktopAudioEnabled}
           meter={desktopMeter}
-          onVolumeChange={setDesktopVol}
+          onGainChange={(db) => onUpdateSettings({ desktopAudioGainDb: db, desktopAudioVolume: undefined })}
           onMuteToggle={() => onUpdateSettings({ desktopAudioEnabled: !settings.desktopAudioEnabled })}
-          onOpenSettings={onOpenSettings}
+          onOpenProperties={() => openChannelProperties('desktop', settings)}
         />
         <MixerChannel
           label="Mic/Aux"
           deviceName={settings.audioDevice}
-          value={settings.audioVolume}
+          gainDb={micGainDb}
           muted={!settings.audioEnabled}
           meter={micMeter}
-          onVolumeChange={(v) => onUpdateSettings({ audioVolume: v })}
+          onGainChange={(db) => onUpdateSettings({ audioGainDb: db, audioVolume: undefined })}
           onMuteToggle={() => onUpdateSettings({ audioEnabled: !settings.audioEnabled })}
-          onOpenSettings={onOpenSettings}
+          onOpenProperties={() => openChannelProperties('mic', settings)}
+          onToggleMonitor={() => setMicMonitor((v) => !v)}
+          monitorOn={micMonitor}
         />
       </div>
     </div>

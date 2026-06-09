@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { gainDbToLinear } from '../lib/audioGain'
+import { connectCenteredMono } from '../lib/monoAudio'
 
 export interface AudioMeterReading {
   peak: number
@@ -20,6 +22,8 @@ function linearToDb(linear: number): number {
 }
 
 async function resolveDeviceId(deviceName: string): Promise<string | undefined> {
+  if (!deviceName) return undefined
+
   try {
     const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
     probe.getTracks().forEach((t) => t.stop())
@@ -31,23 +35,39 @@ async function resolveDeviceId(deviceName: string): Promise<string | undefined> 
     .filter((d) => d.kind === 'audioinput')
 
   if (inputs.length === 0) return undefined
-  if (!deviceName) return inputs[0].deviceId
 
-  const key = deviceName.toLowerCase()
+  try {
+    const nativeDevices = await window.novaStream.devices.listMedia()
+    const nativeMatch = nativeDevices.find(
+      (d) => d.type === 'audio' && d.audioRole === 'input' && d.name === deviceName
+    )
+    if (nativeMatch?.deviceId) {
+      const byId = inputs.find((d) => d.deviceId === nativeMatch.deviceId)
+      if (byId) return byId.deviceId
+    }
+  } catch {
+    /* ignore */
+  }
+
   const exact = inputs.find((d) => d.label === deviceName)
   if (exact) return exact.deviceId
 
-  const partial = inputs.find((d) => {
+  const key = deviceName.toLowerCase()
+  const partial = inputs.find((d) => d.label.toLowerCase() === key)
+  if (partial) return partial.deviceId
+
+  const contains = inputs.find((d) => {
     const label = d.label.toLowerCase()
     return label.includes(key) || key.includes(label)
   })
-  return partial?.deviceId ?? inputs[0].deviceId
+  return contains?.deviceId
 }
 
 export function useAudioMeter(
   deviceName: string | undefined,
   enabled: boolean,
-  volume: number
+  gainDb = 0,
+  micMono = false
 ): AudioMeterReading {
   const [reading, setReading] = useState<AudioMeterReading>(SILENT)
   const peakHoldRef = useRef(0)
@@ -95,14 +115,11 @@ export function useAudioMeter(
         sumSq += sample * sample
       }
       const rms = Math.sqrt(sumSq / timeData.length)
-
-      const gain = volume / 100
-      const peakDb = linearToDb(peak * gain)
-      const rmsDb = linearToDb(rms * gain)
+      const gain = 1
 
       if (peak > peakHoldRef.current) {
         peakHoldRef.current = peak
-        peakDbHoldRef.current = peakDb
+        peakDbHoldRef.current = linearToDb(peak * gain)
       } else {
         peakHoldRef.current *= 0.92
         peakDbHoldRef.current = linearToDb(peakHoldRef.current * gain)
@@ -110,9 +127,9 @@ export function useAudioMeter(
 
       lastEmit = now
       setReading({
-        peak: peakHoldRef.current,
-        rms,
-        peakDb,
+        peak: Math.min(1, peakHoldRef.current * gain),
+        rms: Math.min(1, rms * gain),
+        peakDb: linearToDb(peak * gain),
         displayDb: peakDbHoldRef.current
       })
     }
@@ -144,7 +161,15 @@ export function useAudioMeter(
         analyser.smoothingTimeConstant = 0.3
 
         const source = audioCtx.createMediaStreamSource(stream)
-        source.connect(analyser)
+        const gain = audioCtx.createGain()
+        gain.gain.value = gainDbToLinear(gainDb)
+
+        if (micMono) {
+          connectCenteredMono(source, gain, analyser, source.channelCount || 2)
+        } else {
+          source.connect(gain)
+          gain.connect(analyser)
+        }
 
         peakHoldRef.current = 0
         peakDbHoldRef.current = -60
@@ -171,7 +196,7 @@ export function useAudioMeter(
       peakDbHoldRef.current = -60
       setReading(SILENT)
     }
-  }, [deviceName, enabled, volume])
+  }, [deviceName, enabled, gainDb, micMono])
 
   return reading
 }

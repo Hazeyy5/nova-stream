@@ -8,6 +8,8 @@ window.NOVA_CONFIG = {
   SCOPES: [
     'user:read:email',
     'chat:read',
+    'chat:edit',
+    'user:write:chat',
     'channel:read:subscriptions',
     'moderator:read:followers'
   ].join(' ')

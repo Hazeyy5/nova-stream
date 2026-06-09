@@ -2,20 +2,37 @@ import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog } from 'e
 import { join } from 'path'
 import { loadEnv } from './loadEnv'
 import { StreamManager } from './streamManager'
-import { listMediaDevices } from './deviceManager'
+import { listMediaDevices, setMediaListWindow } from './deviceManager'
 import { IntegrationManager } from './integrations/integrationManager'
 import { LinkServer } from './integrations/linkServer'
 import { getPlatformConfig } from './platformConfig'
 import { runSpeedtest } from './speedtest'
-import type { AlertType, StreamSettings } from '../../src/types'
+import {
+  setMainWindow,
+  openSourcePropertiesWindow,
+  syncSourcePropertiesWindow,
+  closeSourcePropertiesWindow,
+  forwardPatch,
+  forwardRecapture
+} from './sourcePropertiesWindow'
+import {
+  setAudioPropsMainWindow,
+  openAudioPropertiesWindow,
+  syncAudioPropertiesWindow,
+  closeAudioPropertiesWindow,
+  forwardAudioSettingsPatch
+} from './audioPropertiesWindow'
+import { desktopAudioMeterService } from './audioMeterService'
+import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
 
 loadEnv()
 
 const streamManager = new StreamManager()
 const integrations = new IntegrationManager()
 const linkServer = new LinkServer(integrations)
+let appMainWindow: BrowserWindow | null = null
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 860,
@@ -39,6 +56,12 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  setMainWindow(mainWindow)
+  setAudioPropsMainWindow(mainWindow)
+  setMediaListWindow(mainWindow)
+  appMainWindow = mainWindow
+  return mainWindow
 }
 
 app.whenReady().then(async () => {
@@ -69,6 +92,7 @@ app.whenReady().then(async () => {
     settings: StreamSettings
     stream: boolean
     record: boolean
+    videoInputFormat?: 'h264' | 'webm'
   }) => {
     try {
       await streamManager.start(payload)
@@ -115,7 +139,7 @@ app.whenReady().then(async () => {
     }))
   })
 
-  ipcMain.handle('devices:listMedia', () => listMediaDevices())
+  ipcMain.handle('devices:listMedia', () => listMediaDevices(appMainWindow))
 
   ipcMain.handle('dialog:selectRecordingFolder', async () => {
     const result = await dialog.showOpenDialog({
@@ -164,6 +188,65 @@ app.whenReady().then(async () => {
   ipcMain.handle('integrations:getAlerts', () => integrations.getActiveAlerts())
   ipcMain.handle('integrations:testAlert', (_e, type?: AlertType) => {
     integrations.testAlert(type)
+  })
+
+  ipcMain.handle('integrations:getChatStatus', () => integrations.getChatStatus())
+
+  ipcMain.handle('integrations:sendChatMessage', async (_e, text: string) => {
+    return integrations.sendChatMessage(text)
+  })
+
+  ipcMain.handle('sourceProps:open', (_e, source: Source) => {
+    openSourcePropertiesWindow(source)
+  })
+
+  ipcMain.handle('sourceProps:sync', (_e, source: Source) => {
+    syncSourcePropertiesWindow(source)
+  })
+
+  ipcMain.handle('sourceProps:close', (_e, sourceId: string) => {
+    closeSourcePropertiesWindow(sourceId)
+  })
+
+  ipcMain.on('sourceProps:ready', (event) => {
+    // Fenêtre propriétés prête — rien à faire, init envoyé au did-finish-load
+    void event
+  })
+
+  ipcMain.on('sourceProps:patch', (_e, payload: { sourceId: string; partial: Partial<Source> }) => {
+    forwardPatch(payload.sourceId, payload.partial)
+  })
+
+  ipcMain.on('sourceProps:recapture', (_e, payload: { sourceId: string; kind: 'screen' | 'window' }) => {
+    forwardRecapture(payload.sourceId, payload.kind)
+  })
+
+  ipcMain.handle('audioProps:open', (_e, payload: { channel: AudioChannelId; settings: StreamSettings }) => {
+    openAudioPropertiesWindow(payload.channel, payload.settings)
+  })
+
+  ipcMain.handle('audioProps:sync', (_e, payload: { channel: AudioChannelId; settings: StreamSettings }) => {
+    syncAudioPropertiesWindow(payload.channel, payload.settings)
+  })
+
+  ipcMain.handle('audioProps:close', (_e, channel: AudioChannelId) => {
+    closeAudioPropertiesWindow(channel)
+  })
+
+  ipcMain.on('audioProps:ready', (event) => {
+    void event
+  })
+
+  ipcMain.on('audioProps:patch', (_e, partial: Partial<StreamSettings>) => {
+    forwardAudioSettingsPatch(partial)
+  })
+
+  ipcMain.handle('audioMeter:subscribeDesktop', (event) => {
+    desktopAudioMeterService.subscribe(event.sender)
+  })
+
+  ipcMain.handle('audioMeter:unsubscribeDesktop', (event) => {
+    desktopAudioMeterService.unsubscribe(event.sender)
   })
 
   createWindow()

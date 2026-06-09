@@ -1,20 +1,23 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { spawn, type ChildProcessWithoutNullStreams, type Writable } from 'child_process'
 import { mkdirSync } from 'fs'
 import { dirname } from 'path'
 import ffmpegPath from 'ffmpeg-static'
-import { buildFfmpegScenePipeArgs, buildRtmpUrl, defaultRecordingPath, parseFfmpegError } from './ffmpegBuilder'
+import { buildFfmpegScenePipeArgs, buildRtmpUrl, resolveRecordingFilePath, parseFfmpegError } from './ffmpegBuilder'
 import { listMediaDevices, resolveStreamSettings } from './deviceManager'
+import { DesktopAudioCapture } from './desktopAudioCapture'
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
   settings: StreamSettings
   stream?: boolean
   record?: boolean
+  videoInputFormat?: 'h264' | 'webm'
 }
 
 export class StreamManager {
   private process: ChildProcessWithoutNullStreams | null = null
   private pendingChunks: Buffer[] = []
+  private desktopCapture = new DesktopAudioCapture()
   private state: MediaState = {
     stream: { status: 'idle' },
     recording: { status: 'idle' }
@@ -62,7 +65,7 @@ export class StreamManager {
     if (this.process) throw new Error('Une session média est déjà active')
     if (!ffmpegPath) throw new Error('FFmpeg introuvable')
 
-    const { settings, stream = false, record = false } = options
+    const { settings, stream = false, record = false, videoInputFormat = 'webm' } = options
     if (!stream && !record) throw new Error('Aucune sortie sélectionnée')
 
     const devices = await listMediaDevices()
@@ -70,13 +73,22 @@ export class StreamManager {
 
     let recordPath: string | undefined
     if (record) {
-      recordPath = resolved.recordingPath || defaultRecordingPath()
+      recordPath = resolveRecordingFilePath(resolved.recordingPath)
       mkdirSync(dirname(recordPath), { recursive: true })
     }
 
     const rtmpUrl = stream ? buildRtmpUrl(resolved) : undefined
-    const includeAudio = stream || (record && resolved.recordAudioEnabled)
-    const args = buildFfmpegScenePipeArgs(resolved, { rtmpUrl, recordPath, includeAudio })
+    const includeAudio = stream || (
+      record &&
+      resolved.recordAudioEnabled &&
+      (resolved.audioEnabled || resolved.desktopAudioEnabled)
+    )
+    const { args, usesNativeDesktop } = buildFfmpegScenePipeArgs(resolved, {
+      rtmpUrl,
+      recordPath,
+      includeAudio,
+      videoInputFormat
+    })
 
     if (stream) {
       this.setState({ stream: { status: 'starting', message: 'Connexion au serveur...' } })
@@ -90,10 +102,20 @@ export class StreamManager {
     return new Promise((resolve, reject) => {
       const proc = spawn(ffmpegPath!, args, {
         windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: usesNativeDesktop ? ['pipe', 'pipe', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
       })
       this.process = proc
       this.pendingChunks = []
+
+      if (usesNativeDesktop) {
+        const desktopPipe = proc.stdio[3] as Writable | null
+        desktopPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
+        void this.desktopCapture.start((chunk) => {
+          if (desktopPipe && !desktopPipe.destroyed && desktopPipe.writable) {
+            desktopPipe.write(chunk)
+          }
+        }).catch(() => { /* capture bureau optionnelle */ })
+      }
 
       let stderr = ''
       let started = false
@@ -103,6 +125,7 @@ export class StreamManager {
         if (rejected) return
         rejected = true
         this.process = null
+        void this.desktopCapture.stop()
         try { proc.stdin.end() } catch { /* ignore */ }
         try { proc.kill('SIGKILL') } catch { /* ignore */ }
         this.setState({
@@ -190,6 +213,8 @@ export class StreamManager {
   async stop(): Promise<void> {
     if (!this.process) return
 
+    await this.desktopCapture.stop()
+
     this.setState({
       stream: { ...this.state.stream, status: 'stopping', message: 'Arrêt en cours...' },
       recording: { ...this.state.recording, status: 'stopping' }
@@ -199,19 +224,31 @@ export class StreamManager {
     this.flushPendingChunks()
 
     return new Promise((resolve) => {
-      const finish = () => {
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(softKillTimeout)
+        clearTimeout(hardKillTimeout)
+        resolve()
+      }
+
+      const endStdin = () => {
+        this.flushPendingChunks()
         try { proc.stdin.end() } catch { /* ignore */ }
       }
-      setTimeout(finish, 400)
+      // Laisser le renderer envoyer le dernier fragment WebM avant de fermer le pipe
+      setTimeout(endStdin, 900)
 
-      const timeout = setTimeout(() => {
-        proc.kill('SIGKILL')
-        resolve()
-      }, 6000)
-      proc.on('close', () => {
-        clearTimeout(timeout)
-        resolve()
-      })
+      const softKillTimeout = setTimeout(() => {
+        try { proc.kill('SIGTERM') } catch { /* ignore */ }
+      }, 15000)
+
+      const hardKillTimeout = setTimeout(() => {
+        try { proc.kill('SIGKILL') } catch { /* ignore */ }
+      }, 25000)
+
+      proc.on('close', done)
     })
   }
 

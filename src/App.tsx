@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 import NavRail from './components/NavRail'
 
@@ -26,7 +26,7 @@ import SettingsModal from './components/SettingsModal'
 
 import IntegrationsPanel from './components/IntegrationsPanel'
 
-import WelcomeModal from './components/WelcomeModal'
+import PreviewHeightResizer from './components/PreviewHeightResizer'
 
 import { useScenes } from './hooks/useScenes'
 
@@ -40,6 +40,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { AppView, MediaState, StreamSettings } from './types'
 
 import { DEFAULT_STREAM_SETTINGS } from './types'
+import { migrateStreamSettings } from './lib/audioGain'
 
 import './styles/app.css'
 
@@ -63,7 +64,8 @@ function App() {
 
   const { streamsRef } = useSceneMedia(scenes.activeScene?.sources ?? [])
 
-  const sceneCapture = useSceneCapture(streamsRef)
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const sceneCapture = useSceneCapture(streamsRef, previewCanvasRef)
 
   const [view, setView] = useState<AppView>('editor')
 
@@ -75,7 +77,9 @@ function App() {
 
       const saved = localStorage.getItem('nova-stream-settings')
 
-      return saved ? { ...DEFAULT_STREAM_SETTINGS, ...JSON.parse(saved) } : DEFAULT_STREAM_SETTINGS
+      return saved
+        ? { ...DEFAULT_STREAM_SETTINGS, ...migrateStreamSettings(JSON.parse(saved)) }
+        : DEFAULT_STREAM_SETTINGS
 
     } catch {
 
@@ -91,6 +95,32 @@ function App() {
 
   const [websiteUrl, setWebsiteUrl] = useState('https://hazeyy5.github.io/nova-stream')
   const [previewFps, setPreviewFps] = useState(0)
+
+  const PREVIEW_HEIGHT_KEY = 'nova-preview-height'
+  const PREVIEW_HEIGHT_DEFAULT = 280
+  const PREVIEW_HEIGHT_MIN = 120
+  const PREVIEW_HEIGHT_MAX_RATIO = 0.72
+
+  const [previewHeight, setPreviewHeight] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PREVIEW_HEIGHT_KEY)
+      const n = saved ? Number(saved) : PREVIEW_HEIGHT_DEFAULT
+      return Number.isFinite(n) && n >= PREVIEW_HEIGHT_MIN ? n : PREVIEW_HEIGHT_DEFAULT
+    } catch {
+      return PREVIEW_HEIGHT_DEFAULT
+    }
+  })
+
+  const handlePreviewResize = useCallback((deltaY: number) => {
+    setPreviewHeight((h) => {
+      const max = Math.floor(window.innerHeight * PREVIEW_HEIGHT_MAX_RATIO)
+      return Math.max(PREVIEW_HEIGHT_MIN, Math.min(max, h + deltaY))
+    })
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(PREVIEW_HEIGHT_KEY, String(previewHeight))
+  }, [previewHeight])
 
 
 
@@ -122,15 +152,64 @@ function App() {
 
   useEffect(() => {
 
+    for (const source of scenes.activeScene?.sources ?? []) {
+
+      window.novaStream.sourceProps.sync(source)
+
+    }
+
+  }, [scenes.activeScene?.sources])
+
+
+
+  useEffect(() => {
+
+    window.novaStream.audioProps.sync('mic', settings)
+
+    window.novaStream.audioProps.sync('desktop', settings)
+
+  }, [settings])
+
+
+
+  useEffect(() => {
+
+    const unsub = window.novaStream.audioProps.onApplyPatch((partial) => {
+
+      setSettings((s) => ({ ...s, ...partial }))
+
+    })
+
+    return unsub
+
+  }, [])
+
+
+
+  useEffect(() => {
+
     window.novaStream.devices.listMedia().then((devices) => {
+
+      const mics = devices.filter(
+        (d) => d.type === 'audio' && d.audioRole === 'input'
+      )
+      const desktop = devices.filter(
+        (d) => d.type === 'audio' && (d.audioRole === 'output' || d.audioRole === 'loopback')
+      )
 
       setSettings((s) => ({
 
         ...s,
 
-        audioDevice: s.audioDevice || devices.find((d) => d.type === 'audio')?.name || '',
+        audioDevice: s.audioDevice || mics.find((d) => d.isDefault)?.name || mics[0]?.name || '',
 
-        desktopAudioDevice: s.desktopAudioDevice || devices.find((d) => d.type === 'audio')?.name || ''
+        desktopAudioDevice: s.desktopAudioDevice
+          && desktop.some((d) => d.name === s.desktopAudioDevice)
+          ? s.desktopAudioDevice
+          : desktop.find((d) => d.isDefault && d.audioRole === 'output')?.name
+          || desktop.find((d) => d.audioRole === 'output')?.name
+          || desktop.find((d) => d.audioRole === 'loopback')?.name
+          || ''
 
       }))
 
@@ -140,75 +219,22 @@ function App() {
 
 
 
-  const isCapturing =
-
-    mediaState.recording.status === 'recording' ||
-
-    mediaState.stream.status === 'live' ||
-
-    mediaState.stream.status === 'starting'
-
-
-
-  useEffect(() => {
-
-    if (!isCapturing || !scenes.activeScene) return
-
-    sceneCapture.updateLiveState({
-
-      sources: scenes.activeScene.sources,
-
-      settings,
-
-      chatMessages: integrations.messages,
-
-      activeAlerts: integrations.activeAlerts
-
-    })
-
-  }, [
-
-    isCapturing,
-
-    scenes.activeScene,
-
-    scenes.activeSceneId,
-
-    settings,
-
-    integrations.messages,
-
-    integrations.activeAlerts,
-
-    sceneCapture
-
-  ])
-
-
-
   const startMedia = useCallback(async (stream: boolean, record: boolean) => {
 
     if (!scenes.activeScene) return
 
-    const liveState = {
-
-      sources: scenes.activeScene.sources,
-
-      settings,
-
-      chatMessages: integrations.messages,
-
-      activeAlerts: integrations.activeAlerts
-
-    }
-
     try {
 
-      await sceneCapture.arm(liveState)
+      await sceneCapture.arm()
 
-      sceneCapture.beginPipe(settings.videoBitrate)
+      const videoInputFormat = await sceneCapture.beginPipe(settings.videoBitrate, settings.framerate)
 
-      const result = await window.novaStream.media.start({ settings, stream, record })
+      const result = await window.novaStream.media.start({
+        settings,
+        stream,
+        record,
+        videoInputFormat
+      })
 
       if (!result.success) {
 
@@ -230,7 +256,7 @@ function App() {
 
     }
 
-  }, [settings, scenes.activeScene, integrations.messages, integrations.activeAlerts, sceneCapture])
+  }, [settings, scenes.activeScene, sceneCapture])
 
 
 
@@ -329,7 +355,7 @@ function App() {
 
               <div className="editor-center">
 
-                <div className="preview-zone">
+                <div className="preview-zone" style={{ height: previewHeight }}>
 
                   <Preview
 
@@ -346,13 +372,18 @@ function App() {
                     activeAlerts={integrations.activeAlerts}
 
                     streamsRef={streamsRef}
-                    targetFps={Math.min(settings.framerate, 30)}
+                    canvasRef={previewCanvasRef}
+                    resolution={settings.resolution}
+                    targetFps={settings.framerate}
                     onFps={handleFps}
+                    onFrameDrawn={sceneCapture.onFrameDrawn}
                   />
 
                 </div>
 
+                <PreviewHeightResizer onResize={handlePreviewResize} />
 
+                <div className="dock-section">
 
                 <DockLayout
 
@@ -434,13 +465,24 @@ function App() {
 
                 />
 
+                </div>
+
               </div>
 
 
 
               <aside className="right-sidebar">
 
-                <ChatPanel messages={integrations.messages} />
+                <ChatPanel
+                  messages={integrations.messages}
+                  canSend={integrations.chatStatus.canSend}
+                  chatHint={
+                    integrations.chatStatus.linked && !integrations.chatStatus.chatConnected
+                      ? 'Compte Twitch lié mais chat déconnecté — reconnectez dans Apps.'
+                      : undefined
+                  }
+                  onSend={integrations.sendChatMessage}
+                />
 
                 <EventsPanel events={integrations.feedEvents} onClear={integrations.clearFeed} />
 

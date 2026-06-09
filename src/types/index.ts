@@ -102,15 +102,33 @@ export interface StreamSettings {
   encoder: VideoEncoder
   audioEnabled: boolean
   audioDevice: string
-  audioVolume: number
+  /** Gain du micro en dB (0 = unity, jusqu'à +20 dB). */
+  audioGainDb: number
+  /** Downmix stéréo → mono pour le micro (stream / enregistrement). */
+  micMono: boolean
+  /** @deprecated migré vers audioGainDb */
+  audioVolume?: number
+  /** Gain Desktop Audio en dB. */
+  desktopAudioGainDb: number
+  /** @deprecated migré vers desktopAudioGainDb */
+  desktopAudioVolume?: number
   desktopAudioEnabled: boolean
   desktopAudioDevice: string
+  desktopAudioCaptureDevice?: string
+  desktopAudioBackend?: 'native' | 'dshow'
   webcamDevice: string
   recordingEnabled: boolean
   recordAudioEnabled: boolean
   recordingPath: string
   transition: TransitionType
   transitionDuration: number
+}
+
+export type AudioChannelId = 'mic' | 'desktop'
+
+export interface AudioChannelPropsPayload {
+  channel: AudioChannelId
+  settings: StreamSettings
 }
 
 export type StreamStatus = 'idle' | 'starting' | 'live' | 'stopping' | 'error'
@@ -150,6 +168,10 @@ export interface CaptureSourceOption {
 export interface MediaDevice {
   name: string
   type: 'audio' | 'video'
+  audioRole?: 'input' | 'output' | 'loopback'
+  deviceId?: string
+  backend?: 'dshow' | 'browser' | 'native'
+  isDefault?: boolean
 }
 
 export interface SpeedtestResult {
@@ -216,12 +238,14 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   encoder: 'x264',
   audioEnabled: false,
   audioDevice: '',
-  audioVolume: 100,
+  audioGainDb: 0,
+  micMono: false,
+  desktopAudioGainDb: 0,
   desktopAudioEnabled: false,
   desktopAudioDevice: '',
   webcamDevice: '',
   recordingEnabled: false,
-  recordAudioEnabled: false,
+  recordAudioEnabled: true,
   recordingPath: '',
   transition: 'fade',
   transitionDuration: 300

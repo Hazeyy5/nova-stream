@@ -10,8 +10,10 @@ import type {
   StreamAlert,
   AlertType,
   SpeedtestResult,
-  CaptureSourceOption
+  CaptureSourceOption,
+  Source
 } from '../../src/types'
+import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
 
 const api = {
   media: {
@@ -19,6 +21,7 @@ const api = {
       settings: StreamSettings
       stream: boolean
       record: boolean
+      videoInputFormat?: 'h264' | 'webm'
     }) => ipcRenderer.invoke('media:start', payload),
     stop: () => ipcRenderer.invoke('media:stop'),
     sendVideoChunk: (chunk: Uint8Array) => ipcRenderer.send('media:video-chunk', chunk),
@@ -72,6 +75,14 @@ const api = {
     clearFeed: () => ipcRenderer.invoke('integrations:clearFeed') as Promise<{ success: boolean }>,
     getAlerts: () => ipcRenderer.invoke('integrations:getAlerts') as Promise<StreamAlert[]>,
     testAlert: (type?: AlertType) => ipcRenderer.invoke('integrations:testAlert', type),
+    sendChatMessage: (text: string) =>
+      ipcRenderer.invoke('integrations:sendChatMessage', text) as Promise<{ success: boolean; message?: string }>,
+    getChatStatus: () => ipcRenderer.invoke('integrations:getChatStatus') as Promise<{
+      linked: boolean
+      chatConnected: boolean
+      canSend: boolean
+      username?: string
+    }>,
     onChatMessage: (callback: (msg: ChatMessage) => void) => {
       const handler = (_e: Electron.IpcRendererEvent, msg: ChatMessage) => callback(msg)
       ipcRenderer.on('chat:message', handler)
@@ -101,6 +112,93 @@ const api = {
       const handler = (_e: Electron.IpcRendererEvent, conns: PlatformConnectionPublic[]) => callback(conns)
       ipcRenderer.on('integrations:updated', handler)
       return () => ipcRenderer.removeListener('integrations:updated', handler)
+    }
+  },
+  sourceProps: {
+    open: (source: Source) => ipcRenderer.invoke('sourceProps:open', source),
+    sync: (source: Source) => ipcRenderer.invoke('sourceProps:sync', source),
+    close: (sourceId: string) => ipcRenderer.invoke('sourceProps:close', sourceId),
+    ready: () => ipcRenderer.send('sourceProps:ready'),
+    patch: (sourceId: string, partial: Partial<Source>) => {
+      ipcRenderer.send('sourceProps:patch', { sourceId, partial })
+    },
+    requestRecapture: (sourceId: string, kind: 'screen' | 'window') => {
+      ipcRenderer.send('sourceProps:recapture', { sourceId, kind })
+    },
+    onInit: (callback: (source: Source) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, source: Source) => callback(source)
+      ipcRenderer.on('sourceProps:init', handler)
+      return () => ipcRenderer.removeListener('sourceProps:init', handler)
+    },
+    onSync: (callback: (source: Source) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, source: Source) => callback(source)
+      ipcRenderer.on('sourceProps:sync', handler)
+      return () => ipcRenderer.removeListener('sourceProps:sync', handler)
+    },
+    onApplyPatch: (callback: (payload: { sourceId: string; partial: Partial<Source> }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: { sourceId: string; partial: Partial<Source> }) => callback(payload)
+      ipcRenderer.on('sourceProps:applyPatch', handler)
+      return () => ipcRenderer.removeListener('sourceProps:applyPatch', handler)
+    },
+    onOpenRecapture: (callback: (payload: { sourceId: string; kind: 'screen' | 'window' }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: { sourceId: string; kind: 'screen' | 'window' }) => callback(payload)
+      ipcRenderer.on('sourceProps:openRecapture', handler)
+      return () => ipcRenderer.removeListener('sourceProps:openRecapture', handler)
+    },
+    onClosed: (callback: (sourceId: string) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, sourceId: string) => callback(sourceId)
+      ipcRenderer.on('sourceProps:closed', handler)
+      return () => ipcRenderer.removeListener('sourceProps:closed', handler)
+    }
+  },
+  audioProps: {
+    open: (channel: AudioChannelId, settings: StreamSettings) =>
+      ipcRenderer.invoke('audioProps:open', { channel, settings }),
+    sync: (channel: AudioChannelId, settings: StreamSettings) =>
+      ipcRenderer.invoke('audioProps:sync', { channel, settings }),
+    close: (channel: AudioChannelId) => ipcRenderer.invoke('audioProps:close', channel),
+    ready: () => ipcRenderer.send('audioProps:ready'),
+    patch: (partial: Partial<StreamSettings>) => {
+      ipcRenderer.send('audioProps:patch', partial)
+    },
+    onInit: (callback: (payload: AudioChannelPropsPayload) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: AudioChannelPropsPayload) => callback(payload)
+      ipcRenderer.on('audioProps:init', handler)
+      return () => ipcRenderer.removeListener('audioProps:init', handler)
+    },
+    onSync: (callback: (payload: AudioChannelPropsPayload) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: AudioChannelPropsPayload) => callback(payload)
+      ipcRenderer.on('audioProps:sync', handler)
+      return () => ipcRenderer.removeListener('audioProps:sync', handler)
+    },
+    onApplyPatch: (callback: (partial: Partial<StreamSettings>) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, partial: Partial<StreamSettings>) => callback(partial)
+      ipcRenderer.on('audioProps:applyPatch', handler)
+      return () => ipcRenderer.removeListener('audioProps:applyPatch', handler)
+    },
+    onClosed: (callback: (channel: AudioChannelId) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, channel: AudioChannelId) => callback(channel)
+      ipcRenderer.on('audioProps:closed', handler)
+      return () => ipcRenderer.removeListener('audioProps:closed', handler)
+    }
+  },
+  audioMeter: {
+    subscribeDesktop: () => ipcRenderer.invoke('audioMeter:subscribeDesktop'),
+    unsubscribeDesktop: () => ipcRenderer.invoke('audioMeter:unsubscribeDesktop'),
+    onDesktopLevel: (callback: (level: {
+      peak: number
+      rms: number
+      peakDb: number
+      displayDb: number
+    }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, level: {
+        peak: number
+        rms: number
+        peakDb: number
+        displayDb: number
+      }) => callback(level)
+      ipcRenderer.on('audioMeter:desktop', handler)
+      return () => ipcRenderer.removeListener('audioMeter:desktop', handler)
     }
   }
 }

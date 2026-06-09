@@ -200,6 +200,43 @@
   line-height: 1.5;
 }
 
+.settings-hint.warn {
+  color: #f0a060;
+}
+
+.settings-devices-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(40, 40, 62, 0.45);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.settings-refresh-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.settings-refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .folder-picker {
   display: flex;
   gap: 8px;

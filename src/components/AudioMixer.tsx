@@ -1,4 +1,5 @@
 import type { Source, StreamSettings } from '../types'
+import { MAX_GAIN_DB, MIN_GAIN_DB, resolveMicGainDb } from '../lib/audioGain'
 import './AudioMixer.css'
 
 interface AudioMixerProps {
@@ -31,13 +32,12 @@ export default function AudioMixer({
           </button>
         </div>
         <input
-          type="range" min={0} max={100}
-          value={settings.audioVolume}
+          type="range" min={MIN_GAIN_DB} max={MAX_GAIN_DB} step={0.5}
+          value={resolveMicGainDb(settings)}
           disabled={!settings.audioEnabled}
-          onChange={(e) => onUpdateSettings({ audioVolume: Number(e.target.value) })}
+          onChange={(e) => onUpdateSettings({ audioGainDb: Number(e.target.value) })}
           className="mixer-slider"
         />
-        <span className="mixer-value">{settings.audioVolume}%</span>
       </div>
 
       <div className="mixer-channel">

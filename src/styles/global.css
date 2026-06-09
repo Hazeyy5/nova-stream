@@ -115,3 +115,12 @@ input:disabled, select:disabled {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(167, 139, 250, 0.45);
 }
+
+body.preview-resizing {
+  cursor: row-resize !important;
+  user-select: none;
+}
+
+body.preview-resizing * {
+  cursor: row-resize !important;
+}

@@ -255,5 +255,11 @@
 }
 
 .sources-dock-list {
-  max-height: 120px;
+  flex: 1;
+  min-height: 0;
+}
+
+.sources-dock {
+  flex: 1;
+  min-height: 0;
 }

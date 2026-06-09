@@ -3,6 +3,9 @@ import type { ChatMessage } from '../../../src/types'
 
 export class TwitchChatService {
   private client: tmi.Client | null = null
+  private channel: string | null = null
+  private login: string | null = null
+  private ready = false
   private onMessage?: (msg: ChatMessage) => void
 
   setOnMessage(callback: (msg: ChatMessage) => void): void {
@@ -12,14 +15,27 @@ export class TwitchChatService {
   async connect(username: string, accessToken: string): Promise<void> {
     await this.disconnect()
 
+    const login = username.toLowerCase()
+    this.channel = login
+    this.login = login
+    this.ready = false
+
     this.client = new tmi.Client({
       options: { debug: false, messagesLogLevel: 'info' },
       connection: { reconnect: true, secure: true },
       identity: {
-        username,
+        username: login,
         password: `oauth:${accessToken}`
       },
-      channels: [username]
+      channels: [login]
+    })
+
+    this.client.on('connected', () => {
+      this.ready = true
+    })
+
+    this.client.on('disconnected', () => {
+      this.ready = false
     })
 
     this.client.on('message', (_channel, tags, message, self) => {
@@ -36,6 +52,24 @@ export class TwitchChatService {
     })
 
     await this.client.connect()
+    this.ready = true
+  }
+
+  async sendMessage(message: string): Promise<void> {
+    if (!this.client || !this.channel) {
+      throw new Error('Chat Twitch non connecté')
+    }
+    if (!this.ready) {
+      throw new Error('Connexion au chat en cours — réessayez dans un instant')
+    }
+
+    const channel = this.channel.startsWith('#') ? this.channel : `#${this.channel}`
+    await Promise.race([
+      this.client.say(channel, message),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Délai dépassé — vérifiez votre connexion Twitch')), 8000)
+      })
+    ])
   }
 
   async disconnect(): Promise<void> {
@@ -43,9 +77,16 @@ export class TwitchChatService {
       await this.client.disconnect()
       this.client = null
     }
+    this.channel = null
+    this.login = null
+    this.ready = false
   }
 
   isConnected(): boolean {
-    return this.client !== null
+    return this.ready && this.client !== null
+  }
+
+  getLogin(): string | null {
+    return this.login
   }
 }

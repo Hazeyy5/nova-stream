@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useCallback } from 'react'
 import type { Source, ChatMessage, StreamAlert } from '../types'
 import type { StreamEntry } from '../lib/drawScene'
 import { usePreviewLoop } from '../hooks/usePreviewLoop'
@@ -12,8 +12,11 @@ interface PreviewProps {
   chatMessages: ChatMessage[]
   activeAlerts: StreamAlert[]
   streamsRef: React.RefObject<Map<string, StreamEntry>>
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  resolution: string
   targetFps?: number
   onFps?: (fps: number) => void
+  onFrameDrawn?: () => void
 }
 
 export default function Preview({
@@ -24,15 +27,21 @@ export default function Preview({
   chatMessages,
   activeAlerts,
   streamsRef,
+  canvasRef,
+  resolution,
   targetFps = 30,
-  onFps
+  onFps,
+  onFrameDrawn
 }: PreviewProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [canvasSize, setCanvasSize] = useState({ w: 1280, h: 720 })
   const dragRef = useRef<{ sourceId: string; startX: number; startY: number; origX: number; origY: number } | null>(null)
 
-  const { updatePreviewState } = usePreviewLoop(canvasRef, streamsRef, targetFps, onFps)
+  const [outW, outH] = useMemo(() => {
+    const [w, h] = resolution.split('x').map(Number)
+    return [w > 0 ? w : 1920, h > 0 ? h : 1080]
+  }, [resolution])
+
+  const { updatePreviewState } = usePreviewLoop(canvasRef, streamsRef, targetFps, onFps, onFrameDrawn)
 
   useEffect(() => {
     updatePreviewState({ sources, selectedSourceId, chatMessages, activeAlerts })
@@ -45,22 +54,6 @@ export default function Preview({
   const widgetSources = sources
     .filter((s) => s.visible && (s.type === 'chat' || s.type === 'alert'))
     .sort((a, b) => a.transform.zIndex - b.transform.zIndex)
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect
-      const ratio = 16 / 9
-      let w = width
-      let h = width / ratio
-      if (h > height) { h = height; w = height * ratio }
-      setCanvasSize({ w: Math.floor(w), h: Math.floor(h) })
-    })
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const canvas = canvasRef.current
@@ -108,14 +101,14 @@ export default function Preview({
     <div className="preview-area">
       <div className="preview-toolbar">
         <span className="preview-label">Aperçu</span>
-        <span className="preview-res">{canvasSize.w} × {canvasSize.h}</span>
+        <span className="preview-res">{outW} × {outH}</span>
       </div>
       <div className="preview-viewport" ref={containerRef}>
         <div className="preview-stage">
           <canvas
             ref={canvasRef}
-            width={canvasSize.w}
-            height={canvasSize.h}
+            width={outW}
+            height={outH}
             className="preview-canvas"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}

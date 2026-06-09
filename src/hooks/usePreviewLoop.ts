@@ -13,7 +13,8 @@ export function usePreviewLoop(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   streamsRef: RefObject<Map<string, StreamEntry>>,
   targetFps = 30,
-  onFps?: (fps: number) => void
+  onFps?: (fps: number) => void,
+  onFrameDrawn?: () => void
 ) {
   const stateRef = useRef<PreviewState>({
     sources: [],
@@ -28,6 +29,8 @@ export function usePreviewLoop(
 
   const onFpsRef = useRef(onFps)
   onFpsRef.current = onFps
+  const onFrameDrawnRef = useRef(onFrameDrawn)
+  onFrameDrawnRef.current = onFrameDrawn
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -55,6 +58,8 @@ export function usePreviewLoop(
         chatMessages: state.chatMessages,
         activeAlerts: state.activeAlerts
       })
+
+      onFrameDrawnRef.current?.()
 
       frameCount++
       if (now - fpsReportAt >= 1000) {

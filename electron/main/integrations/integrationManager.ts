@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import { connectTwitch, isTwitchConfigured } from './twitchAuth'
 import { getPublicConnections, getToken, removeConnection, saveConnection } from './authStore'
 import { TwitchChatService } from './twitchChat'
+import { sendTwitchChatViaHelix } from './twitchChatSend'
 import { AlertManager } from './alertManager'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert } from '../../../src/types'
 
@@ -57,6 +58,34 @@ export class IntegrationManager {
 
   getConnections(): PlatformConnectionPublic[] {
     return getPublicConnections()
+  }
+
+  getChatStatus(): {
+    linked: boolean
+    chatConnected: boolean
+    canSend: boolean
+    username?: string
+  } {
+    const twitch = getToken('twitch')
+    const chatConnected = this.chat.isConnected()
+    return {
+      linked: !!twitch,
+      chatConnected,
+      canSend: !!twitch && chatConnected,
+      username: twitch?.displayName
+    }
+  }
+
+  private async ensureChatConnected(): Promise<boolean> {
+    if (this.chat.isConnected()) return true
+    const twitch = getToken('twitch')
+    if (!twitch) return false
+    try {
+      await this.chat.connect(twitch.username, twitch.accessToken)
+      return true
+    } catch {
+      return false
+    }
   }
 
   isTwitchConfigured(): boolean {
@@ -161,5 +190,51 @@ export class IntegrationManager {
 
   testAlert(type?: StreamAlert['type']): void {
     this.alerts.triggerTest(type)
+  }
+
+  async sendChatMessage(text: string): Promise<{ success: boolean; message?: string }> {
+    const trimmed = text.trim()
+    if (!trimmed) return { success: false, message: 'Message vide' }
+
+    const twitch = getToken('twitch')
+    if (!twitch) {
+      return { success: false, message: 'Connectez votre compte Twitch dans Apps.' }
+    }
+
+    const ready = await this.ensureChatConnected()
+    if (!ready) {
+      return {
+        success: false,
+        message: 'Chat Twitch indisponible. Déconnectez puis reconnectez Twitch dans Apps (permission d\'écriture requise).'
+      }
+    }
+
+    try {
+      try {
+        await sendTwitchChatViaHelix(trimmed)
+      } catch (helixErr) {
+        if (helixErr instanceof Error && helixErr.message.includes('Permission')) {
+          throw helixErr
+        }
+        await this.chat.sendMessage(trimmed)
+      }
+      const msg: ChatMessage = {
+        id: `local-${Date.now()}`,
+        platform: 'twitch',
+        username: twitch.displayName,
+        message: trimmed,
+        color: '#a78bfa',
+        timestamp: Date.now()
+      }
+      this.messages = [...this.messages.slice(-99), msg]
+      this.broadcast('chat:message', msg)
+      return { success: true }
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : 'Impossible d\'envoyer le message'
+      const message = raw.includes('Login authentication failed') || raw.includes('403')
+        ? 'Permission chat manquante — reconnectez Twitch dans Apps pour autoriser l\'envoi de messages.'
+        : raw
+      return { success: false, message }
+    }
   }
 }

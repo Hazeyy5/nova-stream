@@ -9,8 +9,19 @@ export function useIntegrations() {
   const [activeAlerts, setActiveAlerts] = useState<StreamAlert[]>([])
   const [twitchConfigured, setTwitchConfigured] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [chatStatus, setChatStatus] = useState({
+    linked: false,
+    chatConnected: false,
+    canSend: false,
+    username: undefined as string | undefined
+  })
 
   const activityEvents = useMemo(() => filterActivityEvents(feedEvents), [feedEvents])
+
+  const refreshChatStatus = useCallback(async () => {
+    const status = await window.novaStream.integrations.getChatStatus()
+    setChatStatus(status)
+  }, [])
 
   const refresh = useCallback(async () => {
     const [conns, msgs, feed, alerts, configured] = await Promise.all([
@@ -25,7 +36,8 @@ export function useIntegrations() {
     setFeedEvents(filterActivityEvents(feed))
     setActiveAlerts(alerts)
     setTwitchConfigured(configured)
-  }, [])
+    await refreshChatStatus()
+  }, [refreshChatStatus])
 
   useEffect(() => {
     refresh()
@@ -48,6 +60,7 @@ export function useIntegrations() {
       }),
       window.novaStream.integrations.onUpdated((conns) => {
         setConnections(conns)
+        void refreshChatStatus()
       })
     ]
     return () => unsubs.forEach((u) => u())
@@ -79,6 +92,12 @@ export function useIntegrations() {
     setFeedEvents([])
   }, [])
 
+  const sendChatMessage = useCallback(async (text: string) => {
+    const result = await window.novaStream.integrations.sendChatMessage(text)
+    await refreshChatStatus()
+    return result
+  }, [refreshChatStatus])
+
   const isConnected = (platform: 'twitch' | 'kick') =>
     connections.some((c) => c.platform === platform)
 
@@ -93,6 +112,8 @@ export function useIntegrations() {
     disconnect,
     testAlert,
     clearFeed,
+    sendChatMessage,
+    chatStatus,
     isConnected,
     refresh
   }

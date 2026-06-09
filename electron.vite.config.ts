@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['native-audio-node'] })],
     build: {
       rollupOptions: {
         input: {
@@ -28,7 +28,9 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/index.html')
+          index: resolve(__dirname, 'src/index.html'),
+          sourceProps: resolve(__dirname, 'src/source-props.html'),
+          audioProps: resolve(__dirname, 'src/audio-props.html')
         }
       }
     },

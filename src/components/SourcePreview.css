@@ -1,0 +1,20 @@
+.source-preview {
+  position: relative;
+  flex-shrink: 0;
+  background: #000;
+  border-bottom: 1px solid var(--border-subtle);
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.source-preview-canvas {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
