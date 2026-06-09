@@ -1,13 +1,16 @@
 {
   "name": "nova-stream",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Application de streaming — alternative légère à Streamlabs OBS",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "start": "electron-vite preview"
+    "start": "electron-vite preview",
+    "sync-config": "node scripts/sync-web-config.mjs",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist": "npm run build && electron-builder"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
@@ -20,6 +23,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "typescript": "^5.7.2",
     "vite": "^5.4.11"

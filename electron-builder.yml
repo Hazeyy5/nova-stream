@@ -1,0 +1,33 @@
+appId: com.novastream.app
+productName: Nova Stream
+copyright: Copyright © 2026 Nova Stream
+
+directories:
+  output: release
+
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: shared/platform.json
+    to: shared/platform.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: null
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - fr
+    - en
+
+publish:
+  provider: github
+  owner: Hazeyy5
+  repo: nova-stream

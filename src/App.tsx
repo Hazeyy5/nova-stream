@@ -9,6 +9,7 @@ import MixerDock from './components/MixerDock'
 import ActionBar from './components/ActionBar'
 import SettingsModal from './components/SettingsModal'
 import IntegrationsPanel from './components/IntegrationsPanel'
+import WelcomeModal from './components/WelcomeModal'
 import { useScenes } from './hooks/useScenes'
 import { useIntegrations } from './hooks/useIntegrations'
 import type { AppView, MediaState, StreamSettings } from './types'
@@ -34,6 +35,8 @@ function App() {
     }
   })
   const [showSettings, setShowSettings] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('nova-welcome-seen'))
+  const [websiteUrl, setWebsiteUrl] = useState('https://hazeyy5.github.io/nova-stream')
 
   useEffect(() => {
     localStorage.setItem('nova-stream-settings', JSON.stringify(settings))
@@ -42,6 +45,10 @@ function App() {
   useEffect(() => {
     window.novaStream.media.getStatus().then(setMediaState)
     return window.novaStream.media.onStatusChange(setMediaState)
+  }, [])
+
+  useEffect(() => {
+    window.novaStream.platform.getConfig().then((c) => setWebsiteUrl(c.websiteUrl))
   }, [])
 
   useEffect(() => {
@@ -155,6 +162,21 @@ function App() {
           />
         )}
       </div>
+
+      {showWelcome && (
+        <WelcomeModal
+          websiteUrl={websiteUrl}
+          onClose={() => {
+            localStorage.setItem('nova-welcome-seen', '1')
+            setShowWelcome(false)
+          }}
+          onOpenIntegrations={() => {
+            localStorage.setItem('nova-welcome-seen', '1')
+            setShowWelcome(false)
+            setView('integrations')
+          }}
+        />
+      )}
 
       {showSettings && (
         <SettingsModal

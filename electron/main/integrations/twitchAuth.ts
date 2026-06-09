@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'crypto'
 import { shell } from 'electron'
 import { waitForOAuthCallback } from './oauthServer'
 import { saveConnection } from './authStore'
+import { getPublicTwitchClientId } from '../platformConfig'
 import type { PlatformConnection } from '../../../src/types'
 
 const REDIRECT_PORT = 3456
@@ -13,23 +14,58 @@ const SCOPES = [
   'moderator:read:followers'
 ].join(' ')
 
-function getCredentials() {
-  const clientId = process.env.TWITCH_CLIENT_ID
-  const clientSecret = process.env.TWITCH_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    throw new Error('Configurez TWITCH_CLIENT_ID et TWITCH_CLIENT_SECRET dans un fichier .env')
-  }
-  return { clientId, clientSecret }
-}
-
 function generatePkce() {
   const verifier = randomBytes(32).toString('base64url')
   const challenge = createHash('sha256').update(verifier).digest('base64url')
   return { verifier, challenge }
 }
 
-export async function connectTwitch(): Promise<PlatformConnection> {
-  const { clientId, clientSecret } = getCredentials()
+function requireClientId(): string {
+  const clientId = getPublicTwitchClientId()
+  if (!clientId) {
+    throw new Error(
+      'Twitch non configuré pour Nova Stream. Le mainteneur doit renseigner twitchClientId dans shared/platform.json'
+    )
+  }
+  return clientId
+}
+
+async function fetchTwitchProfile(clientId: string, accessToken: string) {
+  const userRes = await fetch('https://api.twitch.tv/helix/users', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Client-Id': clientId
+    }
+  })
+  if (!userRes.ok) throw new Error('Impossible de récupérer le profil Twitch')
+  const userData = await userRes.json() as { data: Array<{
+    id: string
+    login: string
+    display_name: string
+    profile_image_url: string
+  }> }
+  return userData.data[0]
+}
+
+function buildConnection(
+  user: { id: string; login: string; display_name: string; profile_image_url: string },
+  tokens: { access_token: string; refresh_token?: string; expires_in?: number }
+): PlatformConnection {
+  return {
+    platform: 'twitch',
+    userId: user.id,
+    username: user.login,
+    displayName: user.display_name,
+    avatarUrl: user.profile_image_url,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
+    connectedAt: Date.now()
+  }
+}
+
+/** Flux public PKCE — utilisé par tous les utilisateurs finaux (sans .env). */
+async function connectWithPkce(clientId: string): Promise<PlatformConnection> {
   const { verifier, challenge } = generatePkce()
   const redirectUri = `http://localhost:${REDIRECT_PORT}${REDIRECT_PATH}`
 
@@ -48,58 +84,41 @@ export async function connectTwitch(): Promise<PlatformConnection> {
   const code = params.get('code')
   if (!code) throw new Error(params.get('error_description') ?? 'Autorisation refusée')
 
+  const body: Record<string, string> = {
+    client_id: clientId,
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+    code_verifier: verifier
+  }
+
+  const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim()
+  if (clientSecret) body.client_secret = clientSecret
+
   const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-      code_verifier: verifier
-    })
+    body: new URLSearchParams(body)
   })
 
   if (!tokenRes.ok) throw new Error('Échec de l\'échange du token Twitch')
   const tokens = await tokenRes.json() as {
     access_token: string
-    refresh_token: string
-    expires_in: number
+    refresh_token?: string
+    expires_in?: number
   }
 
-  const userRes = await fetch('https://api.twitch.tv/helix/users', {
-    headers: {
-      Authorization: `Bearer ${tokens.access_token}`,
-      'Client-Id': clientId
-    }
-  })
-
-  if (!userRes.ok) throw new Error('Impossible de récupérer le profil Twitch')
-  const userData = await userRes.json() as { data: Array<{
-    id: string
-    login: string
-    display_name: string
-    profile_image_url: string
-  }> }
-
-  const user = userData.data[0]
-  const connection: PlatformConnection = {
-    platform: 'twitch',
-    userId: user.id,
-    username: user.login,
-    displayName: user.display_name,
-    avatarUrl: user.profile_image_url,
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-    expiresAt: Date.now() + tokens.expires_in * 1000,
-    connectedAt: Date.now()
-  }
-
+  const user = await fetchTwitchProfile(clientId, tokens.access_token)
+  const connection = buildConnection(user, tokens)
   saveConnection('twitch', connection)
   return connection
 }
 
+export async function connectTwitch(): Promise<PlatformConnection> {
+  const clientId = requireClientId()
+  return connectWithPkce(clientId)
+}
+
 export function isTwitchConfigured(): boolean {
-  return !!(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET)
+  return !!getPublicTwitchClientId()
 }

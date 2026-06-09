@@ -39,6 +39,13 @@ const api = {
   link: {
     getPort: () => ipcRenderer.invoke('link:getPort') as Promise<number>
   },
+  platform: {
+    getConfig: () => ipcRenderer.invoke('platform:getConfig') as Promise<{
+      appName: string
+      websiteUrl: string
+      githubUrl: string
+    }>
+  },
   integrations: {
     getConnections: () => ipcRenderer.invoke('integrations:getConnections') as Promise<PlatformConnectionPublic[]>,
     isTwitchConfigured: () => ipcRenderer.invoke('integrations:isTwitchConfigured') as Promise<boolean>,

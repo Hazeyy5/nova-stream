@@ -5,6 +5,7 @@ import { StreamManager } from './streamManager'
 import { listMediaDevices } from './deviceManager'
 import { IntegrationManager } from './integrations/integrationManager'
 import { LinkServer } from './integrations/linkServer'
+import { getPlatformConfig } from './platformConfig'
 import type { AlertType, SceneStreamConfig, StreamSettings } from '../../src/types'
 
 loadEnv()
@@ -56,6 +57,7 @@ app.whenReady().then(async () => {
   await integrations.restoreSessions()
 
   ipcMain.handle('link:getPort', () => linkServer.getPort())
+  ipcMain.handle('platform:getConfig', () => getPlatformConfig())
 
   ipcMain.handle('media:start', async (_event, payload: {
     settings: StreamSettings

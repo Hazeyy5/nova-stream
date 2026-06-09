@@ -1,0 +1,9 @@
+{
+  "appName": "Nova Stream",
+  "version": "0.6.0",
+  "websiteUrl": "https://hazeyy5.github.io/nova-stream",
+  "githubUrl": "https://github.com/Hazeyy5/nova-stream",
+  "twitchClientId": "",
+  "supportEmail": "",
+  "_comment": "Le twitchClientId est renseigné UNE FOIS par le mainteneur du projet. Tous les utilisateurs s'authentifient via cette app Twitch officielle Nova Stream et reçoivent leur propre token personnel."
+}

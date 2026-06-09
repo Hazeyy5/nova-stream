@@ -96,12 +96,14 @@ export default function IntegrationsPanel({
 
       {!twitchConfigured && (
         <div className="setup-guide">
-          <h3>⚙ Configuration Twitch requise</h3>
+          <h3>⚙ Configuration mainteneur requise</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Les utilisateurs finaux n'ont rien à configurer. En tant que mainteneur du projet :
+          </p>
           <ol>
-            <li>Créez une app sur <strong>dev.twitch.tv/console/apps</strong></li>
-            <li>OAuth Redirect URL : <code>http://localhost:3456/auth/twitch/callback</code></li>
-            <li>Copiez <code>.env.example</code> vers <code>.env</code> et ajoutez vos clés</li>
-            <li>Relancez l'application</li>
+            <li>Créez l'app Twitch officielle « Nova Stream » sur <strong>dev.twitch.tv</strong></li>
+            <li>Ajoutez le Client ID dans <code>shared/platform.json</code></li>
+            <li>Exécutez <code>npm run sync-config</code> puis redéployez le site</li>
           </ol>
         </div>
       )}
