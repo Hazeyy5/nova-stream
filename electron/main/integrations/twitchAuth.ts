@@ -1,4 +1,3 @@
-import { randomBytes, createHash } from 'crypto'
 import { shell } from 'electron'
 import { waitForOAuthCallback } from './oauthServer'
 import { saveConnection } from './authStore'
@@ -13,12 +12,6 @@ const SCOPES = [
   'channel:read:subscriptions',
   'moderator:read:followers'
 ].join(' ')
-
-function generatePkce() {
-  const verifier = randomBytes(32).toString('base64url')
-  const challenge = createHash('sha256').update(verifier).digest('base64url')
-  return { verifier, challenge }
-}
 
 function requireClientId(): string {
   const clientId = getPublicTwitchClientId()
@@ -64,9 +57,8 @@ function buildConnection(
   }
 }
 
-/** Flux public PKCE — utilisé par tous les utilisateurs finaux (sans .env). */
-async function connectWithPkce(clientId: string): Promise<PlatformConnection> {
-  const { verifier, challenge } = generatePkce()
+/** Flux authorization code — Twitch exige client_secret (PKCE non supporté). */
+async function connectWithAuthCode(clientId: string, clientSecret: string): Promise<PlatformConnection> {
   const redirectUri = `http://localhost:${REDIRECT_PORT}${REDIRECT_PATH}`
 
   const authUrl = new URL('https://id.twitch.tv/oauth2/authorize')
@@ -74,8 +66,6 @@ async function connectWithPkce(clientId: string): Promise<PlatformConnection> {
   authUrl.searchParams.set('redirect_uri', redirectUri)
   authUrl.searchParams.set('response_type', 'code')
   authUrl.searchParams.set('scope', SCOPES)
-  authUrl.searchParams.set('code_challenge', challenge)
-  authUrl.searchParams.set('code_challenge_method', 'S256')
 
   const paramsPromise = waitForOAuthCallback(REDIRECT_PORT, REDIRECT_PATH)
   await shell.openExternal(authUrl.toString())
@@ -84,21 +74,16 @@ async function connectWithPkce(clientId: string): Promise<PlatformConnection> {
   const code = params.get('code')
   if (!code) throw new Error(params.get('error_description') ?? 'Autorisation refusée')
 
-  const body: Record<string, string> = {
-    client_id: clientId,
-    code,
-    grant_type: 'authorization_code',
-    redirect_uri: redirectUri,
-    code_verifier: verifier
-  }
-
-  const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim()
-  if (clientSecret) body.client_secret = clientSecret
-
   const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(body)
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri
+    })
   })
 
   if (!tokenRes.ok) throw new Error('Échec de l\'échange du token Twitch')
@@ -116,7 +101,13 @@ async function connectWithPkce(clientId: string): Promise<PlatformConnection> {
 
 export async function connectTwitch(): Promise<PlatformConnection> {
   const clientId = requireClientId()
-  return connectWithPkce(clientId)
+  const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim()
+  if (!clientSecret) {
+    throw new Error(
+      'Connexion desktop : ajoutez TWITCH_CLIENT_SECRET dans .env, ou connectez-vous via le site web.'
+    )
+  }
+  return connectWithAuthCode(clientId, clientSecret)
 }
 
 export function isTwitchConfigured(): boolean {

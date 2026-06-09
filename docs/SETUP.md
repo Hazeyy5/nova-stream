@@ -20,10 +20,14 @@ TWITCH_CLIENT_ID: 'votre_client_id_ici',
 
 ## 3. App desktop (.env)
 
+Le site web utilise le **flux implicite** (sans secret). L'app desktop utilise le **flux authorization code**, qui exige le Client Secret :
+
 ```env
 TWITCH_CLIENT_ID=votre_client_id
 TWITCH_CLIENT_SECRET=votre_client_secret
 ```
+
+Le Client Secret se trouve sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) → votre app → **Manage** → **New Secret**.
 
 ## 4. Déploiement GitHub Pages
 
