@@ -1,107 +1,88 @@
 .header {
   display: flex;
   align-items: center;
-  height: 52px;
-  padding: 0 16px;
-  background: var(--bg-secondary);
+  height: 50px;
+  padding: 0 18px;
+  background: rgba(22, 22, 37, 0.85);
+  backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
   gap: 16px;
+  flex-shrink: 0;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.header-left,
+.header-right {
+  width: 140px;
   -webkit-app-region: no-drag;
 }
 
-.header-logo {
-  width: 32px;
-  height: 32px;
+.header-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.header-brand-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #fafafa 0%, #e9d5ff 50%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-center {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--accent), #5b21b6);
-  border-radius: 8px;
-  color: white;
-  box-shadow: 0 2px 8px var(--accent-glow);
+  gap: 12px;
+  -webkit-app-region: no-drag;
 }
 
-.header-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.header-title {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.02em;
+.header-scene-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .header-version {
   font-size: 10px;
   color: var(--text-muted);
-  background: var(--bg-elevated);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-
-.header-status {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag;
+  background: var(--bg-glass);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
 }
 
 .status-badge {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 4px 10px;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
   border-radius: 20px;
 }
 
 .status-badge.live {
-  color: var(--danger);
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--pink);
+  background: rgba(251, 113, 133, 0.14);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  box-shadow: 0 0 16px rgba(251, 113, 133, 0.15);
   animation: livePulse 2s ease-in-out infinite;
 }
 
 .status-badge.record {
-  color: var(--danger);
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--record);
+  background: rgba(192, 132, 252, 0.14);
+  border: 1px solid rgba(192, 132, 252, 0.35);
 }
 
 @keyframes livePulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
-}
-
-.header-right {
-  -webkit-app-region: no-drag;
-}
-
-.header-settings-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  border: 1px solid transparent;
-  transition: all 0.15s;
-}
-
-.header-settings-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
+  50% { opacity: 0.7; }
 }

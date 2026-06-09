@@ -1,35 +1,28 @@
-import { IconLive, IconRecord, IconSettings } from './Icons'
+import { IconLive, IconRecord } from './Icons'
 import './Header.css'
 
 interface HeaderProps {
+  sceneName: string
   isLive: boolean
   isRecording: boolean
-  onSettingsClick: () => void
 }
 
-export default function Header({ isLive, isRecording, onSettingsClick }: HeaderProps) {
+export default function Header({ sceneName, isLive, isRecording }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-left">
-        <div className="header-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
-          </svg>
-        </div>
-        <div className="header-brand">
-          <span className="header-title">Nova Stream</span>
-          <span className="header-version">v0.2</span>
-        </div>
+        <span className="header-brand-name">Nova Stream</span>
       </div>
 
-      <div className="header-status">
+      <div className="header-center">
+        <span className="header-scene-title">{sceneName}</span>
         {isLive && (
           <div className="status-badge live">
             <IconLive size={8} />
-            EN DIRECT
+            En direct
           </div>
         )}
-        {isRecording && (
+        {isRecording && !isLive && (
           <div className="status-badge record">
             <IconRecord size={8} />
             REC
@@ -38,10 +31,7 @@ export default function Header({ isLive, isRecording, onSettingsClick }: HeaderP
       </div>
 
       <div className="header-right">
-        <button className="header-settings-btn" onClick={onSettingsClick}>
-          <IconSettings />
-          <span>Paramètres</span>
-        </button>
+        <span className="header-version">v0.6</span>
       </div>
     </header>
   )

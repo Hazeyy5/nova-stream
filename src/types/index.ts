@@ -1,6 +1,8 @@
 export type VideoEncoder = 'x264' | 'nvenc'
 export type TransitionType = 'cut' | 'fade'
-export type SourceType = 'display' | 'webcam' | 'image' | 'text' | 'chat' | 'alert'
+export type ScaleMode = 'stretch' | 'fit' | 'fill'
+export type BlendMode = 'normal' | 'multiply' | 'screen'
+export type SourceType = 'display' | 'screen' | 'window' | 'browser' | 'webcam' | 'image' | 'text' | 'chat' | 'alert'
 export type PlatformId = 'twitch' | 'kick'
 export type AppView = 'editor' | 'integrations'
 
@@ -75,6 +77,13 @@ export interface Source {
   muted: boolean
   imageUrl?: string
   textContent?: string
+  captureId?: string
+  captureName?: string
+  browserUrl?: string
+  scaleMode?: ScaleMode
+  blendMode?: BlendMode
+  flipH?: boolean
+  flipV?: boolean
 }
 
 export interface Scene {
@@ -98,6 +107,7 @@ export interface StreamSettings {
   desktopAudioDevice: string
   webcamDevice: string
   recordingEnabled: boolean
+  recordAudioEnabled: boolean
   recordingPath: string
   transition: TransitionType
   transitionDuration: number
@@ -130,9 +140,24 @@ export interface DisplaySource {
   thumbnail?: string
 }
 
+export interface CaptureSourceOption {
+  id: string
+  name: string
+  kind: 'screen' | 'window'
+  thumbnail?: string
+}
+
 export interface MediaDevice {
   name: string
   type: 'audio' | 'video'
+}
+
+export interface SpeedtestResult {
+  uploadMbps: number
+  recommendedVideoBitrate: number
+  platformMaxKbps: number
+  quality: 'excellent' | 'good' | 'fair' | 'poor'
+  message: string
 }
 
 export interface SceneStreamConfig {
@@ -142,6 +167,9 @@ export interface SceneStreamConfig {
 
 export const DEFAULT_SOURCE_TRANSFORM: Record<SourceType, SourceTransform> = {
   display: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
+  screen: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
+  window: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
+  browser: { x: 0, y: 0, width: 100, height: 100, zIndex: 2 },
   webcam: { x: 72, y: 68, width: 22, height: 22, zIndex: 10 },
   image: { x: 10, y: 10, width: 30, height: 30, zIndex: 5 },
   text: { x: 5, y: 85, width: 40, height: 10, zIndex: 15 },
@@ -152,6 +180,9 @@ export const DEFAULT_SOURCE_TRANSFORM: Record<SourceType, SourceTransform> = {
 export function createSource(type: SourceType, name?: string): Source {
   const labels: Record<SourceType, string> = {
     display: 'Capture écran',
+    screen: 'Écran',
+    window: 'Fenêtre',
+    browser: 'Navigateur',
     webcam: 'Webcam',
     image: 'Image',
     text: 'Texte',
@@ -167,6 +198,10 @@ export function createSource(type: SourceType, name?: string): Source {
     transform: { ...DEFAULT_SOURCE_TRANSFORM[type] },
     volume: 100,
     muted: false,
+    scaleMode: 'stretch',
+    blendMode: 'normal',
+    flipH: false,
+    flipV: false,
     textContent: type === 'text' ? 'Bienvenue sur le stream !' : undefined
   }
 }
@@ -179,13 +214,14 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   videoBitrate: 4500,
   audioBitrate: 160,
   encoder: 'x264',
-  audioEnabled: true,
+  audioEnabled: false,
   audioDevice: '',
   audioVolume: 100,
   desktopAudioEnabled: false,
   desktopAudioDevice: '',
   webcamDevice: '',
   recordingEnabled: false,
+  recordAudioEnabled: false,
   recordingPath: '',
   transition: 'fade',
   transitionDuration: 300

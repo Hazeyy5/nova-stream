@@ -9,7 +9,7 @@ const DEFAULT_SCENES: Scene[] = [
     id: 'scene-1',
     name: 'GAMING',
     sources: [
-      { ...createSource('display'), visible: true, name: 'Game Capture' },
+      { ...createSource('screen'), visible: true, name: 'Jeu' },
       { ...createSource('webcam'), visible: true, name: 'CAM' },
       { ...createSource('chat'), visible: true },
       { ...createSource('alert'), visible: true }
@@ -72,9 +72,9 @@ export function useScenes() {
     updateScene(sceneId, (s) => ({ ...s, name }))
   }, [updateScene])
 
-  const addSource = useCallback((type: SourceType) => {
+  const addSource = useCallback((type: SourceType, extra?: Partial<Source>) => {
     if (!activeScene) return
-    const source = createSource(type)
+    const source = { ...createSource(type), ...extra }
     updateScene(activeScene.id, (s) => ({
       ...s,
       sources: [...s.sources, source]
@@ -99,6 +99,28 @@ export function useScenes() {
         src.id === sourceId ? { ...src, ...partial } : src
       )
     }))
+  }, [activeScene, updateScene])
+
+  const duplicateSource = useCallback((sourceId: string) => {
+    if (!activeScene) return
+    const original = activeScene.sources.find((s) => s.id === sourceId)
+    if (!original) return
+    const copy: Source = {
+      ...original,
+      id: `src-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: `${original.name} (copie)`,
+      transform: {
+        ...original.transform,
+        x: Math.min(95, original.transform.x + 3),
+        y: Math.min(95, original.transform.y + 3),
+        zIndex: activeScene.sources.length
+      }
+    }
+    updateScene(activeScene.id, (s) => ({
+      ...s,
+      sources: [...s.sources, copy]
+    }))
+    setSelectedSourceId(copy.id)
   }, [activeScene, updateScene])
 
   const moveSource = useCallback((sourceId: string, direction: 'up' | 'down') => {
@@ -132,6 +154,7 @@ export function useScenes() {
     addSource,
     removeSource,
     updateSource,
-    moveSource
+    moveSource,
+    duplicateSource
   }
 }

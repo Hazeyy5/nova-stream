@@ -7,9 +7,15 @@ interface NavRailProps {
   onViewChange: (view: AppView) => void
   onSettingsClick: () => void
   hasConnection: boolean
+  bitrate: number
 }
 
-export default function NavRail({ activeView, onViewChange, onSettingsClick, hasConnection }: NavRailProps) {
+const NAV_ITEMS: { id: AppView | 'settings'; view?: AppView; label: string; icon: string }[] = [
+  { id: 'editor', view: 'editor', label: 'Studio', icon: '▦' },
+  { id: 'integrations', view: 'integrations', label: 'Apps', icon: '⬡' }
+]
+
+export default function NavRail({ activeView, onViewChange, onSettingsClick, hasConnection, bitrate }: NavRailProps) {
   return (
     <nav className="nav-rail">
       <div className="nav-rail-logo" title="Nova Stream">
@@ -19,35 +25,39 @@ export default function NavRail({ activeView, onViewChange, onSettingsClick, has
       </div>
 
       <div className="nav-rail-items">
-        <button
-          className={`nav-item ${activeView === 'editor' ? 'active' : ''}`}
-          onClick={() => onViewChange('editor')}
-          title="Éditeur"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M3 9h18M9 21V9" />
-          </svg>
-          <span>Éditeur</span>
-        </button>
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            className={`nav-item ${item.view && activeView === item.view ? 'active' : ''}`}
+            onClick={() => item.view && onViewChange(item.view)}
+            title={item.label}
+          >
+            <span className="nav-item-icon">{item.icon}</span>
+            <span>{item.label}</span>
+            {item.id === 'integrations' && hasConnection && <span className="nav-badge" />}
+          </button>
+        ))}
 
-        <button
-          className={`nav-item ${activeView === 'integrations' ? 'active' : ''}`}
-          onClick={() => onViewChange('integrations')}
-          title="Connexions Twitch / Kick"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          <span>Apps</span>
-          {hasConnection && <span className="nav-badge" />}
+        <button className="nav-item nav-item-muted" title="Widgets — via Sources">
+          <span className="nav-item-icon">◇</span>
+          <span>Widgets</span>
         </button>
+        <button className="nav-item nav-item-muted" title="Alertes — via Sources">
+          <span className="nav-item-icon">🔔</span>
+          <span>Alertes</span>
+        </button>
+      </div>
+
+      <div className="nav-rail-status">
+        <div className="nav-status-card">
+          <span className="nav-status-label">{hasConnection ? 'Excellent' : 'Hors ligne'}</span>
+          <span className="nav-status-value">{bitrate.toLocaleString('fr-FR')} kb/s</span>
+        </div>
       </div>
 
       <div className="nav-rail-bottom">
         <button className="nav-item" onClick={onSettingsClick} title="Paramètres">
-          <IconSettings size={20} />
+          <IconSettings size={18} />
           <span>Paramètres</span>
         </button>
       </div>

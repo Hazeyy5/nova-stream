@@ -1,0 +1,132 @@
+.controls-dock {
+  width: 100%;
+}
+
+.controls-dock-body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.controls-dock-timers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.controls-timer {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.controls-timer.live { color: var(--pink); }
+.controls-timer.record { color: var(--record); }
+
+.controls-error {
+  font-size: 10px;
+  color: #fca5a5;
+  line-height: 1.4;
+}
+
+.controls-btn {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+}
+
+.controls-btn-live {
+  background: var(--gradient-rose);
+  color: #1a0810;
+  box-shadow:
+    0 4px 20px rgba(251, 113, 133, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.controls-btn-live:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 8px 28px rgba(251, 113, 133, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.controls-btn-live:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.controls-btn-rec {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--gradient-purple);
+  color: white;
+  box-shadow:
+    0 4px 20px rgba(139, 92, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.controls-btn-rec:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(139, 92, 246, 0.45);
+}
+
+.controls-btn-rec:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.controls-btn-rec .rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.controls-btn-stop-stream {
+  background: var(--gradient-rose);
+  color: #1a0810;
+  box-shadow: 0 4px 16px rgba(251, 113, 133, 0.3);
+}
+
+.controls-btn-stop-rec {
+  background: var(--gradient-purple);
+  color: white;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+}
+
+.controls-btn-stop {
+  background: var(--danger);
+  color: white;
+}
+
+.controls-btn-secondary {
+  background: rgba(40, 40, 62, 0.6);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.controls-btn-secondary:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+  color: var(--text-primary);
+  background: rgba(54, 54, 78, 0.8);
+}
+
+.controls-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

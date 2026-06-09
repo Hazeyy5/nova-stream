@@ -15,27 +15,25 @@ export class IntegrationManager {
   constructor() {
     this.chat.setOnMessage((msg) => {
       this.messages = [...this.messages.slice(-99), msg]
-      this.addFeedEvent({
-        id: msg.id,
-        type: 'chat',
-        platform: 'twitch',
-        icon: '💬',
-        text: `${msg.username} : ${msg.message}`,
-        timestamp: msg.timestamp,
-        color: msg.color
-      })
       this.broadcast('chat:message', msg)
     })
 
     this.alerts.setOnAlert((alert) => {
       this.activeAlerts = [...this.activeAlerts, alert]
       const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
+      const feedType = alert.type === 'follow' || alert.type === 'sub' ? alert.type : 'alert'
+      const labels = {
+        follow: `${alert.username} a suivi la chaîne`,
+        sub: `${alert.username} s'est abonné`,
+        donation: alert.message ?? `${alert.username} a fait un don`,
+        raid: alert.message ?? `${alert.username} raid !`
+      }
       this.addFeedEvent({
         id: alert.id,
-        type: 'alert',
+        type: feedType,
         platform: 'twitch',
         icon: icons[alert.type],
-        text: alert.message ?? `${alert.username} — ${alert.type}`,
+        text: labels[alert.type],
         timestamp: Date.now()
       })
       this.broadcast('alert:show', alert)
@@ -149,7 +147,12 @@ export class IntegrationManager {
   }
 
   getFeedEvents(): FeedEvent[] {
-    return this.feedEvents
+    return this.feedEvents.filter((e) => e.type !== 'chat')
+  }
+
+  clearFeedEvents(): void {
+    this.feedEvents = []
+    this.broadcast('feed:cleared', null)
   }
 
   getActiveAlerts(): StreamAlert[] {

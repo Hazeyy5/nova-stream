@@ -19,8 +19,11 @@ interface LeftPanelProps {
   onMoveSource: (id: string, dir: 'up' | 'down') => void
 }
 
-const SOURCE_TYPES: { type: SourceType; label: string; Icon: typeof IconDisplay }[] = [
-  { type: 'display', label: 'Écran', Icon: IconDisplay },
+const SOURCE_TYPES: { type: SourceType; label: string; Icon?: typeof IconDisplay; emoji?: string }[] = [
+  { type: 'screen', label: 'Écran', Icon: IconDisplay },
+  { type: 'window', label: 'Fenêtre', emoji: '🪟' },
+  { type: 'browser', label: 'Navigateur', emoji: '🌐' },
+  { type: 'display', label: 'Sélecteur système', Icon: IconDisplay },
   { type: 'webcam', label: 'Webcam', Icon: IconCamera },
   { type: 'image', label: 'Image', Icon: IconImage },
   { type: 'text', label: 'Texte', Icon: IconText }
@@ -96,12 +99,12 @@ export default function LeftPanel(props: LeftPanelProps) {
             </button>
             {showAddMenu && (
               <div className="add-source-menu">
-                {SOURCE_TYPES.map(({ type, label, Icon }) => (
+                {SOURCE_TYPES.map(({ type, label, Icon, emoji }) => (
                   <button
                     key={type}
                     onClick={() => { props.onAddSource(type); setShowAddMenu(false) }}
                   >
-                    <Icon size={15} />
+                    {emoji ? <span>{emoji}</span> : Icon && <Icon size={15} />}
                     {label}
                   </button>
                 ))}
@@ -162,7 +165,11 @@ export default function LeftPanel(props: LeftPanelProps) {
 }
 
 function SourceTypeIcon({ type }: { type: SourceType }) {
-  const icons = { display: IconDisplay, webcam: IconCamera, image: IconImage, text: IconText }
-  const Icon = icons[type]
+  const emojis: Partial<Record<SourceType, string>> = {
+    window: '🪟', browser: '🌐', chat: '💬', alert: '🔔'
+  }
+  if (emojis[type]) return <span className="source-type-emoji">{emojis[type]}</span>
+  const icons = { display: IconDisplay, screen: IconDisplay, webcam: IconCamera, image: IconImage, text: IconText }
+  const Icon = icons[type as keyof typeof icons]
   return <span className="source-type-icon"><Icon size={14} /></span>
 }

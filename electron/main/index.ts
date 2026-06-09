@@ -6,7 +6,8 @@ import { listMediaDevices } from './deviceManager'
 import { IntegrationManager } from './integrations/integrationManager'
 import { LinkServer } from './integrations/linkServer'
 import { getPlatformConfig } from './platformConfig'
-import type { AlertType, SceneStreamConfig, StreamSettings } from '../../src/types'
+import { runSpeedtest } from './speedtest'
+import type { AlertType, StreamSettings } from '../../src/types'
 
 loadEnv()
 
@@ -21,12 +22,13 @@ function createWindow(): void {
     minWidth: 1100,
     minHeight: 700,
     title: 'Nova Stream',
-    backgroundColor: '#0a0c14',
+    backgroundColor: '#161625',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      webviewTag: true
     }
   })
 
@@ -59,9 +61,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('link:getPort', () => linkServer.getPort())
   ipcMain.handle('platform:getConfig', () => getPlatformConfig())
 
+  ipcMain.on('media:video-chunk', (_event, chunk: Uint8Array) => {
+    streamManager.handleVideoChunk(Buffer.from(chunk))
+  })
+
   ipcMain.handle('media:start', async (_event, payload: {
     settings: StreamSettings
-    scene: SceneStreamConfig
     stream: boolean
     record: boolean
   }) => {
@@ -95,6 +100,21 @@ app.whenReady().then(async () => {
     }))
   })
 
+  ipcMain.handle('devices:getCaptureSources', async (_e, kind: 'screen' | 'window' | 'all') => {
+    const types = kind === 'all' ? (['screen', 'window'] as const) : [kind]
+    const sources = await desktopCapturer.getSources({
+      types: [...types],
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: true
+    })
+    return sources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      kind: s.id.startsWith('screen:') ? 'screen' as const : 'window' as const,
+      thumbnail: s.thumbnail.toDataURL()
+    }))
+  })
+
   ipcMain.handle('devices:listMedia', () => listMediaDevices())
 
   ipcMain.handle('dialog:selectRecordingFolder', async () => {
@@ -103,6 +123,19 @@ app.whenReady().then(async () => {
       title: 'Dossier d\'enregistrement'
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('speedtest:run', async (event, payload: {
+    resolution: string
+    framerate: number
+    audioBitrate: number
+  }) => {
+    return runSpeedtest(
+      payload.resolution,
+      payload.framerate,
+      payload.audioBitrate,
+      (percent) => event.sender.send('speedtest:progress', percent)
+    )
   })
 
   ipcMain.handle('integrations:getConnections', () => integrations.getConnections())
@@ -124,6 +157,10 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('integrations:getMessages', () => integrations.getMessages())
   ipcMain.handle('integrations:getFeed', () => integrations.getFeedEvents())
+  ipcMain.handle('integrations:clearFeed', () => {
+    integrations.clearFeedEvents()
+    return { success: true }
+  })
   ipcMain.handle('integrations:getAlerts', () => integrations.getActiveAlerts())
   ipcMain.handle('integrations:testAlert', (_e, type?: AlertType) => {
     integrations.testAlert(type)

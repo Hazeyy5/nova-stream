@@ -1,44 +1,133 @@
 .mixer-dock {
   flex: 1;
+  min-width: 0;
 }
 
-.mixer-faders {
-  display: flex;
-  gap: 12px;
-  padding: 10px 14px;
-  flex: 1;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.fader-channel {
+.mixer-channels {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 72px;
+  gap: 16px;
+  padding: 10px 12px 12px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-.fader-top {
+.mixer-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mixer-channel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  gap: 4px;
+  gap: 8px;
 }
 
-.fader-label {
-  font-size: 10px;
-  color: var(--text-muted);
+.mixer-channel-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 52px;
 }
 
-.fader-mute {
-  width: 22px;
-  height: 22px;
+.mixer-channel-db {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.mixer-channel-db.hot {
+  color: #fbbf24;
+}
+
+.level-meter-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.level-meter-row {
+  display: flex;
+  gap: 1px;
+  height: 4px;
+  width: 100%;
+}
+
+.level-meter-seg {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 1px;
+}
+
+.level-meter-seg.lit.green {
+  background: #34d399;
+  box-shadow: 0 0 4px rgba(52, 211, 153, 0.35);
+}
+
+.level-meter-seg.lit.yellow {
+  background: #fbbf24;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.35);
+}
+
+.level-meter-seg.lit.red {
+  background: #f87171;
+  box-shadow: 0 0 4px rgba(248, 113, 113, 0.4);
+}
+
+.mixer-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mixer-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.mixer-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #34d399 0%,
+    #2dd4bf var(--vol, 50%),
+    rgba(255, 255, 255, 0.1) var(--vol, 50%)
+  );
+}
+
+.mixer-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e8e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  margin-top: -3px;
+  cursor: pointer;
+}
+
+.mixer-slider:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mixer-icon-btn {
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -47,67 +136,11 @@
   flex-shrink: 0;
 }
 
-.fader-mute:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+.mixer-icon-btn:hover {
+  background: var(--purple-bg);
+  color: var(--purple);
 }
 
-.fader-mute.muted {
-  color: var(--danger);
-}
-
-.fader-body {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 100px;
-}
-
-.meter-bars {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 1px;
-  height: 100%;
-  width: 6px;
-}
-
-.meter-bar {
-  flex: 1;
-  background: var(--bg-deep);
-  border-radius: 1px;
-  min-height: 2px;
-}
-
-.meter-bar.lit.green { background: var(--meter-green); }
-.meter-bar.lit.yellow { background: var(--meter-yellow); }
-.meter-bar.lit.red { background: var(--meter-red); }
-
-.fader-slider {
-  -webkit-appearance: slider-vertical;
-  appearance: slider-vertical;
-  width: 8px;
-  height: 100px;
-  background: transparent;
-  cursor: pointer;
-}
-
-.fader-slider::-webkit-slider-runnable-track {
-  width: 4px;
-  background: var(--bg-deep);
-  border-radius: 2px;
-}
-
-.fader-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 6px;
-  background: var(--accent);
-  border-radius: 2px;
-  margin-top: -3px;
-}
-
-.fader-db {
-  font-size: 9px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+.mixer-icon-btn.muted {
+  color: var(--pink);
 }

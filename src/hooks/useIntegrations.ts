@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert } from '../types'
+import { filterActivityEvents } from '../lib/feedEvents'
 
 export function useIntegrations() {
   const [connections, setConnections] = useState<PlatformConnectionPublic[]>([])
@@ -8,6 +9,8 @@ export function useIntegrations() {
   const [activeAlerts, setActiveAlerts] = useState<StreamAlert[]>([])
   const [twitchConfigured, setTwitchConfigured] = useState(false)
   const [connecting, setConnecting] = useState(false)
+
+  const activityEvents = useMemo(() => filterActivityEvents(feedEvents), [feedEvents])
 
   const refresh = useCallback(async () => {
     const [conns, msgs, feed, alerts, configured] = await Promise.all([
@@ -19,7 +22,7 @@ export function useIntegrations() {
     ])
     setConnections(conns)
     setMessages(msgs)
-    setFeedEvents(feed)
+    setFeedEvents(filterActivityEvents(feed))
     setActiveAlerts(alerts)
     setTwitchConfigured(configured)
   }, [])
@@ -31,7 +34,11 @@ export function useIntegrations() {
         setMessages((prev) => [...prev.slice(-99), msg])
       }),
       window.novaStream.integrations.onFeedEvent((evt) => {
-        setFeedEvents((prev) => [evt, ...prev].slice(0, 50))
+        if (evt.type === 'chat') return
+        setFeedEvents((prev) => filterActivityEvents([evt, ...prev]).slice(0, 50))
+      }),
+      window.novaStream.integrations.onFeedCleared(() => {
+        setFeedEvents([])
       }),
       window.novaStream.integrations.onAlert((alert) => {
         setActiveAlerts((prev) => [...prev, alert])
@@ -67,19 +74,25 @@ export function useIntegrations() {
     window.novaStream.integrations.testAlert(type)
   }
 
+  const clearFeed = useCallback(async () => {
+    await window.novaStream.integrations.clearFeed()
+    setFeedEvents([])
+  }, [])
+
   const isConnected = (platform: 'twitch' | 'kick') =>
     connections.some((c) => c.platform === platform)
 
   return {
     connections,
     messages,
-    feedEvents,
+    feedEvents: activityEvents,
     activeAlerts,
     twitchConfigured,
     connecting,
     connectTwitch,
     disconnect,
     testAlert,
+    clearFeed,
     isConnected,
     refresh
   }

@@ -1,0 +1,50 @@
+.status-bar {
+  height: var(--status-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: rgba(12, 12, 20, 0.95);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.status-bar-left,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-stat strong {
+  color: var(--purple-bright);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.status-stat.muted {
+  color: var(--text-muted);
+}
+
+.status-bar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.status-wave {
+  display: block;
+  width: 100px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #a855f7, #c084fc, transparent);
+  opacity: 0.6;
+  animation: wavePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes wavePulse {
+  0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
+  50% { opacity: 0.8; transform: scaleX(1); }
+}

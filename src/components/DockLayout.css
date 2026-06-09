@@ -23,6 +23,11 @@
 }
 
 .mixer-col {
-  width: 220px;
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.controls-col {
+  width: 180px;
   flex-shrink: 0;
 }

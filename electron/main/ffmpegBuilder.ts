@@ -1,5 +1,5 @@
 import { join } from 'path'
-import type { SceneStreamConfig, Source, StreamSettings } from '../../src/types'
+import type { StreamSettings } from '../../src/types'
 
 export function buildRtmpUrl(settings: StreamSettings): string {
   const base = settings.rtmpUrl.replace(/\/$/, '')
@@ -7,70 +7,38 @@ export function buildRtmpUrl(settings: StreamSettings): string {
   return key ? `${base}/${key}` : base
 }
 
-export function buildFfmpegArgs(
+function ffmpegOutputPath(path: string): string {
+  return path.replace(/\\/g, '/')
+}
+
+function dshowInput(device: string, kind: 'video' | 'audio'): string {
+  return `${kind}=${device}`
+}
+
+export function buildFfmpegScenePipeArgs(
   settings: StreamSettings,
-  scene: SceneStreamConfig,
-  options: { rtmpUrl?: string; recordPath?: string } = {}
+  options: { rtmpUrl?: string; recordPath?: string; includeAudio?: boolean } = {}
 ): string[] {
-  const visible = scene.sources
-    .filter((s) => s.visible && (s.type === 'display' || s.type === 'webcam'))
-    .sort((a, b) => a.transform.zIndex - b.transform.zIndex)
+  const includeAudio = options.includeAudio !== false
+  const args: string[] = [
+    '-y',
+    '-fflags', '+genpts',
+    '-probesize', '32M',
+    '-analyzeduration', '10M',
+    '-f', 'webm',
+    '-i', 'pipe:0'
+  ]
 
-  const screen = visible.find((s) => s.type === 'display')
-  const webcam = visible.find((s) => s.type === 'webcam')
-  const [resW, resH] = settings.resolution.split('x').map(Number)
-
-  if (!screen && !webcam) {
-    throw new Error('Aucune source vidéo visible')
-  }
-
-  const args: string[] = ['-y']
-  let inputIndex = 0
+  let inputIndex = 1
   const filters: string[] = []
-  let videoOut = `${inputIndex}:v`
-
-  if (screen) {
-    args.push(
-      '-f', 'gdigrab',
-      '-framerate', String(settings.framerate),
-      '-video_size', settings.resolution,
-      '-i', 'desktop'
-    )
-    inputIndex++
-  }
-
-  if (webcam && screen) {
-    const camW = Math.max(160, Math.round(resW * webcam.transform.width / 100))
-    const camH = Math.max(90, Math.round(resH * webcam.transform.height / 100))
-    args.push(
-      '-f', 'dshow',
-      '-video_size', `${camW}x${camH}`,
-      '-framerate', String(settings.framerate),
-      '-i', `video=${settings.webcamDevice || 'Integrated Camera'}`
-    )
-    const x = Math.round(resW * webcam.transform.x / 100)
-    const y = Math.round(resH * webcam.transform.y / 100)
-    filters.push(`[1:v]scale=${camW}:${camH}[cam]`)
-    filters.push(`[0:v][cam]overlay=${x}:${y}:format=auto[outv]`)
-    videoOut = '[outv]'
-    inputIndex++
-  } else if (webcam) {
-    args.push(
-      '-f', 'dshow',
-      '-video_size', settings.resolution,
-      '-framerate', String(settings.framerate),
-      '-i', `video=${settings.webcamDevice || 'Integrated Camera'}`
-    )
-    inputIndex++
-  }
-
   const audioInputIndices: number[] = []
-  if (settings.audioEnabled && settings.audioDevice) {
-    args.push('-f', 'dshow', '-i', `audio=${settings.audioDevice}`)
+
+  if (includeAudio && settings.audioEnabled && settings.audioDevice) {
+    args.push('-f', 'dshow', '-i', dshowInput(settings.audioDevice, 'audio'))
     audioInputIndices.push(inputIndex++)
   }
-  if (settings.desktopAudioEnabled && settings.desktopAudioDevice) {
-    args.push('-f', 'dshow', '-i', `audio=${settings.desktopAudioDevice}`)
+  if (includeAudio && settings.desktopAudioEnabled && settings.desktopAudioDevice) {
+    args.push('-f', 'dshow', '-i', dshowInput(settings.desktopAudioDevice, 'audio'))
     audioInputIndices.push(inputIndex++)
   }
 
@@ -89,8 +57,8 @@ export function buildFfmpegArgs(
 
   if (filters.length > 0) {
     args.push('-filter_complex', filters.join(';'))
-    args.push('-map', videoOut)
-    if (audioOut) args.push('-map', audioOut)
+    args.push('-map', '0:v')
+    args.push('-map', audioOut!)
   } else {
     args.push('-map', '0:v')
   }
@@ -108,7 +76,8 @@ export function buildFfmpegArgs(
     '-b:v', `${settings.videoBitrate}k`,
     '-maxrate', `${settings.videoBitrate}k`,
     '-bufsize', `${settings.videoBitrate * 2}k`,
-    '-g', String(settings.framerate * 2)
+    '-g', String(settings.framerate * 2),
+    '-r', String(settings.framerate)
   )
 
   if (audioOut) {
@@ -118,11 +87,12 @@ export function buildFfmpegArgs(
   }
 
   if (options.rtmpUrl && options.recordPath) {
-    args.push('-f', 'tee', `[f=flv]${options.rtmpUrl}|[f=mp4]${options.recordPath}`)
+    const recordPath = ffmpegOutputPath(options.recordPath)
+    args.push('-f', 'tee', `[f=flv]${options.rtmpUrl}|[f=mp4]${recordPath}`)
   } else if (options.rtmpUrl) {
     args.push('-f', 'flv', options.rtmpUrl)
   } else if (options.recordPath) {
-    args.push('-f', 'mp4', options.recordPath)
+    args.push('-movflags', '+faststart', '-f', 'mp4', ffmpegOutputPath(options.recordPath))
   } else {
     throw new Error('Aucune sortie configurée')
   }
@@ -133,4 +103,18 @@ export function buildFfmpegArgs(
 export function defaultRecordingPath(): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   return join(process.env.USERPROFILE ?? '.', 'Videos', 'NovaStream', `enregistrement-${timestamp}.mp4`)
+}
+
+export function parseFfmpegError(stderr: string): string {
+  if (stderr.includes('Could not find video device')) {
+    return 'Périphérique vidéo introuvable — vérifiez Paramètres → Vidéo, ou masquez la source CAM.'
+  }
+  if (stderr.includes('Could not find audio device')) {
+    return 'Microphone introuvable — vérifiez Paramètres → Audio.'
+  }
+  if (stderr.includes('Error opening input')) {
+    return 'Impossible d\'ouvrir une source de capture. Vérifiez vos périphériques dans Paramètres.'
+  }
+  const lines = stderr.trim().split('\n').filter((l) => l.trim())
+  return lines[lines.length - 1] ?? 'Erreur FFmpeg'
 }

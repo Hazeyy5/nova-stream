@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import ffmpegPath from 'ffmpeg-static'
-import type { MediaDevice } from '../../src/types'
+import type { MediaDevice, StreamSettings } from '../../src/types'
 
 export async function listMediaDevices(): Promise<MediaDevice[]> {
   if (!ffmpegPath) return []
@@ -39,4 +39,33 @@ function parseDshowDevices(output: string): MediaDevice[] {
   }
 
   return devices
+}
+
+export function resolveStreamSettings(
+  settings: StreamSettings,
+  devices: MediaDevice[]
+): StreamSettings {
+  const videoDevices = devices.filter((d) => d.type === 'video')
+  const audioDevices = devices.filter((d) => d.type === 'audio')
+
+  const pickDevice = (current: string, available: MediaDevice[]) =>
+    current && available.some((d) => d.name === current) ? current : available[0]?.name ?? ''
+
+  const audioDevice = settings.audioEnabled
+    ? pickDevice(settings.audioDevice, audioDevices)
+    : ''
+  const desktopAudioDevice = settings.desktopAudioEnabled
+    ? pickDevice(settings.desktopAudioDevice, audioDevices)
+    : ''
+
+  return {
+    ...settings,
+    webcamDevice: settings.webcamDevice && videoDevices.some((d) => d.name === settings.webcamDevice)
+      ? settings.webcamDevice
+      : '',
+    audioDevice,
+    audioEnabled: settings.audioEnabled && !!audioDevice,
+    desktopAudioDevice,
+    desktopAudioEnabled: settings.desktopAudioEnabled && !!desktopAudioDevice
+  }
 }

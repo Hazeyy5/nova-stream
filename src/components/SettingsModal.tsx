@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { StreamSettings, MediaDevice } from '../types'
+import type { StreamSettings, MediaDevice, SpeedtestResult } from '../types'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -20,10 +20,21 @@ type Tab = typeof TABS[number]
 
 const RESOLUTIONS = ['1920x1080', '1280x720', '2560x1440', '854x480']
 
+const QUALITY_LABELS: Record<SpeedtestResult['quality'], string> = {
+  excellent: 'Excellente',
+  good: 'Bonne',
+  fair: 'Limite',
+  poor: 'Insuffisante'
+}
+
 export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
   const [form, setForm] = useState<StreamSettings>({ ...settings })
   const [tab, setTab] = useState<Tab>('Stream')
   const [devices, setDevices] = useState<MediaDevice[]>([])
+  const [speedtestRunning, setSpeedtestRunning] = useState(false)
+  const [speedtestProgress, setSpeedtestProgress] = useState(0)
+  const [speedtestResult, setSpeedtestResult] = useState<SpeedtestResult | null>(null)
+  const [speedtestError, setSpeedtestError] = useState<string | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState(() => {
     const match = PLATFORMS.find((p) => p.url === settings.rtmpUrl)
     return match?.name ?? 'Personnalisé'
@@ -49,6 +60,33 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
   const pickRecordingFolder = async () => {
     const folder = await window.novaStream.dialog.selectRecordingFolder()
     if (folder) update({ recordingPath: folder })
+  }
+
+  const runSpeedtest = async () => {
+    setSpeedtestRunning(true)
+    setSpeedtestProgress(0)
+    setSpeedtestResult(null)
+    setSpeedtestError(null)
+
+    const unsubscribe = window.novaStream.speedtest.onProgress(setSpeedtestProgress)
+
+    try {
+      const result = await window.novaStream.speedtest.run(
+        form.resolution,
+        form.framerate,
+        form.audioEnabled ? form.audioBitrate : 0
+      )
+      setSpeedtestResult(result)
+    } catch (err) {
+      setSpeedtestError(err instanceof Error ? err.message : 'Test impossible')
+    } finally {
+      unsubscribe()
+      setSpeedtestRunning(false)
+    }
+  }
+
+  const applyRecommendedBitrate = () => {
+    if (speedtestResult) update({ videoBitrate: speedtestResult.recommendedVideoBitrate })
   }
 
   return (
@@ -133,6 +171,59 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                   </select>
                 </label>
               </div>
+
+              <div className="speedtest-panel">
+                <div className="speedtest-header">
+                  <div>
+                    <strong>Test de connexion</strong>
+                    <p>Mesure votre débit montant et propose un bitrate adapté à {form.resolution} · {form.framerate} fps.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="speedtest-btn"
+                    onClick={runSpeedtest}
+                    disabled={speedtestRunning}
+                  >
+                    {speedtestRunning ? 'Test en cours…' : 'Lancer le test'}
+                  </button>
+                </div>
+
+                {speedtestRunning && (
+                  <div className="speedtest-progress">
+                    <div className="speedtest-progress-bar" style={{ width: `${speedtestProgress}%` }} />
+                  </div>
+                )}
+
+                {speedtestError && (
+                  <p className="speedtest-error">{speedtestError}</p>
+                )}
+
+                {speedtestResult && (
+                  <div className={`speedtest-result quality-${speedtestResult.quality}`}>
+                    <div className="speedtest-stats">
+                      <div>
+                        <span className="speedtest-stat-label">Upload mesuré</span>
+                        <span className="speedtest-stat-value">{speedtestResult.uploadMbps} Mbps</span>
+                      </div>
+                      <div>
+                        <span className="speedtest-stat-label">Bitrate recommandé</span>
+                        <span className="speedtest-stat-value accent">{speedtestResult.recommendedVideoBitrate} kbps</span>
+                      </div>
+                      <div>
+                        <span className="speedtest-stat-label">Qualité</span>
+                        <span className="speedtest-stat-value">{QUALITY_LABELS[speedtestResult.quality]}</span>
+                      </div>
+                    </div>
+                    <p className="speedtest-message">{speedtestResult.message}</p>
+                    {speedtestResult.recommendedVideoBitrate !== form.videoBitrate && (
+                      <button type="button" className="speedtest-apply" onClick={applyRecommendedBitrate}>
+                        Appliquer {speedtestResult.recommendedVideoBitrate} kbps
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <label className="settings-field">
                 Webcam
                 <select value={form.webcamDevice} onChange={(e) => update({ webcamDevice: e.target.value })}>
@@ -148,7 +239,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               <label className="settings-checkbox">
                 <input type="checkbox" checked={form.audioEnabled}
                   onChange={(e) => update({ audioEnabled: e.target.checked })} />
-                Activer le microphone
+                Activer le microphone (stream en direct)
               </label>
               <label className="settings-field">
                 Microphone
@@ -189,6 +280,11 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                   onChange={(e) => update({ recordingEnabled: e.target.checked })} />
                 Activer l'enregistrement local
               </label>
+              <label className="settings-checkbox">
+                <input type="checkbox" checked={form.recordAudioEnabled}
+                  onChange={(e) => update({ recordAudioEnabled: e.target.checked })} />
+                Inclure l'audio dans l'enregistrement
+              </label>
               <label className="settings-field">
                 Dossier de sortie
                 <div className="folder-picker">
@@ -197,7 +293,8 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                 </div>
               </label>
               <p className="settings-hint">
-                Les fichiers sont enregistrés au format MP4. Utilisez « Stream + REC » pour streamer et enregistrer simultanément.
+                L'enregistrement capture la scène en vidéo seule par défaut — l'audio n'est pas requis.
+                Cochez « Inclure l'audio » pour ajouter le micro. En stream, l'audio suit les réglages de l'onglet Audio.
               </p>
             </>
           )}
