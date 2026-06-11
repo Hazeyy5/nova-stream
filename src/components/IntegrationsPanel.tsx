@@ -4,7 +4,6 @@ import './IntegrationsPanel.css'
 interface IntegrationsPanelProps {
   connections: PlatformConnectionPublic[]
   twitchConfigured: boolean
-  connecting: boolean
   onConnectTwitch: () => void
   onDisconnect: (platform: 'twitch' | 'kick') => void
   onTestAlert: () => void
@@ -13,7 +12,6 @@ interface IntegrationsPanelProps {
 export default function IntegrationsPanel({
   connections,
   twitchConfigured,
-  connecting,
   onConnectTwitch,
   onDisconnect,
   onTestAlert
@@ -28,19 +26,16 @@ export default function IntegrationsPanel({
         <p>Connectez vos comptes pour récupérer le chat, les alertes et le mini flux en direct.</p>
       </header>
 
-      <a
-        href="https://hazeyy5.github.io/nova-stream/"
-        target="_blank"
-        rel="noreferrer"
-        className="web-connect-banner"
-      >
+      <button type="button" className="web-connect-banner" onClick={onConnectTwitch}>
         <span className="web-connect-icon">🌐</span>
         <div>
           <strong>Connexion via le site web</strong>
-          <p>Connectez-vous sur hazeyy5.github.io/nova-stream puis liez votre compte à cette application.</p>
+          <p>
+            Connectez-vous sur Twitch, puis cliquez <strong>Lier à Nova Stream</strong> sur le tableau de bord.
+          </p>
         </div>
         <span className="web-connect-arrow">→</span>
-      </a>
+      </button>
 
       <div className="platform-cards">
         <PlatformCard
@@ -51,7 +46,6 @@ export default function IntegrationsPanel({
           connected={!!twitch}
           account={twitch}
           configured={twitchConfigured}
-          connecting={connecting}
           onConnect={onConnectTwitch}
           onDisconnect={() => onDisconnect('twitch')}
           features={['Chat Box', 'Alertes follow/sub/raid', 'EventSub temps réel', 'Clé de stream auto']}
@@ -112,7 +106,7 @@ export default function IntegrationsPanel({
 }
 
 function PlatformCard({
-  name, color, gradient, connected, account, configured, connecting,
+  name, color, gradient, connected, account, configured,
   onConnect, onDisconnect, features, comingSoon
 }: {
   platform: string
@@ -122,7 +116,6 @@ function PlatformCard({
   connected: boolean
   account?: PlatformConnectionPublic
   configured: boolean
-  connecting: boolean
   onConnect: () => void
   onDisconnect: () => void
   features: string[]
@@ -154,9 +147,9 @@ function PlatformCard({
           <button
             className="btn-connect"
             onClick={onConnect}
-            disabled={!configured || connecting}
+            disabled={!configured}
           >
-            {connecting ? 'Connexion...' : `Se connecter avec ${name}`}
+            {`Se connecter avec ${name}`}
           </button>
         )}
       </div>

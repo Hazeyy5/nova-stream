@@ -21,7 +21,7 @@ export default function WelcomeModal({ onClose, onOpenIntegrations, websiteUrl }
             <span className="welcome-step-num">1</span>
             <div>
               <strong>Connectez Twitch</strong>
-              <p>Via le site web ou directement dans l'onglet Apps.</p>
+              <p>Via le site Nova Stream, puis liez votre compte à l&apos;application.</p>
             </div>
           </div>
           <div className="welcome-step">
@@ -49,12 +49,12 @@ export default function WelcomeModal({ onClose, onOpenIntegrations, websiteUrl }
         </div>
 
         <div className="welcome-actions">
-          <a href={websiteUrl} target="_blank" rel="noreferrer" className="welcome-btn secondary">
-            🌐 Connexion via le site
-          </a>
           <button className="welcome-btn primary" onClick={onOpenIntegrations}>
-            Apps → Connecter Twitch
+            Se connecter avec Twitch
           </button>
+          <a href={websiteUrl} target="_blank" rel="noreferrer" className="welcome-btn secondary">
+            Ouvrir le site Nova Stream
+          </a>
           <button className="welcome-btn ghost" onClick={onClose}>
             Commencer →
           </button>

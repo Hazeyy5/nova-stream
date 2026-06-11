@@ -66,7 +66,9 @@ const api = {
       appName: string
       websiteUrl: string
       githubUrl: string
-    }>
+    }>,
+    openExternal: (url: string) =>
+      ipcRenderer.invoke('platform:openExternal', url) as Promise<{ success: boolean; message?: string }>
   },
   integrations: {
     getConnections: () => ipcRenderer.invoke('integrations:getConnections') as Promise<PlatformConnectionPublic[]>,

@@ -300,12 +300,16 @@ function App() {
     void tryAutoFetchStreamKey()
   }, [twitchConnected, tryAutoFetchStreamKey])
 
-  const handleConnectTwitch = async () => {
-    try {
-      await integrations.connectTwitch()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Connexion échouée')
+  const openTwitchConnectWebsite = useCallback(async () => {
+    const base = websiteUrl.replace(/\/$/, '')
+    const result = await window.novaStream.platform.openExternal(`${base}/dashboard.html`)
+    if (!result.success) {
+      alert(result.message ?? 'Impossible d\'ouvrir le navigateur')
     }
+  }, [websiteUrl])
+
+  const handleConnectTwitch = () => {
+    void openTwitchConnectWebsite()
   }
 
 
@@ -582,8 +586,6 @@ function App() {
 
             twitchConfigured={integrations.twitchConfigured}
 
-            connecting={integrations.connecting}
-
             onConnectTwitch={handleConnectTwitch}
 
             onDisconnect={integrations.disconnect}
@@ -618,7 +620,7 @@ function App() {
 
             setShowWelcome(false)
 
-            setView('integrations')
+            void openTwitchConnectWebsite()
 
           }}
 

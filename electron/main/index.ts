@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
-import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron'
 import { loadEnv } from './loadEnv'
 import { StreamManager } from './streamManager'
 import { listMediaDevices, setMediaListWindow } from './deviceManager'
@@ -85,6 +85,13 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('link:getPort', () => linkServer.getPort())
   ipcMain.handle('platform:getConfig', () => getPlatformConfig())
+  ipcMain.handle('platform:openExternal', async (_e, url: unknown) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      return { success: false, message: 'URL invalide' }
+    }
+    await shell.openExternal(url)
+    return { success: true }
+  })
 
   ipcMain.on('media:video-chunk', (_event, chunk: Uint8Array) => {
     streamManager.handleVideoChunk(Buffer.from(chunk))
