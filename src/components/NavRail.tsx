@@ -8,6 +8,8 @@ interface NavRailProps {
   onSettingsClick: () => void
   hasConnection: boolean
   bitrate: number
+  onAddWidget?: () => void
+  onAddAlert?: () => void
 }
 
 const NAV_ITEMS: { id: AppView | 'settings'; view?: AppView; label: string; icon: string }[] = [
@@ -15,7 +17,15 @@ const NAV_ITEMS: { id: AppView | 'settings'; view?: AppView; label: string; icon
   { id: 'integrations', view: 'integrations', label: 'Apps', icon: '⬡' }
 ]
 
-export default function NavRail({ activeView, onViewChange, onSettingsClick, hasConnection, bitrate }: NavRailProps) {
+export default function NavRail({
+  activeView,
+  onViewChange,
+  onSettingsClick,
+  hasConnection,
+  bitrate,
+  onAddWidget,
+  onAddAlert
+}: NavRailProps) {
   return (
     <nav className="nav-rail">
       <div className="nav-rail-logo" title="Nova Stream">
@@ -38,11 +48,25 @@ export default function NavRail({ activeView, onViewChange, onSettingsClick, has
           </button>
         ))}
 
-        <button className="nav-item nav-item-muted" title="Widgets — via Sources">
+        <button
+          className="nav-item"
+          title="Ajouter un widget Chat"
+          onClick={() => {
+            onViewChange('editor')
+            onAddWidget?.()
+          }}
+        >
           <span className="nav-item-icon">◇</span>
           <span>Widgets</span>
         </button>
-        <button className="nav-item nav-item-muted" title="Alertes — via Sources">
+        <button
+          className="nav-item"
+          title="Ajouter une boîte d'alertes"
+          onClick={() => {
+            onViewChange('editor')
+            onAddAlert?.()
+          }}
+        >
           <span className="nav-item-icon">🔔</span>
           <span>Alertes</span>
         </button>

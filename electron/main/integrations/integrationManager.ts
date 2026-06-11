@@ -3,15 +3,20 @@ import { connectTwitch, isTwitchConfigured } from './twitchAuth'
 import { getPublicConnections, getToken, removeConnection, saveConnection } from './authStore'
 import { TwitchChatService } from './twitchChat'
 import { sendTwitchChatViaHelix } from './twitchChatSend'
+import { fetchTwitchStreamKey } from './twitchStreamKey'
+import { ensureFreshTwitchToken } from './twitchTokenRefresh'
+import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
+  private eventSub = new TwitchEventSubService()
   private alerts = new AlertManager()
   private messages: ChatMessage[] = []
   private feedEvents: FeedEvent[] = []
   private activeAlerts: StreamAlert[] = []
+  private chatAccessToken: string | null = null
 
   constructor() {
     this.chat.setOnMessage((msg) => {
@@ -19,30 +24,34 @@ export class IntegrationManager {
       this.broadcast('chat:message', msg)
     })
 
-    this.alerts.setOnAlert((alert) => {
-      this.activeAlerts = [...this.activeAlerts, alert]
-      const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
-      const feedType = alert.type === 'follow' || alert.type === 'sub' ? alert.type : 'alert'
-      const labels = {
-        follow: `${alert.username} a suivi la chaîne`,
-        sub: `${alert.username} s'est abonné`,
-        donation: alert.message ?? `${alert.username} a fait un don`,
-        raid: alert.message ?? `${alert.username} raid !`
-      }
-      this.addFeedEvent({
-        id: alert.id,
-        type: feedType,
-        platform: 'twitch',
-        icon: icons[alert.type],
-        text: labels[alert.type],
-        timestamp: Date.now()
-      })
-      this.broadcast('alert:show', alert)
-      setTimeout(() => {
-        this.activeAlerts = this.activeAlerts.filter((a) => a.id !== alert.id)
-        this.broadcast('alert:dismiss', alert.id)
-      }, 5000)
+    this.chat.setOnAlert((alert) => this.showAlert(alert))
+    this.eventSub.setOnAlert((alert) => this.showAlert(alert))
+    this.alerts.setOnAlert((alert) => this.showAlert(alert))
+  }
+
+  private showAlert(alert: StreamAlert): void {
+    this.activeAlerts = [...this.activeAlerts, alert]
+    const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
+    const feedType = alert.type === 'follow' || alert.type === 'sub' ? alert.type : 'alert'
+    const labels = {
+      follow: `${alert.username} a suivi la chaîne`,
+      sub: `${alert.username} s'est abonné`,
+      donation: alert.message ?? `${alert.username} a fait un don`,
+      raid: alert.message ?? `${alert.username} raid !`
+    }
+    this.addFeedEvent({
+      id: alert.id,
+      type: feedType,
+      platform: alert.platform ?? 'twitch',
+      icon: icons[alert.type],
+      text: labels[alert.type],
+      timestamp: Date.now()
     })
+    this.broadcast('alert:show', alert)
+    setTimeout(() => {
+      this.activeAlerts = this.activeAlerts.filter((a) => a.id !== alert.id)
+      this.broadcast('alert:dismiss', alert.id)
+    }, 5000)
   }
 
   private addFeedEvent(event: FeedEvent): void {
@@ -77,13 +86,18 @@ export class IntegrationManager {
   }
 
   private async ensureChatConnected(): Promise<boolean> {
-    if (this.chat.isConnected()) return true
-    const twitch = getToken('twitch')
+    const twitch = await ensureFreshTwitchToken()
     if (!twitch) return false
+
+    const tokenChanged = this.chatAccessToken !== twitch.accessToken
+    if (this.chat.isConnected() && !tokenChanged) return true
+
     try {
       await this.chat.connect(twitch.username, twitch.accessToken)
+      this.chatAccessToken = twitch.accessToken
       return true
     } catch {
+      this.chatAccessToken = null
       return false
     }
   }
@@ -131,7 +145,12 @@ export class IntegrationManager {
     accessToken: string
     connectedAt: number
   }): Promise<PlatformConnectionPublic> {
+    this.alerts.stopDemo()
     await this.chat.connect(conn.username, conn.accessToken)
+    this.chatAccessToken = conn.accessToken
+    void this.eventSub.start(conn.accessToken, conn.userId, conn.userId).catch(() => {
+      /* EventSub optionnel si scopes manquants */
+    })
     this.addFeedEvent({
       id: `connect-${Date.now()}`,
       type: 'system',
@@ -155,16 +174,23 @@ export class IntegrationManager {
   async disconnect(platform: 'twitch' | 'kick'): Promise<void> {
     if (platform === 'twitch') {
       await this.chat.disconnect()
+      await this.eventSub.stop()
+      this.chatAccessToken = null
     }
     removeConnection(platform)
+    const hasConnection = getPublicConnections().length > 0
+    if (!hasConnection) this.alerts.startDemo()
     this.broadcast('integrations:updated', this.getConnections())
   }
 
   async restoreSessions(): Promise<void> {
     const twitch = getToken('twitch')
     if (twitch) {
+      this.alerts.stopDemo()
       try {
         await this.chat.connect(twitch.username, twitch.accessToken)
+        this.chatAccessToken = twitch.accessToken
+        void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
       } catch { /* token expired */ }
     }
     const hasConnection = getPublicConnections().length > 0
@@ -192,11 +218,15 @@ export class IntegrationManager {
     this.alerts.triggerTest(type)
   }
 
+  async getTwitchStreamKey(): Promise<string> {
+    return fetchTwitchStreamKey()
+  }
+
   async sendChatMessage(text: string): Promise<{ success: boolean; message?: string }> {
     const trimmed = text.trim()
     if (!trimmed) return { success: false, message: 'Message vide' }
 
-    const twitch = getToken('twitch')
+    const twitch = await ensureFreshTwitchToken()
     if (!twitch) {
       return { success: false, message: 'Connectez votre compte Twitch dans Apps.' }
     }
@@ -205,36 +235,53 @@ export class IntegrationManager {
     if (!ready) {
       return {
         success: false,
-        message: 'Chat Twitch indisponible. Déconnectez puis reconnectez Twitch dans Apps (permission d\'écriture requise).'
+        message: 'Chat Twitch indisponible. Déconnectez puis reconnectez Twitch dans Apps.'
       }
     }
 
+    let sent = false
+    let lastError = 'Impossible d\'envoyer le message'
+
     try {
+      await this.chat.sendMessage(trimmed)
+      sent = true
+    } catch (ircErr) {
+      lastError = ircErr instanceof Error ? ircErr.message : lastError
+    }
+
+    if (!sent) {
       try {
         await sendTwitchChatViaHelix(trimmed)
+        sent = true
       } catch (helixErr) {
-        if (helixErr instanceof Error && helixErr.message.includes('Permission')) {
-          throw helixErr
-        }
-        await this.chat.sendMessage(trimmed)
+        lastError = helixErr instanceof Error ? helixErr.message : lastError
       }
-      const msg: ChatMessage = {
-        id: `local-${Date.now()}`,
-        platform: 'twitch',
-        username: twitch.displayName,
-        message: trimmed,
-        color: '#a78bfa',
-        timestamp: Date.now()
-      }
-      this.messages = [...this.messages.slice(-99), msg]
-      this.broadcast('chat:message', msg)
-      return { success: true }
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : 'Impossible d\'envoyer le message'
-      const message = raw.includes('Login authentication failed') || raw.includes('403')
-        ? 'Permission chat manquante — reconnectez Twitch dans Apps pour autoriser l\'envoi de messages.'
-        : raw
-      return { success: false, message }
     }
+
+    if (!sent) {
+      const needsReconnect =
+        lastError.includes('Login authentication failed') ||
+        lastError.includes('Permission') ||
+        lastError.includes('403') ||
+        lastError.includes('401')
+      return {
+        success: false,
+        message: needsReconnect
+          ? 'Permission d\'envoi manquante — déconnectez puis reconnectez Twitch dans Apps (cochez l\'accès chat à l\'écriture).'
+          : lastError
+      }
+    }
+
+    const msg: ChatMessage = {
+      id: `local-${Date.now()}`,
+      platform: 'twitch',
+      username: twitch.displayName,
+      message: trimmed,
+      color: '#a78bfa',
+      timestamp: Date.now()
+    }
+    this.messages = [...this.messages.slice(-99), msg]
+    this.broadcast('chat:message', msg)
+    return { success: true }
   }
 }

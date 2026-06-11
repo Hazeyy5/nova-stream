@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog } from 'electron'
+import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { loadEnv } from './loadEnv'
 import { StreamManager } from './streamManager'
@@ -45,7 +46,8 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webviewTag: true
+      webviewTag: true,
+      backgroundThrottling: false
     }
   })
 
@@ -149,6 +151,30 @@ app.whenReady().then(async () => {
     return result.canceled ? null : result.filePaths[0]
   })
 
+  ipcMain.handle('dialog:saveImage', async (_e, dataUrl: string) => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const result = await dialog.showSaveDialog({
+      title: 'Enregistrer la capture',
+      defaultPath: `nova-capture-${stamp}.png`,
+      filters: [{ name: 'Image PNG', extensions: ['png'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+    writeFileSync(result.filePath, Buffer.from(base64, 'base64'))
+    return result.filePath
+  })
+
+  ipcMain.handle('dialog:importScenesFile', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Importer des scènes',
+      filters: [{ name: 'Nova Stream Scènes', extensions: ['json'] }],
+      properties: ['openFile']
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    const { readFileSync } = await import('fs')
+    return readFileSync(result.filePaths[0], 'utf-8')
+  })
+
   ipcMain.handle('speedtest:run', async (event, payload: {
     resolution: string
     framerate: number
@@ -194,6 +220,18 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('integrations:sendChatMessage', async (_e, text: string) => {
     return integrations.sendChatMessage(text)
+  })
+
+  ipcMain.handle('integrations:fetchTwitchStreamKey', async () => {
+    try {
+      const streamKey = await integrations.getTwitchStreamKey()
+      return { success: true, streamKey }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erreur'
+      }
+    }
   })
 
   ipcMain.handle('sourceProps:open', (_e, source: Source) => {

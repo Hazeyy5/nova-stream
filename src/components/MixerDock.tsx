@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import type { AudioChannelId, StreamSettings } from '../types'
 import { useAudioMeter } from '../hooks/useAudioMeter'
 import { useDesktopAudioMeter } from '../hooks/useDesktopAudioMeter'
@@ -27,16 +27,16 @@ function openChannelProperties(channel: AudioChannelId, settings: StreamSettings
   window.novaStream.audioProps.open(channel, settings)
 }
 
-function LevelMeterBars({ peak, rms }: { peak: number; rms: number }) {
+const LevelMeterBars = memo(function LevelMeterBars({ peak, rms }: { peak: number; rms: number }) {
   return (
     <div className="level-meter-stack">
       <LevelMeterRow level={peak} />
       <LevelMeterRow level={rms} />
     </div>
   )
-}
+})
 
-function LevelMeterRow({ level }: { level: number }) {
+const LevelMeterRow = memo(function LevelMeterRow({ level }: { level: number }) {
   const litCount = Math.round(level * METER_SEGMENTS)
   return (
     <div className="level-meter-row" role="meter" aria-valuenow={Math.round(level * 100)}>
@@ -53,7 +53,7 @@ function LevelMeterRow({ level }: { level: number }) {
       })}
     </div>
   )
-}
+}, (prev, next) => Math.abs(prev.level - next.level) < 0.02)
 
 function MixerChannel({
   label,

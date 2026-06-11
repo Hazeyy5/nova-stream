@@ -1,5 +1,6 @@
+import { randomUUID } from 'crypto'
 import tmi from 'tmi.js'
-import type { ChatMessage } from '../../../src/types'
+import type { ChatMessage, StreamAlert } from '../../../src/types'
 
 export class TwitchChatService {
   private client: tmi.Client | null = null
@@ -7,9 +8,22 @@ export class TwitchChatService {
   private login: string | null = null
   private ready = false
   private onMessage?: (msg: ChatMessage) => void
+  private onAlert?: (alert: StreamAlert) => void
+  private recentAlertKeys = new Set<string>()
 
   setOnMessage(callback: (msg: ChatMessage) => void): void {
     this.onMessage = callback
+  }
+
+  setOnAlert(callback: (alert: StreamAlert) => void): void {
+    this.onAlert = callback
+  }
+
+  private emitAlertOnce(key: string, alert: StreamAlert): void {
+    if (this.recentAlertKeys.has(key)) return
+    this.recentAlertKeys.add(key)
+    setTimeout(() => this.recentAlertKeys.delete(key), 8000)
+    this.onAlert?.(alert)
   }
 
   async connect(username: string, accessToken: string): Promise<void> {
@@ -48,6 +62,29 @@ export class TwitchChatService {
         color: tags.color ?? '#a970ff',
         timestamp: Date.now(),
         badges: tags.badges ? Object.keys(tags.badges) : []
+      })
+    })
+
+    this.client.on('subscription', (_channel, username, methods, message) => {
+      const plan = methods.planName ?? methods.plan ?? 'Sub'
+      this.emitAlertOnce(`sub:${username}`, {
+        id: randomUUID(),
+        type: 'sub',
+        platform: 'twitch',
+        username,
+        message: message || "s'est abonné !",
+        amount: plan
+      })
+    })
+
+    this.client.on('raided', (_channel, username, viewers) => {
+      this.emitAlertOnce(`raid:${username}:${viewers}`, {
+        id: randomUUID(),
+        type: 'raid',
+        platform: 'twitch',
+        username,
+        message: `raid avec ${viewers} viewers !`,
+        amount: String(viewers)
       })
     })
 

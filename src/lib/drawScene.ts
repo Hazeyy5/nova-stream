@@ -1,5 +1,7 @@
 import type { ChatMessage, Source, StreamAlert } from '../types'
 import { acquireBrowserSource, releaseBrowserSource } from './browserSourceManager'
+import { drawWithChromaKey } from './chromaKey'
+import { drawChatBox } from './chatBoxRenderer'
 
 export interface StreamEntry {
   sourceId: string
@@ -30,6 +32,8 @@ async function acquireDesktopCapture(captureId: string): Promise<HTMLVideoElemen
     const video = document.createElement('video')
     video.srcObject = stream
     video.muted = true
+    video.playsInline = true
+    video.disablePictureInPicture = true
     await video.play()
     return video
   } catch {
@@ -54,6 +58,7 @@ export async function acquireSourceStream(source: Source): Promise<StreamEntry> 
       const video = document.createElement('video')
       video.srcObject = stream
       video.muted = true
+      video.playsInline = true
       await video.play()
       entry.stream = stream
       entry.video = video
@@ -66,6 +71,7 @@ export async function acquireSourceStream(source: Source): Promise<StreamEntry> 
       const video = document.createElement('video')
       video.srcObject = stream
       video.muted = true
+      video.playsInline = true
       await video.play()
       entry.stream = stream
       entry.video = video
@@ -85,7 +91,7 @@ export function releaseSourceStream(sourceId: string, type: Source['type']): voi
   if (type === 'browser') releaseBrowserSource(sourceId)
 }
 
-const VIDEO_PLACEHOLDER_TYPES: Source['type'][] = ['display', 'screen', 'window', 'webcam', 'browser']
+const VIDEO_PLACEHOLDER_TYPES = new Set<Source['type']>(['display', 'screen', 'window', 'webcam', 'browser'])
 
 const BLEND_MAP: Record<NonNullable<Source['blendMode']>, GlobalCompositeOperation> = {
   normal: 'source-over',
@@ -145,12 +151,20 @@ function drawMedia(
     }
   }
 
+  const chroma = source.chromaKey?.enabled ? source.chromaKey : null
+
   ctx.save()
   ctx.globalCompositeOperation = BLEND_MAP[source.blendMode ?? 'normal']
   if (source.flipH || source.flipV) {
     ctx.translate(dx + dw / 2, dy + dh / 2)
     ctx.scale(source.flipH ? -1 : 1, source.flipV ? -1 : 1)
-    ctx.drawImage(media, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh)
+    if (chroma) {
+      drawWithChromaKey(ctx, media, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh, chroma)
+    } else {
+      ctx.drawImage(media, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh)
+    }
+  } else if (chroma) {
+    drawWithChromaKey(ctx, media, sx, sy, sw, sh, dx, dy, dw, dh, chroma)
   } else {
     ctx.drawImage(media, sx, sy, sw, sh, dx, dy, dw, dh)
   }
@@ -160,15 +174,11 @@ function drawMedia(
 export function drawScene(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  sources: Source[],
+  layers: Source[],
   streams: Map<string, StreamEntry>,
   options: DrawSceneOptions = {}
 ): void {
   const { selectedSourceId, chatMessages = [], activeAlerts = [] } = options
-
-  const layers = sources
-    .filter((s) => s.visible)
-    .sort((a, b) => a.transform.zIndex - b.transform.zIndex)
 
   ctx.fillStyle = '#0a0a10'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -179,28 +189,30 @@ export function drawScene(
     const dy = (t.y / 100) * canvas.height
     const dw = (t.width / 100) * canvas.width
     const dh = (t.height / 100) * canvas.height
+    const alpha = Math.max(0, Math.min(1, (source.opacity ?? 100) / 100))
+
+    ctx.save()
+    ctx.globalAlpha = alpha
 
     if (source.type === 'chat') {
-      drawChatBox(ctx, dx, dy, dw, dh, chatMessages)
-      continue
-    }
-
-    if (source.type === 'alert') {
+      drawChatBox(ctx, dx, dy, dw, dh, chatMessages, source)
+    } else if (source.type === 'alert') {
       drawAlertBox(ctx, dx, dy, dw, dh, activeAlerts)
-      continue
+    } else {
+      const entry = streams.get(source.id)
+
+      if (entry?.video && entry.video.readyState >= 2) {
+        drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
+      } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
+        drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
+      } else if (source.type === 'text' && source.textContent) {
+        drawTextBox(ctx, dx, dy, dw, dh, source.textContent)
+      } else if (VIDEO_PLACEHOLDER_TYPES.has(source.type)) {
+        drawPlaceholder(ctx, dx, dy, dw, dh, source.name, source.captureName)
+      }
     }
 
-    const entry = streams.get(source.id)
-
-    if (entry?.video && entry.video.readyState >= 2) {
-      drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
-    } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
-      drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
-    } else if (source.type === 'text' && source.textContent) {
-      drawTextBox(ctx, dx, dy, dw, dh, source.textContent)
-    } else if (VIDEO_PLACEHOLDER_TYPES.includes(source.type)) {
-      drawPlaceholder(ctx, dx, dy, dw, dh, source.name, source.captureName)
-    }
+    ctx.restore()
 
     if (source.id === selectedSourceId) {
       ctx.strokeStyle = '#7c3aed'
@@ -246,28 +258,6 @@ function drawPlaceholder(
     ctx.font = '11px Segoe UI, sans-serif'
     ctx.fillText(subtitle, x + w / 2, y + h / 2 + 10)
   }
-}
-
-function drawChatBox(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number,
-  messages: ChatMessage[]
-): void {
-  ctx.fillStyle = 'rgba(0,0,0,0.65)'
-  ctx.fillRect(x, y, w, h)
-  ctx.fillStyle = '#c4b5fd'
-  ctx.font = `bold ${Math.max(10, h * 0.07)}px Segoe UI, sans-serif`
-  ctx.textAlign = 'left'
-  ctx.fillText('CHAT', x + 8, y + h * 0.1)
-
-  const recent = messages.slice(-6)
-  const lineH = Math.max(12, h * 0.12)
-  ctx.font = `${Math.max(10, h * 0.065)}px Segoe UI, sans-serif`
-  recent.forEach((msg, i) => {
-    ctx.fillStyle = msg.color ?? '#ddd'
-    const text = `${msg.username}: ${msg.message}`.slice(0, 48)
-    ctx.fillText(text, x + 8, y + h * 0.22 + i * lineH)
-  })
 }
 
 function drawAlertBox(

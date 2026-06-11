@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BlendMode, ScaleMode, Source } from '../types'
+import type { BlendMode, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
+import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
 import './SourceContextMenu.css'
+
+const CHROMA_MEDIA_TYPES: SourceType[] = ['webcam', 'image', 'screen', 'window', 'browser', 'display']
+
+const DEFAULT_CHROMA: ChromaKeySettings = {
+  enabled: true,
+  color: '#00ff00',
+  similarity: 0.4,
+  smoothness: 0.12
+}
 
 export interface SourceContextMenuState {
   sourceId: string
@@ -98,6 +108,10 @@ export default function SourceContextMenu({
         { id: 'fs', label: 'Plein écran' },
         { id: 'center', label: 'Centrer' },
         { id: 'facecam', label: 'Facecam' },
+        { id: 'tl', label: 'Coin haut gauche' },
+        { id: 'tr', label: 'Coin haut droit' },
+        { id: 'bl', label: 'Coin bas gauche' },
+        { id: 'br', label: 'Coin bas droit' },
         { id: 'flip-h', label: 'Retourner horizontalement' },
         { id: 'flip-v', label: 'Retourner verticalement' }
       ]
@@ -157,8 +171,24 @@ export default function SourceContextMenu({
     {
       id: 'filters',
       label: 'Filtres',
-      disabled: true,
-      submenu: [{ id: 'none', label: 'Aucun filtre' }]
+      disabled: !CHROMA_MEDIA_TYPES.includes(source.type),
+      submenu: [
+        {
+          id: 'chroma-toggle',
+          label: source.chromaKey?.enabled ? 'Désactiver chroma key' : 'Activer chroma key',
+          checked: !!source.chromaKey?.enabled
+        },
+        {
+          id: 'chroma-green',
+          label: 'Fond vert',
+          checked: source.chromaKey?.enabled && source.chromaKey.color === '#00ff00'
+        },
+        {
+          id: 'chroma-blue',
+          label: 'Fond bleu',
+          checked: source.chromaKey?.enabled && source.chromaKey.color === '#0000ff'
+        }
+      ]
     },
     {
       id: 'properties',
@@ -166,6 +196,18 @@ export default function SourceContextMenu({
       action: () => { onProperties(); onClose() }
     }
   ]
+
+  if (source.type === 'chat') {
+    items.splice(items.length - 1, 0, {
+      id: 'chat-style',
+      label: 'Design du chat',
+      submenu: CHAT_BOX_STYLES.map((s) => ({
+        id: s.id,
+        label: s.label,
+        checked: (source.chatStyle ?? 'classic') === s.id
+      }))
+    })
+  }
 
   if (source.type === 'screen' || source.type === 'window') {
     items.splice(items.length - 1, 0, {
@@ -177,14 +219,39 @@ export default function SourceContextMenu({
 
   const handleSubmenuAction = (parentId: string, subId: string) => {
     if (parentId === 'transform') {
+      const t = source.transform
       if (subId === 'fs') setTransform({ x: 0, y: 0, width: 100, height: 100 })
       if (subId === 'center') setTransform({ x: 37.5, y: 37.5, width: 25, height: 25 })
       if (subId === 'facecam') setTransform({ x: 72, y: 68, width: 22, height: 22 })
+      if (subId === 'tl') setTransform({ ...t, x: 0, y: 0 })
+      if (subId === 'tr') setTransform({ ...t, x: 100 - t.width, y: 0 })
+      if (subId === 'bl') setTransform({ ...t, x: 0, y: 100 - t.height })
+      if (subId === 'br') setTransform({ ...t, x: 100 - t.width, y: 100 - t.height })
       if (subId === 'flip-h') onUpdate({ flipH: !source.flipH }); onClose()
       if (subId === 'flip-v') onUpdate({ flipV: !source.flipV }); onClose()
     }
     if (parentId === 'scale') setScaleMode(subId as ScaleMode)
     if (parentId === 'blend') setBlendMode(subId as BlendMode)
+    if (parentId === 'chat-style') {
+      onUpdate({ chatStyle: subId as ChatBoxStyle })
+      onClose()
+    }
+    if (parentId === 'filters') {
+      if (subId === 'chroma-toggle') {
+        onUpdate({
+          chromaKey: source.chromaKey?.enabled
+            ? { ...source.chromaKey, enabled: false }
+            : { ...(source.chromaKey ?? DEFAULT_CHROMA), enabled: true }
+        })
+      }
+      if (subId === 'chroma-green') {
+        onUpdate({ chromaKey: { ...(source.chromaKey ?? DEFAULT_CHROMA), enabled: true, color: '#00ff00' } })
+      }
+      if (subId === 'chroma-blue') {
+        onUpdate({ chromaKey: { ...(source.chromaKey ?? DEFAULT_CHROMA), enabled: true, color: '#0000ff' } })
+      }
+      onClose()
+    }
   }
 
   return (

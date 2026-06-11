@@ -8,7 +8,7 @@ const PREVIEW_H = 180
 const STATIC_PREVIEW_TYPES: Source['type'][] = ['text', 'chat', 'alert']
 
 function previewFingerprint(source: Source): string {
-  return `${source.type}|${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}|${source.textContent ?? ''}|${source.scaleMode ?? ''}|${source.blendMode ?? ''}`
+  return `${source.type}|${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}|${source.textContent ?? ''}|${source.scaleMode ?? ''}|${source.blendMode ?? ''}|${source.chatStyle ?? ''}|${source.chatMaxMessages ?? ''}`
 }
 
 function canPreview(source: Source): boolean {

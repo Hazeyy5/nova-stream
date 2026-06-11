@@ -37,6 +37,9 @@ class DesktopAudioMeterService {
   private peakHold = 0
   private peakDbHold = -60
   private lastLevel: AudioMeterLevel = SILENT
+  private lastBroadcastAt = 0
+  private pendingLevel: AudioMeterLevel | null = null
+  private broadcastTimer: ReturnType<typeof setTimeout> | null = null
 
   subscribe(sender: WebContents): void {
     this.subscribers.set(sender.id, sender)
@@ -84,12 +87,27 @@ class DesktopAudioMeterService {
       this.peakDbHold = -60
     }
 
-    this.broadcast({
+    this.pendingLevel = {
       peak: this.peakHold,
       rms,
       peakDb,
       displayDb: peak > 0 ? this.peakDbHold : rmsDb
-    })
+    }
+
+    const now = Date.now()
+    if (now - this.lastBroadcastAt >= 50) {
+      this.lastBroadcastAt = now
+      this.broadcast(this.pendingLevel)
+      return
+    }
+
+    if (!this.broadcastTimer) {
+      this.broadcastTimer = setTimeout(() => {
+        this.broadcastTimer = null
+        this.lastBroadcastAt = Date.now()
+        if (this.pendingLevel) this.broadcast(this.pendingLevel)
+      }, 50)
+    }
   }
 
   private async ensureStarted(): Promise<void> {

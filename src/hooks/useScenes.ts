@@ -72,6 +72,60 @@ export function useScenes() {
     updateScene(sceneId, (s) => ({ ...s, name }))
   }, [updateScene])
 
+  const moveScene = useCallback((sceneId: string, direction: 'up' | 'down') => {
+    const idx = scenes.findIndex((s) => s.id === sceneId)
+    if (idx < 0) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= scenes.length) return
+    const next = [...scenes]
+    ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+    persist(next)
+  }, [scenes, persist])
+
+  const exportScenes = useCallback(() => {
+    const blob = new Blob([JSON.stringify(scenes, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    anchor.href = url
+    anchor.download = `nova-stream-scenes-${stamp}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }, [scenes])
+
+  const importScenesFromJson = useCallback((json: string) => {
+    const data = JSON.parse(json) as Scene[]
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('Fichier de scènes vide ou invalide')
+    }
+    for (const scene of data) {
+      if (!scene.id || !scene.name || !Array.isArray(scene.sources)) {
+        throw new Error('Format de scène invalide')
+      }
+    }
+    persist(data)
+    setActiveSceneId(data[0].id)
+    setSelectedSourceId(null)
+  }, [persist])
+
+  const duplicateScene = useCallback((sceneId: string) => {
+    const original = scenes.find((s) => s.id === sceneId)
+    if (!original) return
+    const id = `scene-${Date.now()}`
+    const copy: Scene = {
+      id,
+      name: `${original.name} (copie)`,
+      sources: original.sources.map((src, i) => ({
+        ...src,
+        id: `src-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        transform: { ...src.transform }
+      }))
+    }
+    const next = [...scenes, copy]
+    persist(next)
+    setActiveSceneId(id)
+  }, [scenes, persist])
+
   const addSource = useCallback((type: SourceType, extra?: Partial<Source>) => {
     if (!activeScene) return
     const source = { ...createSource(type), ...extra }
@@ -151,6 +205,10 @@ export function useScenes() {
     addScene,
     removeScene,
     renameScene,
+    duplicateScene,
+    moveScene,
+    exportScenes,
+    importScenesFromJson,
     addSource,
     removeSource,
     updateSource,

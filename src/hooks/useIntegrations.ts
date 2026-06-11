@@ -98,6 +98,14 @@ export function useIntegrations() {
     return result
   }, [refreshChatStatus])
 
+  const fetchTwitchStreamKey = useCallback(async (): Promise<string | null> => {
+    const result = await window.novaStream.integrations.fetchTwitchStreamKey()
+    if (!result.success) {
+      throw new Error(result.message ?? 'Impossible de récupérer la clé')
+    }
+    return result.streamKey ?? null
+  }, [])
+
   const isConnected = (platform: 'twitch' | 'kick') =>
     connections.some((c) => c.platform === platform)
 
@@ -115,6 +123,7 @@ export function useIntegrations() {
     sendChatMessage,
     chatStatus,
     isConnected,
-    refresh
+    refresh,
+    fetchTwitchStreamKey
   }
 }

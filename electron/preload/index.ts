@@ -40,7 +40,10 @@ const api = {
     listMedia: () => ipcRenderer.invoke('devices:listMedia') as Promise<MediaDevice[]>
   },
   dialog: {
-    selectRecordingFolder: () => ipcRenderer.invoke('dialog:selectRecordingFolder') as Promise<string | null>
+    selectRecordingFolder: () => ipcRenderer.invoke('dialog:selectRecordingFolder') as Promise<string | null>,
+    saveImage: (dataUrl: string) =>
+      ipcRenderer.invoke('dialog:saveImage', dataUrl) as Promise<string | null>,
+    importScenesFile: () => ipcRenderer.invoke('dialog:importScenesFile') as Promise<string | null>
   },
   speedtest: {
     run: (resolution: string, framerate: number, audioBitrate: number) =>
@@ -83,6 +86,12 @@ const api = {
       canSend: boolean
       username?: string
     }>,
+    fetchTwitchStreamKey: () =>
+      ipcRenderer.invoke('integrations:fetchTwitchStreamKey') as Promise<{
+        success: boolean
+        streamKey?: string
+        message?: string
+      }>,
     onChatMessage: (callback: (msg: ChatMessage) => void) => {
       const handler = (_e: Electron.IpcRendererEvent, msg: ChatMessage) => callback(msg)
       ipcRenderer.on('chat:message', handler)

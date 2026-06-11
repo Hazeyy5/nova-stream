@@ -54,7 +54,7 @@ export default function IntegrationsPanel({
           connecting={connecting}
           onConnect={onConnectTwitch}
           onDisconnect={() => onDisconnect('twitch')}
-          features={['Chat Box', 'Alertes follow/sub', 'Mini flux', 'Clé de stream auto']}
+          features={['Chat Box', 'Alertes follow/sub/raid', 'EventSub temps réel', 'Clé de stream auto']}
         />
 
         <PlatformCard

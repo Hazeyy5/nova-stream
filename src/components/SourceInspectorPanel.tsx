@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { MediaDevice, Source } from '../types'
+import type { ChatBoxStyle, MediaDevice, Source } from '../types'
+import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
 import './SourceInspector.css'
 
 interface SourceInspectorPanelProps {
@@ -162,6 +163,18 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
           </label>
         </div>
 
+        <label className="inspector-field">
+          Opacité ({source.opacity ?? 100} %)
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={source.opacity ?? 100}
+            onChange={(e) => onUpdate({ opacity: Number(e.target.value) })}
+          />
+        </label>
+
         <label className="inspector-checkbox">
           <input
             type="checkbox"
@@ -181,7 +194,102 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
         </div>
       </fieldset>
 
-      {(source.type === 'chat' || source.type === 'alert') && (
+      {['webcam', 'image', 'screen', 'window', 'browser', 'display'].includes(source.type) && (
+        <fieldset className="inspector-section">
+          <legend>Chroma key</legend>
+          <label className="inspector-checkbox">
+            <input
+              type="checkbox"
+              checked={source.chromaKey?.enabled ?? false}
+              onChange={(e) =>
+                onUpdate({
+                  chromaKey: e.target.checked
+                    ? {
+                        enabled: true,
+                        color: source.chromaKey?.color ?? '#00ff00',
+                        similarity: source.chromaKey?.similarity ?? 0.4,
+                        smoothness: source.chromaKey?.smoothness ?? 0.12
+                      }
+                    : { ...(source.chromaKey ?? { color: '#00ff00', similarity: 0.4, smoothness: 0.12 }), enabled: false }
+                })
+              }
+            />
+            Activer l&apos;incrustation (fond vert/bleu)
+          </label>
+          {source.chromaKey?.enabled && (
+            <>
+              <label className="inspector-field">
+                Couleur du fond
+                <input
+                  type="color"
+                  value={source.chromaKey.color}
+                  onChange={(e) =>
+                    onUpdate({ chromaKey: { ...source.chromaKey!, color: e.target.value } })
+                  }
+                />
+              </label>
+              <label className="inspector-field">
+                Similarité ({Math.round((source.chromaKey.similarity ?? 0.4) * 100)} %)
+                <input
+                  type="range"
+                  min={0.1}
+                  max={0.9}
+                  step={0.05}
+                  value={source.chromaKey.similarity ?? 0.4}
+                  onChange={(e) =>
+                    onUpdate({ chromaKey: { ...source.chromaKey!, similarity: Number(e.target.value) } })
+                  }
+                />
+              </label>
+              <label className="inspector-field">
+                Lissage ({Math.round((source.chromaKey.smoothness ?? 0.12) * 100)} %)
+                <input
+                  type="range"
+                  min={0.02}
+                  max={0.4}
+                  step={0.02}
+                  value={source.chromaKey.smoothness ?? 0.12}
+                  onChange={(e) =>
+                    onUpdate({ chromaKey: { ...source.chromaKey!, smoothness: Number(e.target.value) } })
+                  }
+                />
+              </label>
+            </>
+          )}
+        </fieldset>
+      )}
+
+      {source.type === 'chat' && (
+        <fieldset className="inspector-section">
+          <legend>Apparence du chat</legend>
+          <label className="inspector-field">
+            Design
+            <select
+              value={source.chatStyle ?? 'classic'}
+              onChange={(e) => onUpdate({ chatStyle: e.target.value as ChatBoxStyle })}
+            >
+              {CHAT_BOX_STYLES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="inspector-field">
+            Messages affichés ({source.chatMaxMessages ?? 6})
+            <input
+              type="range"
+              min={1}
+              max={12}
+              value={source.chatMaxMessages ?? 6}
+              onChange={(e) => onUpdate({ chatMaxMessages: Number(e.target.value) })}
+            />
+          </label>
+          <p className="inspector-hint">
+            Connectez Twitch dans Apps pour alimenter ce widget en direct.
+          </p>
+        </fieldset>
+      )}
+
+      {source.type === 'alert' && (
         <p className="inspector-hint">
           Widget d&apos;intégration — connectez Twitch dans l&apos;onglet Apps pour alimenter ce widget.
         </p>

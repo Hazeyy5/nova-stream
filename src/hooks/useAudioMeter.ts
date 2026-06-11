@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { gainDbToLinear } from '../lib/audioGain'
 import { connectCenteredMono } from '../lib/monoAudio'
+import { acquireMicStream, releaseMicStream } from '../lib/micStreamPool'
 
 export interface AudioMeterReading {
   peak: number
@@ -21,48 +22,6 @@ function linearToDb(linear: number): number {
   return Math.max(-60, Math.min(0, 20 * Math.log10(linear)))
 }
 
-async function resolveDeviceId(deviceName: string): Promise<string | undefined> {
-  if (!deviceName) return undefined
-
-  try {
-    const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
-    probe.getTracks().forEach((t) => t.stop())
-  } catch {
-    return undefined
-  }
-
-  const inputs = (await navigator.mediaDevices.enumerateDevices())
-    .filter((d) => d.kind === 'audioinput')
-
-  if (inputs.length === 0) return undefined
-
-  try {
-    const nativeDevices = await window.novaStream.devices.listMedia()
-    const nativeMatch = nativeDevices.find(
-      (d) => d.type === 'audio' && d.audioRole === 'input' && d.name === deviceName
-    )
-    if (nativeMatch?.deviceId) {
-      const byId = inputs.find((d) => d.deviceId === nativeMatch.deviceId)
-      if (byId) return byId.deviceId
-    }
-  } catch {
-    /* ignore */
-  }
-
-  const exact = inputs.find((d) => d.label === deviceName)
-  if (exact) return exact.deviceId
-
-  const key = deviceName.toLowerCase()
-  const partial = inputs.find((d) => d.label.toLowerCase() === key)
-  if (partial) return partial.deviceId
-
-  const contains = inputs.find((d) => {
-    const label = d.label.toLowerCase()
-    return label.includes(key) || key.includes(label)
-  })
-  return contains?.deviceId
-}
-
 export function useAudioMeter(
   deviceName: string | undefined,
   enabled: boolean,
@@ -72,11 +31,13 @@ export function useAudioMeter(
   const [reading, setReading] = useState<AudioMeterReading>(SILENT)
   const peakHoldRef = useRef(0)
   const peakDbHoldRef = useRef(-60)
+  const readingRef = useRef<AudioMeterReading>(SILENT)
 
   useEffect(() => {
     if (!enabled || !deviceName || document.hidden) {
       peakHoldRef.current = 0
       peakDbHoldRef.current = -60
+      readingRef.current = SILENT
       setReading(SILENT)
       return
     }
@@ -84,26 +45,24 @@ export function useAudioMeter(
     let active = true
     let raf = 0
     let audioCtx: AudioContext | null = null
-    let stream: MediaStream | null = null
     let analyser: AnalyserNode | null = null
-    const timeData = new Uint8Array(2048)
+    const timeData = new Uint8Array(1024)
     let lastEmit = 0
 
     const teardown = () => {
       cancelAnimationFrame(raf)
-      stream?.getTracks().forEach((t) => t.stop())
-      stream = null
       if (audioCtx && audioCtx.state !== 'closed') {
         audioCtx.close().catch(() => {})
       }
       audioCtx = null
       analyser = null
+      if (deviceName) releaseMicStream(deviceName)
     }
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick)
       if (!active || !analyser || document.hidden) return
-      if (now - lastEmit < 32) return
+      if (now - lastEmit < 50) return
 
       analyser.getByteTimeDomainData(timeData)
 
@@ -115,50 +74,48 @@ export function useAudioMeter(
         sumSq += sample * sample
       }
       const rms = Math.sqrt(sumSq / timeData.length)
-      const gain = 1
 
       if (peak > peakHoldRef.current) {
         peakHoldRef.current = peak
-        peakDbHoldRef.current = linearToDb(peak * gain)
+        peakDbHoldRef.current = linearToDb(peak)
       } else {
         peakHoldRef.current *= 0.92
-        peakDbHoldRef.current = linearToDb(peakHoldRef.current * gain)
+        peakDbHoldRef.current = linearToDb(peakHoldRef.current)
       }
 
       lastEmit = now
-      setReading({
-        peak: Math.min(1, peakHoldRef.current * gain),
-        rms: Math.min(1, rms * gain),
-        peakDb: linearToDb(peak * gain),
+      const next: AudioMeterReading = {
+        peak: Math.min(1, peakHoldRef.current),
+        rms: Math.min(1, rms),
+        peakDb: linearToDb(peak),
         displayDb: peakDbHoldRef.current
-      })
+      }
+
+      const prev = readingRef.current
+      if (
+        Math.abs(next.peak - prev.peak) < 0.015 &&
+        Math.abs(next.displayDb - prev.displayDb) < 0.5
+      ) {
+        return
+      }
+
+      readingRef.current = next
+      setReading(next)
     }
 
     ;(async () => {
       try {
-        const deviceId = await resolveDeviceId(deviceName)
-        if (!active) return
-
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: deviceId
-            ? {
-                deviceId: { ideal: deviceId },
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-              }
-            : { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        })
-
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop())
+        const stream = await acquireMicStream(deviceName)
+        if (!active || !stream) {
+          if (stream && deviceName) releaseMicStream(deviceName)
+          if (active) setReading(SILENT)
           return
         }
 
         audioCtx = new AudioContext()
         analyser = audioCtx.createAnalyser()
-        analyser.fftSize = 2048
-        analyser.smoothingTimeConstant = 0.3
+        analyser.fftSize = 1024
+        analyser.smoothingTimeConstant = 0.5
 
         const source = audioCtx.createMediaStreamSource(stream)
         const gain = audioCtx.createGain()
@@ -183,6 +140,7 @@ export function useAudioMeter(
       if (document.hidden) {
         peakHoldRef.current = 0
         peakDbHoldRef.current = -60
+        readingRef.current = SILENT
         setReading(SILENT)
       }
     }
@@ -194,6 +152,7 @@ export function useAudioMeter(
       teardown()
       peakHoldRef.current = 0
       peakDbHoldRef.current = -60
+      readingRef.current = SILENT
       setReading(SILENT)
     }
   }, [deviceName, enabled, gainDb, micMono])

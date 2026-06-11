@@ -18,7 +18,8 @@ window.NOVA_CONFIG = {
     'chat:edit',
     'user:write:chat',
     'channel:read:subscriptions',
-    'moderator:read:followers'
+    'moderator:read:followers',
+    'channel:read:stream_key'
   ].join(' ')
 }
 `

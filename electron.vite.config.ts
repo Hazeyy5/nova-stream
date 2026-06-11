@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['native-audio-node'] })],
+    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
+        external: ['native-audio-node'],
         input: {
           index: resolve(__dirname, 'electron/main/index.ts')
         }

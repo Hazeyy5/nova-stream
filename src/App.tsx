@@ -36,6 +36,7 @@ import { useSceneMedia } from './hooks/useSceneMedia'
 
 import { useSceneCapture } from './hooks/useSceneCapture'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useSceneTransition } from './hooks/useSceneTransition'
 
 import type { AppView, MediaState, StreamSettings } from './types'
 
@@ -276,6 +277,30 @@ function App() {
 
       await integrations.connectTwitch()
 
+      try {
+
+        const key = await integrations.fetchTwitchStreamKey()
+
+        if (key) {
+
+          setSettings((s) => ({
+
+            ...s,
+
+            streamKey: key,
+
+            rtmpUrl: 'rtmp://live.twitch.tv/app'
+
+          }))
+
+        }
+
+      } catch {
+
+        /* clé optionnelle — récupérable dans Paramètres */
+
+      }
+
     } catch (err) {
 
       alert(err instanceof Error ? err.message : 'Connexion échouée')
@@ -292,14 +317,41 @@ function App() {
 
   const handleFps = useCallback((fps: number) => setPreviewFps(fps), [])
 
+  const { switchScene, fadeOpacity } = useSceneTransition(
+    settings.transition,
+    settings.transitionDuration,
+    scenes.setActiveSceneId
+  )
+
+  const handleSceneSelect = useCallback(
+    (sceneId: string) => switchScene(sceneId, scenes.activeSceneId),
+    [switchScene, scenes.activeSceneId]
+  )
+
+  const handleImportScenes = useCallback(async () => {
+    try {
+      const json = await window.novaStream.dialog.importScenesFile()
+      if (json) scenes.importScenesFromJson(json)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Import échoué')
+    }
+  }, [scenes])
+
+  const canStream = settings.streamKey.trim().length > 0
+
   const shortcutHandlers = useMemo(() => ({
     onSceneHotkey: (index: number) => {
       const scene = scenes.scenes[index]
-      if (scene) scenes.setActiveSceneId(scene.id)
+      if (scene) handleSceneSelect(scene.id)
     },
     onToggleRecord: () => {
       if (isMediaActive) stopAll()
       else startMedia(false, true)
+    },
+    onToggleStream: () => {
+      if (!canStream) return
+      if (isLive) stopAll()
+      else if (!isMediaActive) startMedia(true, settings.recordingEnabled)
     },
     onDeleteSource: () => {
       if (scenes.selectedSourceId) scenes.removeSource(scenes.selectedSourceId)
@@ -307,7 +359,7 @@ function App() {
     onDuplicateSource: () => {
       if (scenes.selectedSourceId) scenes.duplicateSource(scenes.selectedSourceId)
     }
-  }), [scenes, isMediaActive, stopAll, startMedia])
+  }), [scenes, isMediaActive, stopAll, startMedia, handleSceneSelect, canStream, isLive, settings.recordingEnabled])
 
   useKeyboardShortcuts(shortcutHandlers, view === 'editor')
 
@@ -328,6 +380,22 @@ function App() {
         hasConnection={integrations.connections.length > 0}
 
         bitrate={settings.videoBitrate}
+
+        onAddWidget={() => {
+
+          setView('editor')
+
+          scenes.addSource('chat')
+
+        }}
+
+        onAddAlert={() => {
+
+          setView('editor')
+
+          scenes.addSource('alert')
+
+        }}
 
       />
 
@@ -377,6 +445,8 @@ function App() {
                     targetFps={settings.framerate}
                     onFps={handleFps}
                     onFrameDrawn={sceneCapture.onFrameDrawn}
+                    fadeOpacity={fadeOpacity}
+                    captureActive={isMediaActive}
                   />
 
                 </div>
@@ -395,13 +465,21 @@ function App() {
 
                       activeSceneId={scenes.activeSceneId}
 
-                      onSceneSelect={scenes.setActiveSceneId}
+                      onSceneSelect={handleSceneSelect}
 
                       onAddScene={scenes.addScene}
 
                       onRemoveScene={scenes.removeScene}
 
                       onRenameScene={scenes.renameScene}
+
+                      onDuplicateScene={scenes.duplicateScene}
+
+                      onMoveScene={scenes.moveScene}
+
+                      onExportScenes={scenes.exportScenes}
+
+                      onImportScenes={handleImportScenes}
 
                     />
 
@@ -559,6 +637,10 @@ function App() {
           onSave={(s) => { setSettings(s); setShowSettings(false) }}
 
           onClose={() => setShowSettings(false)}
+
+          twitchConnected={integrations.isConnected('twitch')}
+
+          onFetchTwitchStreamKey={integrations.fetchTwitchStreamKey}
 
         />
 

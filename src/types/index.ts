@@ -2,6 +2,7 @@ export type VideoEncoder = 'x264' | 'nvenc'
 export type TransitionType = 'cut' | 'fade'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
+export type ChatBoxStyle = 'classic' | 'minimal' | 'neon' | 'bubble' | 'retro'
 export type SourceType = 'display' | 'screen' | 'window' | 'browser' | 'webcam' | 'image' | 'text' | 'chat' | 'alert'
 export type PlatformId = 'twitch' | 'kick'
 export type AppView = 'editor' | 'integrations'
@@ -66,6 +67,13 @@ export interface SourceTransform {
   zIndex: number
 }
 
+export interface ChromaKeySettings {
+  enabled: boolean
+  color: string
+  similarity: number
+  smoothness: number
+}
+
 export interface Source {
   id: string
   name: string
@@ -84,6 +92,12 @@ export interface Source {
   blendMode?: BlendMode
   flipH?: boolean
   flipV?: boolean
+  chromaKey?: ChromaKeySettings
+  /** Opacité 0–100 (défaut 100). */
+  opacity?: number
+  chatStyle?: ChatBoxStyle
+  /** Nombre de messages affichés dans la chat box (1–12). */
+  chatMaxMessages?: number
 }
 
 export interface Scene {
@@ -224,6 +238,9 @@ export function createSource(type: SourceType, name?: string): Source {
     blendMode: 'normal',
     flipH: false,
     flipV: false,
+    opacity: 100,
+    chatStyle: type === 'chat' ? 'classic' : undefined,
+    chatMaxMessages: type === 'chat' ? 6 : undefined,
     textContent: type === 'text' ? 'Bienvenue sur le stream !' : undefined
   }
 }

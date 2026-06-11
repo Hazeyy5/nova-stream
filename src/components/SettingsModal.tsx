@@ -6,6 +6,8 @@ interface SettingsModalProps {
   settings: StreamSettings
   onSave: (settings: StreamSettings) => void
   onClose: () => void
+  twitchConnected?: boolean
+  onFetchTwitchStreamKey?: () => Promise<string | null>
 }
 
 const PLATFORMS = [
@@ -27,9 +29,16 @@ const QUALITY_LABELS: Record<SpeedtestResult['quality'], string> = {
   poor: 'Insuffisante'
 }
 
-export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
+export default function SettingsModal({
+  settings,
+  onSave,
+  onClose,
+  twitchConnected = false,
+  onFetchTwitchStreamKey
+}: SettingsModalProps) {
   const [form, setForm] = useState<StreamSettings>({ ...settings })
   const [tab, setTab] = useState<Tab>('Stream')
+  const [fetchingKey, setFetchingKey] = useState(false)
   const [devices, setDevices] = useState<MediaDevice[]>([])
   const [devicesLoading, setDevicesLoading] = useState(true)
   const [speedtestRunning, setSpeedtestRunning] = useState(false)
@@ -147,13 +156,40 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               </label>
               <label className="settings-field">
                 Clé de stream
-                <input
-                  type="password"
-                  value={form.streamKey}
-                  onChange={(e) => update({ streamKey: e.target.value })}
-                  placeholder="Clé secrète"
-                />
+                <div className="settings-inline-row">
+                  <input
+                    type="password"
+                    value={form.streamKey}
+                    onChange={(e) => update({ streamKey: e.target.value })}
+                    placeholder="Clé secrète"
+                  />
+                  {twitchConnected && onFetchTwitchStreamKey && (
+                    <button
+                      type="button"
+                      className="settings-inline-btn"
+                      disabled={fetchingKey}
+                      onClick={async () => {
+                        setFetchingKey(true)
+                        try {
+                          const key = await onFetchTwitchStreamKey()
+                          if (key) update({ streamKey: key, rtmpUrl: 'rtmp://live.twitch.tv/app' })
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : 'Erreur')
+                        } finally {
+                          setFetchingKey(false)
+                        }
+                      }}
+                    >
+                      {fetchingKey ? '…' : 'Twitch'}
+                    </button>
+                  )}
+                </div>
               </label>
+              {twitchConnected && (
+                <p className="settings-hint">
+                  Connecté à Twitch — récupérez automatiquement votre clé de stream.
+                </p>
+              )}
             </>
           )}
 
