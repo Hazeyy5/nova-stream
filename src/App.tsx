@@ -23,6 +23,7 @@ import ControlsDock from './components/ControlsDock'
 import StatusBar from './components/StatusBar'
 
 import SettingsModal from './components/SettingsModal'
+import GoLiveModal from './components/GoLiveModal'
 
 import IntegrationsPanel from './components/IntegrationsPanel'
 
@@ -91,6 +92,7 @@ function App() {
   })
 
   const [showSettings, setShowSettings] = useState(false)
+  const [showGoLive, setShowGoLive] = useState(false)
 
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('nova-welcome-seen'))
 
@@ -342,6 +344,31 @@ function App() {
 
   const canStream = settings.streamKey.trim().length > 0
 
+  const requestGoLive = useCallback(() => {
+    if (!canStream || isMediaActive) return
+    setShowGoLive(true)
+  }, [canStream, isMediaActive])
+
+  const handleGoLiveConfirm = useCallback(async (payload: {
+    title: string
+    categoryId: string
+    categoryName: string
+  }) => {
+    setSettings((s) => ({
+      ...s,
+      streamTitle: payload.title,
+      streamCategoryId: payload.categoryId,
+      streamCategoryName: payload.categoryName
+    }))
+
+    if (twitchConnected && payload.categoryId) {
+      await integrations.updateTwitchChannelInfo(payload.title, payload.categoryId)
+    }
+
+    setShowGoLive(false)
+    await startMedia(true, settings.recordingEnabled)
+  }, [twitchConnected, integrations, startMedia, settings.recordingEnabled])
+
   const shortcutHandlers = useMemo(() => ({
     onSceneHotkey: (index: number) => {
       const scene = scenes.scenes[index]
@@ -354,7 +381,7 @@ function App() {
     onToggleStream: () => {
       if (!canStream) return
       if (isLive) stopAll()
-      else if (!isMediaActive) startMedia(true, settings.recordingEnabled)
+      else if (!isMediaActive) requestGoLive()
     },
     onDeleteSource: () => {
       if (scenes.selectedSourceId) scenes.removeSource(scenes.selectedSourceId)
@@ -362,7 +389,7 @@ function App() {
     onDuplicateSource: () => {
       if (scenes.selectedSourceId) scenes.duplicateSource(scenes.selectedSourceId)
     }
-  }), [scenes, isMediaActive, stopAll, startMedia, handleSceneSelect, canStream, isLive, settings.recordingEnabled])
+  }), [scenes, isMediaActive, stopAll, startMedia, handleSceneSelect, canStream, isLive, requestGoLive])
 
   useKeyboardShortcuts(shortcutHandlers, view === 'editor')
 
@@ -531,7 +558,7 @@ function App() {
 
                       settings={settings}
 
-                      onGoLive={() => startMedia(true, settings.recordingEnabled)}
+                      onGoLive={requestGoLive}
 
                       onStartRecord={() => startMedia(false, true)}
 
@@ -629,6 +656,16 @@ function App() {
       )}
 
 
+
+      {showGoLive && (
+        <GoLiveModal
+          settings={settings}
+          twitchConnected={twitchConnected}
+          recordAlso={settings.recordingEnabled}
+          onClose={() => setShowGoLive(false)}
+          onConfirm={handleGoLiveConfirm}
+        />
+      )}
 
       {showSettings && (
 

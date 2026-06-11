@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData } from '../types'
+import type {
+  ChatMessage,
+  FeedEvent,
+  PlatformConnectionPublic,
+  StreamAlert,
+  TwitchCategory,
+  TwitchChannelInfo,
+  WidgetLiveData
+} from '../types'
 import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
 import { filterActivityEvents } from '../lib/feedEvents'
 
@@ -113,6 +121,29 @@ export function useIntegrations() {
     return result.streamKey ?? null
   }, [])
 
+  const getTwitchChannelInfo = useCallback(async (): Promise<TwitchChannelInfo | null> => {
+    const result = await window.novaStream.integrations.getTwitchChannelInfo()
+    if (!result.success) {
+      throw new Error(result.message ?? 'Impossible de lire la chaîne Twitch')
+    }
+    return result.info ?? null
+  }, [])
+
+  const searchTwitchCategories = useCallback(async (query: string): Promise<TwitchCategory[]> => {
+    const result = await window.novaStream.integrations.searchTwitchCategories(query)
+    if (!result.success) {
+      throw new Error(result.message ?? 'Recherche échouée')
+    }
+    return result.categories ?? []
+  }, [])
+
+  const updateTwitchChannelInfo = useCallback(async (title: string, categoryId: string): Promise<void> => {
+    const result = await window.novaStream.integrations.updateTwitchChannelInfo({ title, categoryId })
+    if (!result.success) {
+      throw new Error(result.message ?? 'Mise à jour Twitch échouée')
+    }
+  }, [])
+
   const isConnected = (platform: 'twitch' | 'kick') =>
     connections.some((c) => c.platform === platform)
 
@@ -132,6 +163,9 @@ export function useIntegrations() {
     chatStatus,
     isConnected,
     refresh,
-    fetchTwitchStreamKey
+    fetchTwitchStreamKey,
+    getTwitchChannelInfo,
+    searchTwitchCategories,
+    updateTwitchChannelInfo
   }
 }

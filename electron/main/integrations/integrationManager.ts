@@ -4,6 +4,11 @@ import { getPublicConnections, getToken, removeConnection, saveConnection } from
 import { TwitchChatService } from './twitchChat'
 import { sendTwitchChatViaHelix } from './twitchChatSend'
 import { fetchTwitchStreamKey } from './twitchStreamKey'
+import {
+  getTwitchChannelInfo,
+  searchTwitchCategories,
+  updateTwitchChannelInfo
+} from './twitchChannel'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
@@ -259,6 +264,18 @@ export class IntegrationManager {
 
   async getTwitchStreamKey(): Promise<string> {
     return fetchTwitchStreamKey()
+  }
+
+  async getTwitchChannelInfo() {
+    return getTwitchChannelInfo()
+  }
+
+  async searchTwitchCategories(query: string) {
+    return searchTwitchCategories(query)
+  }
+
+  async updateTwitchChannelInfo(title: string, categoryId: string) {
+    return updateTwitchChannelInfo(title, categoryId)
   }
 
   async sendChatMessage(text: string): Promise<{ success: boolean; message?: string }> {

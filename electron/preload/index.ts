@@ -12,7 +12,9 @@ import type {
   SpeedtestResult,
   CaptureSourceOption,
   Source,
-  WidgetLiveData
+  WidgetLiveData,
+  TwitchCategory,
+  TwitchChannelInfo
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
 
@@ -97,6 +99,23 @@ const api = {
       ipcRenderer.invoke('integrations:fetchTwitchStreamKey') as Promise<{
         success: boolean
         streamKey?: string
+        message?: string
+      }>,
+    getTwitchChannelInfo: () =>
+      ipcRenderer.invoke('integrations:getTwitchChannelInfo') as Promise<{
+        success: boolean
+        info?: TwitchChannelInfo
+        message?: string
+      }>,
+    searchTwitchCategories: (query: string) =>
+      ipcRenderer.invoke('integrations:searchTwitchCategories', query) as Promise<{
+        success: boolean
+        categories?: TwitchCategory[]
+        message?: string
+      }>,
+    updateTwitchChannelInfo: (payload: { title: string; categoryId: string }) =>
+      ipcRenderer.invoke('integrations:updateTwitchChannelInfo', payload) as Promise<{
+        success: boolean
         message?: string
       }>,
     onChatMessage: (callback: (msg: ChatMessage) => void) => {

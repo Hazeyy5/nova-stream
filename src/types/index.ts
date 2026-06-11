@@ -143,9 +143,25 @@ export interface Scene {
   sources: Source[]
 }
 
+export interface TwitchCategory {
+  id: string
+  name: string
+  boxArtUrl?: string
+}
+
+export interface TwitchChannelInfo {
+  title: string
+  categoryId: string
+  categoryName: string
+}
+
 export interface StreamSettings {
   rtmpUrl: string
   streamKey: string
+  /** Titre du live Twitch (appliqué avant le démarrage). */
+  streamTitle: string
+  streamCategoryId: string
+  streamCategoryName: string
   resolution: string
   framerate: number
   videoBitrate: number
@@ -308,6 +324,9 @@ export function createSource(type: SourceType, name?: string): Source {
 export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   rtmpUrl: 'rtmp://live.twitch.tv/app',
   streamKey: '',
+  streamTitle: '',
+  streamCategoryId: '',
+  streamCategoryName: '',
   resolution: '1920x1080',
   framerate: 30,
   videoBitrate: 4500,

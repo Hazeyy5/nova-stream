@@ -273,6 +273,45 @@ app.whenReady().then(async () => {
     }
   })
 
+  ipcMain.handle('integrations:getTwitchChannelInfo', async () => {
+    try {
+      const info = await integrations.getTwitchChannelInfo()
+      return { success: true, info }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erreur'
+      }
+    }
+  })
+
+  ipcMain.handle('integrations:searchTwitchCategories', async (_e, query: string) => {
+    try {
+      const categories = await integrations.searchTwitchCategories(query)
+      return { success: true, categories }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erreur'
+      }
+    }
+  })
+
+  ipcMain.handle('integrations:updateTwitchChannelInfo', async (_e, payload: {
+    title: string
+    categoryId: string
+  }) => {
+    try {
+      await integrations.updateTwitchChannelInfo(payload.title, payload.categoryId)
+      return { success: true }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erreur'
+      }
+    }
+  })
+
   ipcMain.handle('sourceProps:open', (_e, source: Source) => {
     openSourcePropertiesWindow(source)
   })
