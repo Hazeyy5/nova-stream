@@ -12,17 +12,19 @@ export function sceneNeedsMotionFps(layers: Source[]): boolean {
   return layers.some((s) => MOTION_TYPES.has(s.type))
 }
 
-export function sceneNeedsWidgetFps(layers: Source[]): boolean {
-  return layers.some((s) => s.type === 'chat' || s.type === 'alert')
+export function sceneHasActiveAlerts(alerts: { shownAt?: number }[]): boolean {
+  return alerts.length > 0
 }
 
 export function resolvePreviewFps(
   layers: Source[],
   targetFps: number,
-  captureActive: boolean
+  captureActive: boolean,
+  activeAlerts: { shownAt?: number }[] = []
 ): number {
   if (captureActive) return targetFps
+  if (sceneHasActiveAlerts(activeAlerts)) return Math.min(targetFps, 30)
+  if (layers.length === 0) return 10
   if (sceneNeedsMotionFps(layers)) return Math.min(targetFps, 30)
-  if (sceneNeedsWidgetFps(layers)) return 15
-  return 8
+  return Math.min(targetFps, 24)
 }

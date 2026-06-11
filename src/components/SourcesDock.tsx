@@ -41,7 +41,11 @@ const SOURCE_GROUPS: {
     title: 'Widgets',
     items: [
       { type: 'chat', label: 'Chat Box', emoji: '💬' },
-      { type: 'alert', label: 'Alert Box', emoji: '🔔' }
+      { type: 'alert', label: 'Alert Box', emoji: '🔔' },
+      { type: 'followerGoal', label: 'Objectif followers', emoji: '🎯' },
+      { type: 'subGoal', label: 'Objectif abonnés', emoji: '⭐' },
+      { type: 'viewerCount', label: 'Spectateurs', emoji: '👁' },
+      { type: 'poll', label: 'Sondage', emoji: '📊' }
     ]
   },
   {
@@ -287,7 +291,8 @@ export default function SourcesDock(props: SourcesDockProps) {
 
 function SourceIcon({ type }: { type: SourceType }) {
   const emojis: Partial<Record<SourceType, string>> = {
-    chat: '💬', alert: '🔔', browser: '🌐', window: '🪟'
+    chat: '💬', alert: '🔔', browser: '🌐', window: '🪟',
+    followerGoal: '🎯', subGoal: '⭐', viewerCount: '👁', poll: '📊'
   }
   if (emojis[type]) return <span className="source-icon-wrap">{emojis[type]}</span>
   const map = { display: IconDisplay, screen: IconDisplay, webcam: IconCamera, image: IconImage, text: IconText }

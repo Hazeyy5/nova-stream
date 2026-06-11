@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, type RefObject } from 'react'
-import type { ChatMessage, Source, StreamAlert } from '../types'
+import type { ChatMessage, Source, StreamAlert, WidgetLiveData } from '../types'
+import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
 import { drawScene, type StreamEntry } from '../lib/drawScene'
 import { resolvePreviewFps, sortVisibleLayers } from '../lib/previewLayers'
 
@@ -9,6 +10,7 @@ interface PreviewState {
   chatMessages: ChatMessage[]
   activeAlerts: StreamAlert[]
   chatSlice: ChatMessage[]
+  widgetLiveData: WidgetLiveData
 }
 
 interface PreviewLoopOptions {
@@ -28,7 +30,8 @@ export function usePreviewLoop(
     selectedSourceId: null,
     chatMessages: [],
     activeAlerts: [],
-    chatSlice: []
+    chatSlice: [],
+    widgetLiveData: DEFAULT_WIDGET_LIVE_DATA
   })
 
   const captureActiveRef = useRef(options.captureActive ?? false)
@@ -39,6 +42,7 @@ export function usePreviewLoop(
     selectedSourceId?: string | null
     chatMessages?: ChatMessage[]
     activeAlerts?: StreamAlert[]
+    widgetLiveData?: WidgetLiveData
   }) => {
     const state = stateRef.current
     if (partial.sources) {
@@ -54,6 +58,9 @@ export function usePreviewLoop(
     if (partial.activeAlerts) {
       state.activeAlerts = partial.activeAlerts
     }
+    if (partial.widgetLiveData) {
+      state.widgetLiveData = partial.widgetLiveData
+    }
   }, [])
 
   const onFpsRef = useRef(onFps)
@@ -67,13 +74,12 @@ export function usePreviewLoop(
 
     const ctx = canvas.getContext('2d', {
       alpha: false,
-      desynchronized: true,
       willReadFrequently: false
     })
     if (!ctx) return
 
     ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'low'
+    ctx.imageSmoothingQuality = 'high'
 
     let raf = 0
     let lastDraw = 0
@@ -86,16 +92,22 @@ export function usePreviewLoop(
       if (document.hidden) return
 
       const state = stateRef.current
-      const fps = resolvePreviewFps(state.layers, targetFps, captureActiveRef.current)
+      const fps = resolvePreviewFps(
+        state.layers,
+        targetFps,
+        captureActiveRef.current,
+        state.activeAlerts
+      )
       const frameInterval = 1000 / fps
 
       if (now - lastDraw < frameInterval) return
 
       lastDraw = now
       drawScene(ctx, canvas, state.layers, streamsRef.current!, {
-        selectedSourceId: state.selectedSourceId,
         chatMessages: state.chatSlice,
-        activeAlerts: state.activeAlerts
+        activeAlerts: state.activeAlerts,
+        frameTime: Date.now(),
+        widgetLiveData: state.widgetLiveData
       })
 
       onFrameDrawnRef.current?.()

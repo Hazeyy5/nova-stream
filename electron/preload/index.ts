@@ -11,7 +11,8 @@ import type {
   AlertType,
   SpeedtestResult,
   CaptureSourceOption,
-  Source
+  Source,
+  WidgetLiveData
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
 
@@ -43,7 +44,10 @@ const api = {
     selectRecordingFolder: () => ipcRenderer.invoke('dialog:selectRecordingFolder') as Promise<string | null>,
     saveImage: (dataUrl: string) =>
       ipcRenderer.invoke('dialog:saveImage', dataUrl) as Promise<string | null>,
-    importScenesFile: () => ipcRenderer.invoke('dialog:importScenesFile') as Promise<string | null>
+    importScenesFile: () => ipcRenderer.invoke('dialog:importScenesFile') as Promise<string | null>,
+    selectImageFile: () => ipcRenderer.invoke('dialog:selectImageFile') as Promise<string | null>,
+    readImageFile: (filePath: string) =>
+      ipcRenderer.invoke('dialog:readImageFile', filePath) as Promise<string | null>
   },
   speedtest: {
     run: (resolution: string, framerate: number, audioBitrate: number) =>
@@ -77,6 +81,7 @@ const api = {
     getFeed: () => ipcRenderer.invoke('integrations:getFeed') as Promise<FeedEvent[]>,
     clearFeed: () => ipcRenderer.invoke('integrations:clearFeed') as Promise<{ success: boolean }>,
     getAlerts: () => ipcRenderer.invoke('integrations:getAlerts') as Promise<StreamAlert[]>,
+    getWidgetLiveData: () => ipcRenderer.invoke('integrations:getWidgetLiveData') as Promise<WidgetLiveData>,
     testAlert: (type?: AlertType) => ipcRenderer.invoke('integrations:testAlert', type),
     sendChatMessage: (text: string) =>
       ipcRenderer.invoke('integrations:sendChatMessage', text) as Promise<{ success: boolean; message?: string }>,
@@ -116,6 +121,11 @@ const api = {
       const handler = (_e: Electron.IpcRendererEvent, id: string) => callback(id)
       ipcRenderer.on('alert:dismiss', handler)
       return () => ipcRenderer.removeListener('alert:dismiss', handler)
+    },
+    onWidgetStats: (callback: (data: WidgetLiveData) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, data: WidgetLiveData) => callback(data)
+      ipcRenderer.on('widget:stats', handler)
+      return () => ipcRenderer.removeListener('widget:stats', handler)
     },
     onUpdated: (callback: (connections: PlatformConnectionPublic[]) => void) => {
       const handler = (_e: Electron.IpcRendererEvent, conns: PlatformConnectionPublic[]) => callback(conns)

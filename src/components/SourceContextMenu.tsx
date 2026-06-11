@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BlendMode, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
+import type { AlertAnimation, AlertBoxStyle, BlendMode, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
+import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
+import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
 import './SourceContextMenu.css'
 
@@ -209,6 +211,27 @@ export default function SourceContextMenu({
     })
   }
 
+  if (source.type === 'alert') {
+    items.splice(items.length - 1, 0, {
+      id: 'alert-style',
+      label: 'Design des alertes',
+      submenu: ALERT_BOX_STYLES.map((s) => ({
+        id: s.id,
+        label: s.label,
+        checked: (source.alertStyle ?? 'classic') === s.id
+      }))
+    })
+    items.splice(items.length - 1, 0, {
+      id: 'alert-animation',
+      label: 'Animation des alertes',
+      submenu: ALERT_ANIMATIONS.map((s) => ({
+        id: s.id,
+        label: s.label,
+        checked: (source.alertAnimation ?? 'pop') === s.id
+      }))
+    })
+  }
+
   if (source.type === 'screen' || source.type === 'window') {
     items.splice(items.length - 1, 0, {
       id: 'recapture',
@@ -234,6 +257,14 @@ export default function SourceContextMenu({
     if (parentId === 'blend') setBlendMode(subId as BlendMode)
     if (parentId === 'chat-style') {
       onUpdate({ chatStyle: subId as ChatBoxStyle })
+      onClose()
+    }
+    if (parentId === 'alert-style') {
+      onUpdate({ alertStyle: subId as AlertBoxStyle })
+      onClose()
+    }
+    if (parentId === 'alert-animation') {
+      onUpdate({ alertAnimation: subId as AlertAnimation })
       onClose()
     }
     if (parentId === 'filters') {

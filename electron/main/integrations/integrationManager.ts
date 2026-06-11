@@ -7,7 +7,8 @@ import { fetchTwitchStreamKey } from './twitchStreamKey'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
-import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert } from '../../../src/types'
+import { fetchTwitchWidgetStats } from './twitchWidgetStats'
+import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
@@ -17,6 +18,13 @@ export class IntegrationManager {
   private feedEvents: FeedEvent[] = []
   private activeAlerts: StreamAlert[] = []
   private chatAccessToken: string | null = null
+  private widgetLiveData: WidgetLiveData = {
+    viewerCount: 0,
+    followerCount: 0,
+    subCount: 0,
+    live: false
+  }
+  private widgetStatsTimer: ReturnType<typeof setInterval> | null = null
 
   constructor() {
     this.chat.setOnMessage((msg) => {
@@ -30,7 +38,8 @@ export class IntegrationManager {
   }
 
   private showAlert(alert: StreamAlert): void {
-    this.activeAlerts = [...this.activeAlerts, alert]
+    const stamped = { ...alert, shownAt: alert.shownAt ?? Date.now() }
+    this.activeAlerts = [...this.activeAlerts, stamped]
     const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
     const feedType = alert.type === 'follow' || alert.type === 'sub' ? alert.type : 'alert'
     const labels = {
@@ -47,10 +56,10 @@ export class IntegrationManager {
       text: labels[alert.type],
       timestamp: Date.now()
     })
-    this.broadcast('alert:show', alert)
+    this.broadcast('alert:show', stamped)
     setTimeout(() => {
-      this.activeAlerts = this.activeAlerts.filter((a) => a.id !== alert.id)
-      this.broadcast('alert:dismiss', alert.id)
+      this.activeAlerts = this.activeAlerts.filter((a) => a.id !== stamped.id)
+      this.broadcast('alert:dismiss', stamped.id)
     }, 5000)
   }
 
@@ -168,6 +177,7 @@ export class IntegrationManager {
       connectedAt: conn.connectedAt
     }
     this.broadcast('integrations:updated', this.getConnections())
+    this.startWidgetStatsPolling()
     return pub
   }
 
@@ -176,6 +186,9 @@ export class IntegrationManager {
       await this.chat.disconnect()
       await this.eventSub.stop()
       this.chatAccessToken = null
+      this.stopWidgetStatsPolling()
+      this.widgetLiveData = { viewerCount: 0, followerCount: 0, subCount: 0, live: false }
+      this.broadcast('widget:stats', this.widgetLiveData)
     }
     removeConnection(platform)
     const hasConnection = getPublicConnections().length > 0
@@ -191,6 +204,7 @@ export class IntegrationManager {
         await this.chat.connect(twitch.username, twitch.accessToken)
         this.chatAccessToken = twitch.accessToken
         void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
+        this.startWidgetStatsPolling()
       } catch { /* token expired */ }
     }
     const hasConnection = getPublicConnections().length > 0
@@ -212,6 +226,31 @@ export class IntegrationManager {
 
   getActiveAlerts(): StreamAlert[] {
     return this.activeAlerts
+  }
+
+  getWidgetLiveData(): WidgetLiveData {
+    return { ...this.widgetLiveData }
+  }
+
+  private stopWidgetStatsPolling(): void {
+    if (this.widgetStatsTimer) {
+      clearInterval(this.widgetStatsTimer)
+      this.widgetStatsTimer = null
+    }
+  }
+
+  private async refreshWidgetStats(): Promise<void> {
+    const stats = await fetchTwitchWidgetStats()
+    this.widgetLiveData = stats
+    this.broadcast('widget:stats', stats)
+  }
+
+  private startWidgetStatsPolling(): void {
+    this.stopWidgetStatsPolling()
+    void this.refreshWidgetStats()
+    this.widgetStatsTimer = setInterval(() => {
+      void this.refreshWidgetStats()
+    }, 30_000)
   }
 
   testAlert(type?: StreamAlert['type']): void {

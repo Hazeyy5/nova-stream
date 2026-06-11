@@ -1,21 +1,25 @@
 import { useEffect, useRef } from 'react'
 import type { Source } from '../types'
+import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
+import { isCanvasWidget } from '../lib/widgetTypes'
 import { acquireSourceStream, drawScene, releaseSourceStream, type StreamEntry } from '../lib/drawScene'
 
 const PREVIEW_W = 320
 const PREVIEW_H = 180
 
-const STATIC_PREVIEW_TYPES: Source['type'][] = ['text', 'chat', 'alert']
+const STATIC_PREVIEW_TYPES: Source['type'][] = [
+  'text', 'chat', 'alert', 'followerGoal', 'subGoal', 'viewerCount', 'poll'
+]
 
 function previewFingerprint(source: Source): string {
-  return `${source.type}|${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}|${source.textContent ?? ''}|${source.scaleMode ?? ''}|${source.blendMode ?? ''}|${source.chatStyle ?? ''}|${source.chatMaxMessages ?? ''}`
+  return `${source.type}|${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}|${source.imageLocalPath ?? ''}|${source.textContent ?? ''}|${source.scaleMode ?? ''}|${source.blendMode ?? ''}|${source.chatStyle ?? ''}|${source.chatMaxMessages ?? ''}|${source.alertStyle ?? ''}|${source.goalStyle ?? ''}|${source.pollQuestion ?? ''}|${(source.pollOptions ?? []).join('|')}`
 }
 
 function canPreview(source: Source): boolean {
   if (source.type === 'text') return !!source.textContent
-  if (source.type === 'chat' || source.type === 'alert') return true
+  if (isCanvasWidget(source.type)) return true
   if (source.type === 'screen' || source.type === 'window') return !!source.captureId
-  if (source.type === 'image') return !!source.imageUrl
+  if (source.type === 'image') return !!(source.imageUrl || source.imageLocalPath)
   if (source.type === 'browser') return !!source.browserUrl
   return source.type === 'display' || source.type === 'webcam'
 }
@@ -61,8 +65,22 @@ export function useSourcePreview(source: Source) {
           ? [{ id: '1', platform: 'twitch', username: 'Viewer', message: 'Salut !', timestamp: Date.now() }]
           : [],
         activeAlerts: source.type === 'alert'
-          ? [{ id: '1', type: 'follow', username: 'NouveauViewer', message: 'vient de suivre !' }]
-          : []
+          ? [{
+              id: '1',
+              type: 'follow',
+              username: 'NouveauViewer',
+              message: 'vient de suivre !',
+              shownAt: Math.floor(Date.now() / 5000) * 5000
+            }]
+          : [],
+        frameTime: Date.now(),
+        widgetLiveData: {
+          ...DEFAULT_WIDGET_LIVE_DATA,
+          followerCount: 842,
+          viewerCount: 127,
+          subCount: 48,
+          live: true
+        }
       })
       raf = requestAnimationFrame(drawFrame)
     }

@@ -14,14 +14,7 @@ const ALERT_META: Record<StreamAlert['type'], { icon: string; label: string; col
 
 export default function AlertOverlay({ alerts }: AlertOverlayProps) {
   const alert = alerts[alerts.length - 1]
-  if (!alert) {
-    return (
-      <div className="alert-overlay alert-idle">
-        <span>🔔</span>
-        <span>Alert Box</span>
-      </div>
-    )
-  }
+  if (!alert) return null
 
   const meta = ALERT_META[alert.type]
 

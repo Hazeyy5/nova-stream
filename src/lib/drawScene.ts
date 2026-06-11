@@ -1,7 +1,37 @@
-import type { ChatMessage, Source, StreamAlert } from '../types'
+import type { ChatMessage, Source, StreamAlert, WidgetLiveData } from '../types'
 import { acquireBrowserSource, releaseBrowserSource } from './browserSourceManager'
 import { drawWithChromaKey } from './chromaKey'
 import { drawChatBox } from './chatBoxRenderer'
+import { drawAlertBox } from './alertBoxRenderer'
+import {
+  drawFollowerGoalWidget,
+  drawPollWidget,
+  drawSubGoalWidget,
+  drawViewerCountWidget
+} from './widgetRenderer'
+import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
+
+async function loadImageSource(source: Source): Promise<HTMLImageElement | null> {
+  let src = source.imageUrl?.trim() ?? ''
+  if (source.imageLocalPath) {
+    try {
+      const dataUrl = await window.novaStream.dialog.readImageFile(source.imageLocalPath)
+      if (dataUrl) src = dataUrl
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!src) return null
+
+  const image = new Image()
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    image.crossOrigin = 'anonymous'
+  }
+  image.src = src
+  await new Promise((res) => { image.onload = res; image.onerror = res })
+  if (!image.complete || image.naturalWidth <= 0) return null
+  return image
+}
 
 export interface StreamEntry {
   sourceId: string
@@ -14,6 +44,8 @@ export interface DrawSceneOptions {
   selectedSourceId?: string | null
   chatMessages?: ChatMessage[]
   activeAlerts?: StreamAlert[]
+  frameTime?: number
+  widgetLiveData?: WidgetLiveData
 }
 
 async function acquireDesktopCapture(captureId: string): Promise<HTMLVideoElement | null> {
@@ -76,12 +108,9 @@ export async function acquireSourceStream(source: Source): Promise<StreamEntry> 
       entry.stream = stream
       entry.video = video
     } catch { /* pas de caméra */ }
-  } else if (source.type === 'image' && source.imageUrl) {
-    const image = new Image()
-    image.crossOrigin = 'anonymous'
-    image.src = source.imageUrl
-    await new Promise((res) => { image.onload = res; image.onerror = res })
-    entry.image = image
+  } else if (source.type === 'image' && (source.imageUrl || source.imageLocalPath)) {
+    const image = await loadImageSource(source)
+    if (image) entry.image = image
   }
 
   return entry
@@ -178,7 +207,7 @@ export function drawScene(
   streams: Map<string, StreamEntry>,
   options: DrawSceneOptions = {}
 ): void {
-  const { selectedSourceId, chatMessages = [], activeAlerts = [] } = options
+  const { selectedSourceId, chatMessages = [], activeAlerts = [], frameTime = Date.now(), widgetLiveData = DEFAULT_WIDGET_LIVE_DATA } = options
 
   ctx.fillStyle = '#0a0a10'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -197,7 +226,15 @@ export function drawScene(
     if (source.type === 'chat') {
       drawChatBox(ctx, dx, dy, dw, dh, chatMessages, source)
     } else if (source.type === 'alert') {
-      drawAlertBox(ctx, dx, dy, dw, dh, activeAlerts)
+      drawAlertBox(ctx, dx, dy, dw, dh, activeAlerts, source, frameTime)
+    } else if (source.type === 'followerGoal') {
+      drawFollowerGoalWidget(ctx, dx, dy, dw, dh, source, widgetLiveData)
+    } else if (source.type === 'subGoal') {
+      drawSubGoalWidget(ctx, dx, dy, dw, dh, source, widgetLiveData)
+    } else if (source.type === 'viewerCount') {
+      drawViewerCountWidget(ctx, dx, dy, dw, dh, source, widgetLiveData)
+    } else if (source.type === 'poll') {
+      drawPollWidget(ctx, dx, dy, dw, dh, source)
     } else {
       const entry = streams.get(source.id)
 
@@ -258,24 +295,4 @@ function drawPlaceholder(
     ctx.font = '11px Segoe UI, sans-serif'
     ctx.fillText(subtitle, x + w / 2, y + h / 2 + 10)
   }
-}
-
-function drawAlertBox(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number,
-  alerts: StreamAlert[]
-): void {
-  const alert = alerts[alerts.length - 1]
-  if (!alert) return
-
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'
-  ctx.fillRect(x, y, w, h)
-  ctx.fillStyle = '#c4b5fd'
-  ctx.font = `bold ${Math.max(12, h * 0.25)}px Segoe UI, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(alert.username, x + w / 2, y + h * 0.4)
-  ctx.font = `${Math.max(10, h * 0.15)}px Segoe UI, sans-serif`
-  ctx.fillStyle = '#fff'
-  ctx.fillText(alert.message ?? alert.type, x + w / 2, y + h * 0.65)
 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { ChatBoxStyle, MediaDevice, Source } from '../types'
+import type { AlertAnimation, AlertBoxStyle, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source } from '../types'
+import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
+import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
+import { GOAL_WIDGET_STYLES, POLL_WIDGET_STYLES } from '../lib/widgetRenderer'
 import './SourceInspector.css'
 
 interface SourceInspectorPanelProps {
@@ -42,14 +45,39 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
       )}
 
       {source.type === 'image' && (
-        <label className="inspector-field">
-          URL de l&apos;image
-          <input
-            value={source.imageUrl ?? ''}
-            onChange={(e) => onUpdate({ imageUrl: e.target.value })}
-            placeholder="https://..."
-          />
-        </label>
+        <>
+          <label className="inspector-field">
+            Fichier local
+            <div className="inspector-file-row">
+              <input
+                value={source.imageLocalPath ?? ''}
+                readOnly
+                placeholder="Aucun fichier sélectionné"
+              />
+              <button
+                type="button"
+                className="inspector-recapture-btn"
+                onClick={async () => {
+                  const path = await window.novaStream.dialog.selectImageFile()
+                  if (path) onUpdate({ imageLocalPath: path })
+                }}
+              >
+                Parcourir…
+              </button>
+            </div>
+          </label>
+          <label className="inspector-field">
+            URL de l&apos;image (optionnel)
+            <input
+              value={source.imageUrl ?? ''}
+              onChange={(e) => onUpdate({ imageUrl: e.target.value })}
+              placeholder="https://..."
+            />
+          </label>
+          <p className="inspector-hint">
+            Le fichier local a la priorité sur l&apos;URL. Formats : PNG, JPG, WebP, GIF.
+          </p>
+        </>
       )}
 
       {source.type === 'browser' && (
@@ -289,10 +317,145 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
         </fieldset>
       )}
 
+      {(source.type === 'followerGoal' || source.type === 'subGoal' || source.type === 'viewerCount') && (
+        <fieldset className="inspector-section">
+          <legend>
+            {source.type === 'followerGoal' ? 'Objectif followers' : source.type === 'subGoal' ? 'Objectif abonnés' : 'Spectateurs'}
+          </legend>
+          <label className="inspector-field">
+            Titre
+            <input
+              value={source.widgetLabel ?? ''}
+              onChange={(e) => onUpdate({ widgetLabel: e.target.value })}
+            />
+          </label>
+          {source.type !== 'viewerCount' && (
+            <label className="inspector-field">
+              Objectif
+              <input
+                type="number"
+                min={1}
+                value={source.widgetGoalTarget ?? 100}
+                onChange={(e) => onUpdate({ widgetGoalTarget: Number(e.target.value) })}
+              />
+            </label>
+          )}
+          <label className="inspector-field">
+            <span className="settings-checkbox">
+              <input
+                type="checkbox"
+                checked={source.widgetUseLiveData ?? false}
+                onChange={(e) => onUpdate({ widgetUseLiveData: e.target.checked })}
+              />
+              Données Twitch en direct
+            </span>
+          </label>
+          {!source.widgetUseLiveData && (
+            <label className="inspector-field">
+              Valeur manuelle
+              <input
+                type="number"
+                min={0}
+                value={source.widgetGoalCurrent ?? 0}
+                onChange={(e) => onUpdate({ widgetGoalCurrent: Number(e.target.value) })}
+              />
+            </label>
+          )}
+          <label className="inspector-field">
+            Style
+            <select
+              value={source.goalStyle ?? 'classic'}
+              onChange={(e) => onUpdate({ goalStyle: e.target.value as GoalWidgetStyle })}
+            >
+              {GOAL_WIDGET_STYLES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="inspector-hint">
+            Connectez Twitch dans Apps pour les stats live (followers, spectateurs).
+          </p>
+        </fieldset>
+      )}
+
+      {source.type === 'poll' && (
+        <fieldset className="inspector-section">
+          <legend>Sondage</legend>
+          <label className="inspector-field">
+            Question
+            <input
+              value={source.pollQuestion ?? ''}
+              onChange={(e) => onUpdate({ pollQuestion: e.target.value })}
+            />
+          </label>
+          <label className="inspector-field">
+            Options (une par ligne)
+            <textarea
+              rows={4}
+              value={(source.pollOptions ?? []).join('\n')}
+              onChange={(e) => {
+                const options = e.target.value.split('\n').map((l) => l.trim()).filter(Boolean)
+                const votes = source.pollVotes ?? options.map(() => 0)
+                onUpdate({
+                  pollOptions: options,
+                  pollVotes: options.map((_, i) => votes[i] ?? 0)
+                })
+              }}
+            />
+          </label>
+          <label className="inspector-field">
+            Votes (une valeur par option, séparées par des virgules)
+            <input
+              value={(source.pollVotes ?? []).join(', ')}
+              onChange={(e) => {
+                const votes = e.target.value.split(',').map((v) => Math.max(0, Number(v.trim()) || 0))
+                onUpdate({ pollVotes: votes })
+              }}
+            />
+          </label>
+          <label className="inspector-field">
+            Style
+            <select
+              value={source.pollStyle ?? 'bars'}
+              onChange={(e) => onUpdate({ pollStyle: e.target.value as PollWidgetStyle })}
+            >
+              {POLL_WIDGET_STYLES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
+      )}
+
       {source.type === 'alert' && (
-        <p className="inspector-hint">
-          Widget d&apos;intégration — connectez Twitch dans l&apos;onglet Apps pour alimenter ce widget.
-        </p>
+        <fieldset className="inspector-section">
+          <legend>Apparence des alertes</legend>
+          <label className="inspector-field">
+            Design
+            <select
+              value={source.alertStyle ?? 'classic'}
+              onChange={(e) => onUpdate({ alertStyle: e.target.value as AlertBoxStyle })}
+            >
+              {ALERT_BOX_STYLES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="inspector-field">
+            Animation
+            <select
+              value={source.alertAnimation ?? 'pop'}
+              onChange={(e) => onUpdate({ alertAnimation: e.target.value as AlertAnimation })}
+            >
+              {ALERT_ANIMATIONS.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="inspector-hint">
+            Connectez Twitch dans Apps pour alimenter ce widget. Utilisez « Tester une alerte » pour prévisualiser.
+          </p>
+        </fieldset>
       )}
     </div>
   )

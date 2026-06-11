@@ -1,6 +1,6 @@
+import { readFileSync, writeFileSync } from 'fs'
+import { extname, join } from 'path'
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog } from 'electron'
-import { writeFileSync } from 'fs'
-import { join } from 'path'
 import { loadEnv } from './loadEnv'
 import { StreamManager } from './streamManager'
 import { listMediaDevices, setMediaListWindow } from './deviceManager'
@@ -171,8 +171,39 @@ app.whenReady().then(async () => {
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths[0]) return null
-    const { readFileSync } = await import('fs')
     return readFileSync(result.filePaths[0], 'utf-8')
+  })
+
+  ipcMain.handle('dialog:selectImageFile', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Choisir une image',
+      filters: [{
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']
+      }],
+      properties: ['openFile']
+    })
+    return result.canceled || !result.filePaths[0] ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:readImageFile', (_e, filePath: string) => {
+    if (!filePath || typeof filePath !== 'string') return null
+    try {
+      const ext = extname(filePath).slice(1).toLowerCase()
+      const mime: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        bmp: 'image/bmp',
+        svg: 'image/svg+xml'
+      }
+      const buf = readFileSync(filePath)
+      return `data:${mime[ext] ?? 'image/png'};base64,${buf.toString('base64')}`
+    } catch {
+      return null
+    }
   })
 
   ipcMain.handle('speedtest:run', async (event, payload: {
@@ -212,6 +243,7 @@ app.whenReady().then(async () => {
     return { success: true }
   })
   ipcMain.handle('integrations:getAlerts', () => integrations.getActiveAlerts())
+  ipcMain.handle('integrations:getWidgetLiveData', () => integrations.getWidgetLiveData())
   ipcMain.handle('integrations:testAlert', (_e, type?: AlertType) => {
     integrations.testAlert(type)
   })

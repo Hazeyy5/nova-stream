@@ -202,6 +202,30 @@
   background: var(--purple-bg);
 }
 
+.inspector-file-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.inspector-file-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector-field textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(20, 20, 32, 0.6);
+  color: var(--text-primary);
+}
+
 .inspector-hint {
   font-size: 11px;
   color: var(--text-muted);

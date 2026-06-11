@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback, useState } from 'react'
-import type { Source, ChatMessage, StreamAlert, SourceTransform } from '../types'
+import type { Source, ChatMessage, StreamAlert, SourceTransform, WidgetLiveData } from '../types'
+import { isCanvasWidget } from '../lib/widgetTypes'
 import type { StreamEntry } from '../lib/drawScene'
 import { usePreviewLoop } from '../hooks/usePreviewLoop'
 import './Preview.css'
@@ -13,6 +14,7 @@ interface PreviewProps {
   onUpdateSource: (id: string, partial: Partial<Source>) => void
   chatMessages: ChatMessage[]
   activeAlerts: StreamAlert[]
+  widgetLiveData?: WidgetLiveData
   streamsRef: React.RefObject<Map<string, StreamEntry>>
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   resolution: string
@@ -62,6 +64,7 @@ export default function Preview({
   onUpdateSource,
   chatMessages,
   activeAlerts,
+  widgetLiveData,
   streamsRef,
   canvasRef,
   resolution,
@@ -82,11 +85,42 @@ export default function Preview({
   } | null>(null)
 
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null)
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
 
   const [outW, outH] = useMemo(() => {
     const [w, h] = resolution.split('x').map(Number)
     return [w > 0 ? w : 1920, h > 0 ? h : 1080]
   }, [resolution])
+
+  const aspectRatio = outW / outH
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const fitStage = () => {
+      const cw = container.clientWidth
+      const ch = container.clientHeight
+      if (cw <= 0 || ch <= 0) return
+
+      let w = cw
+      let h = cw / aspectRatio
+      if (h > ch) {
+        h = ch
+        w = h * aspectRatio
+      }
+
+      setStageSize({
+        w: Math.max(1, Math.floor(w)),
+        h: Math.max(1, Math.floor(h))
+      })
+    }
+
+    fitStage()
+    const observer = new ResizeObserver(fitStage)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [aspectRatio])
 
   const { updatePreviewState } = usePreviewLoop(
     canvasRef,
@@ -98,23 +132,22 @@ export default function Preview({
   )
 
   useEffect(() => {
-    updatePreviewState({ sources, selectedSourceId, chatMessages, activeAlerts })
-  }, [sources, selectedSourceId, chatMessages, activeAlerts, updatePreviewState])
+    updatePreviewState({ sources, selectedSourceId, chatMessages, activeAlerts, widgetLiveData })
+  }, [sources, selectedSourceId, chatMessages, activeAlerts, widgetLiveData, updatePreviewState])
 
-  const visibleSources = sources
-    .filter((s) => s.visible && s.type !== 'chat' && s.type !== 'alert')
-    .sort((a, b) => a.transform.zIndex - b.transform.zIndex)
-
-  const widgetSources = sources
-    .filter((s) => s.visible && (s.type === 'chat' || s.type === 'alert'))
-    .sort((a, b) => a.transform.zIndex - b.transform.zIndex)
+  const interactiveSources = useMemo(
+    () =>
+      sources
+        .filter((s) => s.visible)
+        .sort((a, b) => b.transform.zIndex - a.transform.zIndex),
+    [sources]
+  )
 
   const selectedSource = sources.find((s) => s.id === selectedSourceId) ?? null
   const showResizeHandles =
+    !captureActive &&
     selectedSource &&
-    !selectedSource.locked &&
-    selectedSource.type !== 'chat' &&
-    selectedSource.type !== 'alert'
+    !selectedSource.locked
 
   const pointerPercent = (e: React.MouseEvent | MouseEvent) => {
     const canvas = canvasRef.current
@@ -132,19 +165,19 @@ export default function Preview({
     if (!canvas) return
     const { mx, my } = pointerPercent(e)
 
-    const hit = [...visibleSources, ...widgetSources].reverse().find((s) => {
+    const hit = interactiveSources.find((s) => {
       const t = s.transform
       return mx >= t.x && mx <= t.x + t.width && my >= t.y && my <= t.y + t.height
     })
 
     if (hit) {
       onSelectSource(hit.id)
-      if (hit.locked || hit.type === 'chat' || hit.type === 'alert') return
+      if (hit.locked) return
       dragRef.current = { sourceId: hit.id, startX: mx, startY: my, origX: hit.transform.x, origY: hit.transform.y }
     }
   }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent | MouseEvent) => {
     const { mx, my } = pointerPercent(e)
 
     if (resizeRef.current) {
@@ -168,12 +201,27 @@ export default function Preview({
         y: dragRef.current.origY + dy
       })
     })
-  }
+  }, [sources, onUpdateSource])
 
   const handleMouseUp = useCallback(() => {
     dragRef.current = null
     resizeRef.current = null
   }, [])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragRef.current && !resizeRef.current) return
+      handleMouseMove(e)
+    }
+    const onUp = () => handleMouseUp()
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [handleMouseMove, handleMouseUp])
 
   const captureSnapshot = async () => {
     const canvas = canvasRef.current
@@ -218,7 +266,12 @@ export default function Preview({
       <div className="preview-viewport" ref={containerRef}>
         <div
           className="preview-stage"
-          style={{ opacity: fadeOpacity, transition: fadeOpacity === 1 ? 'none' : undefined }}
+          style={{
+            width: stageSize.w > 0 ? stageSize.w : undefined,
+            height: stageSize.h > 0 ? stageSize.h : undefined,
+            opacity: fadeOpacity,
+            transition: fadeOpacity === 1 ? 'none' : 'opacity 0.05s linear'
+          }}
         >
           <canvas
             ref={canvasRef}
@@ -232,7 +285,7 @@ export default function Preview({
           />
           {showResizeHandles && selectedSource && (
             <div
-              className="preview-source-overlay"
+              className={`preview-source-overlay${isCanvasWidget(selectedSource.type) ? ' preview-source-overlay-widget' : ''}`}
               style={{
                 left: `${selectedSource.transform.x}%`,
                 top: `${selectedSource.transform.y}%`,

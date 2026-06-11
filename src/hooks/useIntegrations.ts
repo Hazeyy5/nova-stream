@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert } from '../types'
+import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData } from '../types'
+import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
 import { filterActivityEvents } from '../lib/feedEvents'
 
 export function useIntegrations() {
@@ -7,6 +8,7 @@ export function useIntegrations() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([])
   const [activeAlerts, setActiveAlerts] = useState<StreamAlert[]>([])
+  const [widgetLiveData, setWidgetLiveData] = useState<WidgetLiveData>(DEFAULT_WIDGET_LIVE_DATA)
   const [twitchConfigured, setTwitchConfigured] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [chatStatus, setChatStatus] = useState({
@@ -24,17 +26,19 @@ export function useIntegrations() {
   }, [])
 
   const refresh = useCallback(async () => {
-    const [conns, msgs, feed, alerts, configured] = await Promise.all([
+    const [conns, msgs, feed, alerts, widgetData, configured] = await Promise.all([
       window.novaStream.integrations.getConnections(),
       window.novaStream.integrations.getMessages(),
       window.novaStream.integrations.getFeed(),
       window.novaStream.integrations.getAlerts(),
+      window.novaStream.integrations.getWidgetLiveData(),
       window.novaStream.integrations.isTwitchConfigured()
     ])
     setConnections(conns)
     setMessages(msgs)
     setFeedEvents(filterActivityEvents(feed))
     setActiveAlerts(alerts)
+    setWidgetLiveData(widgetData)
     setTwitchConfigured(configured)
     await refreshChatStatus()
   }, [refreshChatStatus])
@@ -53,10 +57,13 @@ export function useIntegrations() {
         setFeedEvents([])
       }),
       window.novaStream.integrations.onAlert((alert) => {
-        setActiveAlerts((prev) => [...prev, alert])
+        setActiveAlerts((prev) => [...prev, { ...alert, shownAt: alert.shownAt ?? Date.now() }])
       }),
       window.novaStream.integrations.onAlertDismiss((id) => {
         setActiveAlerts((prev) => prev.filter((a) => a.id !== id))
+      }),
+      window.novaStream.integrations.onWidgetStats((data) => {
+        setWidgetLiveData(data)
       }),
       window.novaStream.integrations.onUpdated((conns) => {
         setConnections(conns)
@@ -114,6 +121,7 @@ export function useIntegrations() {
     messages,
     feedEvents: activityEvents,
     activeAlerts,
+    widgetLiveData,
     twitchConfigured,
     connecting,
     connectTwitch,

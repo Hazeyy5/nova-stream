@@ -271,42 +271,41 @@ function App() {
 
 
 
-  const handleConnectTwitch = async () => {
+  const streamKeyFetchRef = useRef(false)
+  const twitchConnected = integrations.connections.some((c) => c.platform === 'twitch')
 
+  const tryAutoFetchStreamKey = useCallback(async () => {
+    if (!twitchConnected) return
+    if (settings.streamKey.trim()) return
+    if (streamKeyFetchRef.current) return
+
+    streamKeyFetchRef.current = true
     try {
-
-      await integrations.connectTwitch()
-
-      try {
-
-        const key = await integrations.fetchTwitchStreamKey()
-
-        if (key) {
-
-          setSettings((s) => ({
-
-            ...s,
-
-            streamKey: key,
-
-            rtmpUrl: 'rtmp://live.twitch.tv/app'
-
-          }))
-
-        }
-
-      } catch {
-
-        /* clé optionnelle — récupérable dans Paramètres */
-
+      const key = await integrations.fetchTwitchStreamKey()
+      if (key) {
+        setSettings((s) => ({
+          ...s,
+          streamKey: key,
+          rtmpUrl: s.rtmpUrl.trim() || 'rtmp://live.twitch.tv/app'
+        }))
       }
-
-    } catch (err) {
-
-      alert(err instanceof Error ? err.message : 'Connexion échouée')
-
+    } catch {
+      /* récupérable manuellement dans Paramètres */
+    } finally {
+      streamKeyFetchRef.current = false
     }
+  }, [twitchConnected, settings.streamKey, integrations.fetchTwitchStreamKey])
 
+  useEffect(() => {
+    void tryAutoFetchStreamKey()
+  }, [twitchConnected, tryAutoFetchStreamKey])
+
+  const handleConnectTwitch = async () => {
+    try {
+      await integrations.connectTwitch()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Connexion échouée')
+    }
   }
 
 
@@ -438,6 +437,7 @@ function App() {
                     chatMessages={integrations.messages}
 
                     activeAlerts={integrations.activeAlerts}
+                    widgetLiveData={integrations.widgetLiveData}
 
                     streamsRef={streamsRef}
                     canvasRef={previewCanvasRef}

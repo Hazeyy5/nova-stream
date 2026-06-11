@@ -3,7 +3,13 @@ export type TransitionType = 'cut' | 'fade'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
 export type ChatBoxStyle = 'classic' | 'minimal' | 'neon' | 'bubble' | 'retro'
-export type SourceType = 'display' | 'screen' | 'window' | 'browser' | 'webcam' | 'image' | 'text' | 'chat' | 'alert'
+export type AlertBoxStyle = 'classic' | 'minimal' | 'neon' | 'banner' | 'celebration' | 'sleek'
+export type AlertAnimation = 'pop' | 'slideUp' | 'slideLeft' | 'bounce' | 'fadeScale' | 'pulse'
+export type GoalWidgetStyle = 'classic' | 'bar' | 'minimal' | 'neon'
+export type PollWidgetStyle = 'classic' | 'bars'
+export type SourceType =
+  | 'display' | 'screen' | 'window' | 'browser' | 'webcam' | 'image' | 'text'
+  | 'chat' | 'alert' | 'followerGoal' | 'subGoal' | 'viewerCount' | 'poll'
 export type PlatformId = 'twitch' | 'kick'
 export type AppView = 'editor' | 'integrations'
 
@@ -47,6 +53,8 @@ export interface StreamAlert {
   username: string
   message?: string
   amount?: string
+  /** Horodatage d'affichage (ms) pour les animations. */
+  shownAt?: number
 }
 
 export interface FeedEvent {
@@ -74,6 +82,20 @@ export interface ChromaKeySettings {
   smoothness: number
 }
 
+export interface WidgetLiveData {
+  viewerCount: number
+  followerCount: number
+  subCount: number
+  live: boolean
+}
+
+export const DEFAULT_WIDGET_LIVE_DATA: WidgetLiveData = {
+  viewerCount: 0,
+  followerCount: 0,
+  subCount: 0,
+  live: false
+}
+
 export interface Source {
   id: string
   name: string
@@ -84,6 +106,8 @@ export interface Source {
   volume: number
   muted: boolean
   imageUrl?: string
+  /** Chemin local (Windows) pour les images importées depuis le disque. */
+  imageLocalPath?: string
   textContent?: string
   captureId?: string
   captureName?: string
@@ -98,6 +122,19 @@ export interface Source {
   chatStyle?: ChatBoxStyle
   /** Nombre de messages affichés dans la chat box (1–12). */
   chatMaxMessages?: number
+  alertStyle?: AlertBoxStyle
+  alertAnimation?: AlertAnimation
+  /** Widgets objectifs / stats */
+  widgetLabel?: string
+  widgetGoalCurrent?: number
+  widgetGoalTarget?: number
+  widgetUseLiveData?: boolean
+  goalStyle?: GoalWidgetStyle
+  /** Sondage */
+  pollQuestion?: string
+  pollOptions?: string[]
+  pollVotes?: number[]
+  pollStyle?: PollWidgetStyle
 }
 
 export interface Scene {
@@ -210,7 +247,11 @@ export const DEFAULT_SOURCE_TRANSFORM: Record<SourceType, SourceTransform> = {
   image: { x: 10, y: 10, width: 30, height: 30, zIndex: 5 },
   text: { x: 5, y: 85, width: 40, height: 10, zIndex: 15 },
   chat: { x: 1, y: 62, width: 28, height: 36, zIndex: 20 },
-  alert: { x: 30, y: 8, width: 40, height: 18, zIndex: 25 }
+  alert: { x: 30, y: 8, width: 40, height: 18, zIndex: 25 },
+  followerGoal: { x: 2, y: 2, width: 26, height: 12, zIndex: 22 },
+  subGoal: { x: 2, y: 15, width: 26, height: 12, zIndex: 23 },
+  viewerCount: { x: 72, y: 2, width: 14, height: 10, zIndex: 24 },
+  poll: { x: 30, y: 30, width: 36, height: 28, zIndex: 21 }
 }
 
 export function createSource(type: SourceType, name?: string): Source {
@@ -223,7 +264,11 @@ export function createSource(type: SourceType, name?: string): Source {
     image: 'Image',
     text: 'Texte',
     chat: 'Chat Box',
-    alert: 'Alert Box'
+    alert: 'Alert Box',
+    followerGoal: 'Objectif followers',
+    subGoal: 'Objectif abonnés',
+    viewerCount: 'Spectateurs',
+    poll: 'Sondage'
   }
   return {
     id: `src-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -241,6 +286,21 @@ export function createSource(type: SourceType, name?: string): Source {
     opacity: 100,
     chatStyle: type === 'chat' ? 'classic' : undefined,
     chatMaxMessages: type === 'chat' ? 6 : undefined,
+    alertStyle: type === 'alert' ? 'classic' : undefined,
+    alertAnimation: type === 'alert' ? 'pop' : undefined,
+    widgetGoalTarget: type === 'followerGoal' ? 100 : type === 'subGoal' ? 50 : undefined,
+    widgetGoalCurrent: type === 'followerGoal' ? 42 : type === 'subGoal' ? 12 : type === 'viewerCount' ? 0 : undefined,
+    widgetUseLiveData: type === 'followerGoal' || type === 'subGoal' || type === 'viewerCount' ? true : undefined,
+    widgetLabel:
+      type === 'followerGoal' ? 'Objectif followers'
+      : type === 'subGoal' ? 'Objectif abonnés'
+      : type === 'viewerCount' ? 'Spectateurs'
+      : undefined,
+    goalStyle: type === 'followerGoal' || type === 'subGoal' || type === 'viewerCount' ? 'classic' : undefined,
+    pollQuestion: type === 'poll' ? 'Quel est votre jeu préféré ?' : undefined,
+    pollOptions: type === 'poll' ? ['RPG', 'FPS', 'Stratégie'] : undefined,
+    pollVotes: type === 'poll' ? [12, 28, 9] : undefined,
+    pollStyle: type === 'poll' ? 'bars' : undefined,
     textContent: type === 'text' ? 'Bienvenue sur le stream !' : undefined
   }
 }

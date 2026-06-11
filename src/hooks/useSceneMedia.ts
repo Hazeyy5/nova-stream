@@ -4,7 +4,7 @@ import { acquireSourceStream, releaseSourceStream, type StreamEntry } from '../l
 import { isAcquirableMediaSource, mediaSourceKey } from '../lib/sourceMedia'
 
 function configFingerprint(source: Source): string {
-  return `${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}`
+  return `${source.captureId ?? ''}|${source.browserUrl ?? ''}|${source.imageUrl ?? ''}|${source.imageLocalPath ?? ''}`
 }
 
 export function useSceneMedia(sources: Source[]) {
