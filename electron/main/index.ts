@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron'
+import { getAppIcon } from './appIcon'
 import { loadEnv } from './loadEnv'
 import { StreamManager } from './streamManager'
 import { listMediaDevices, setMediaListWindow } from './deviceManager'
@@ -34,12 +35,14 @@ const linkServer = new LinkServer(integrations)
 let appMainWindow: BrowserWindow | null = null
 
 function createWindow(): BrowserWindow {
+  const appIcon = getAppIcon()
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 860,
     minWidth: 1100,
     minHeight: 700,
     title: 'Nova Stream',
+    icon: appIcon,
     backgroundColor: '#161625',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

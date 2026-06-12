@@ -1,5 +1,6 @@
 import { IconSettings } from './Icons'
 import type { AppView } from '../types'
+import logoUrl from '../assets/logo.png'
 import './NavRail.css'
 
 interface NavRailProps {
@@ -29,9 +30,7 @@ export default function NavRail({
   return (
     <nav className="nav-rail">
       <div className="nav-rail-logo" title="Nova Stream">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
-        </svg>
+        <img src={logoUrl} alt="" width={44} height={44} draggable={false} />
       </div>
 
       <div className="nav-rail-items">

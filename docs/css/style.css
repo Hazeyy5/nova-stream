@@ -66,11 +66,9 @@ body::before {
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: var(--gradient);
   border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: cover;
+  flex-shrink: 0;
   box-shadow: 0 4px 16px var(--accent-glow);
 }
 

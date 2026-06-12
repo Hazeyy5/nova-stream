@@ -26,15 +26,10 @@
 }
 
 .welcome-logo {
-  display: inline-flex;
-  width: 48px;
-  height: 48px;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent), #9146FF);
-  border-radius: 12px;
-  font-size: 18px;
-  color: white;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
   margin-bottom: 12px;
   box-shadow: 0 8px 24px var(--accent-glow);
 }

@@ -1,3 +1,4 @@
+import logoUrl from '../assets/logo.png'
 import './WelcomeModal.css'
 
 interface WelcomeModalProps {
@@ -11,7 +12,7 @@ export default function WelcomeModal({ onClose, onOpenIntegrations, websiteUrl }
     <div className="welcome-overlay">
       <div className="welcome-modal">
         <div className="welcome-header">
-          <span className="welcome-logo">▶</span>
+          <img src={logoUrl} alt="" className="welcome-logo" width={56} height={56} draggable={false} />
           <h2>Bienvenue sur Nova Stream</h2>
           <p>Votre studio de streaming gratuit, pour tout le monde.</p>
         </div>
