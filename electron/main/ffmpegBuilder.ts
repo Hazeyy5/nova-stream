@@ -5,17 +5,28 @@ import type { StreamSettings } from '../../src/types'
 
 const RECORDING_MOVFLAGS = 'frag_keyframe+empty_moov+default_base_moof'
 
+const MIC_HEADROOM = 0.72
+const DESKTOP_HEADROOM = 0.42
+const MAX_LINEAR_GAIN = 3.5
+
+function dbToLinear(db: number): number {
+  if (db <= -60) return 0
+  return Math.min(MAX_LINEAR_GAIN, Math.pow(10, db / 20))
+}
+
 function resolveMicLinear(settings: StreamSettings): number {
   const db = settings.audioGainDb ?? (settings.audioVolume != null ? 20 * Math.log10(Math.max(settings.audioVolume, 1) / 100) : 0)
-  if (db <= -60) return 0
-  return Math.pow(10, db / 20)
+  return dbToLinear(db) * MIC_HEADROOM
 }
 
 function resolveDesktopLinear(settings: StreamSettings): number {
   const db = settings.desktopAudioGainDb ?? (settings.desktopAudioVolume != null ? 20 * Math.log10(Math.max(settings.desktopAudioVolume, 1) / 100) : 0)
-  if (db <= -60) return 0
-  return Math.pow(10, db / 20)
+  return dbToLinear(db) * DESKTOP_HEADROOM
 }
+
+const MASTER_AUDIO_CHAIN =
+  'acompressor=threshold=-18dB:ratio=3:attack=5:release=120:makeup=0,' +
+  'alimiter=limit=0.82:attack=5:release=80:level=disabled'
 
 export interface FfmpegBuildResult {
   args: string[]
@@ -71,16 +82,20 @@ function dshowInput(device: string, kind: 'video' | 'audio'): string {
 
 function micProcessingFilter(micIndex: number, settings: StreamSettings, outputLabel: string): string {
   const micVol = resolveMicLinear(settings)
-  let chain = `[${micIndex}:a]aresample=44100`
+  let chain = `[${micIndex}:a]aresample=44100,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
-  chain += `,volume=${micVol},alimiter=limit=0.95:level=false:attack=2:release=5${outputLabel}`
+  chain += `,volume=${micVol.toFixed(4)}${outputLabel}`
   return chain
 }
 
 function desktopProcessingFilter(desktopIndex: number, deskVol: number, outputLabel: string): string {
-  return `[${desktopIndex}:a]aresample=44100,volume=${deskVol},alimiter=limit=0.95:level=false:attack=2:release=5${outputLabel}`
+  return `[${desktopIndex}:a]aresample=44100,aformat=sample_fmts=fltp,volume=${deskVol.toFixed(4)}${outputLabel}`
+}
+
+function masterAudioFilter(inputLabel: string, outputLabel: string): string {
+  return `${inputLabel}${MASTER_AUDIO_CHAIN}${outputLabel}`
 }
 
 export function buildFfmpegScenePipeArgs(
@@ -139,16 +154,23 @@ export function buildFfmpegScenePipeArgs(
   const deskVol = resolveDesktopLinear(settings)
 
   if (micIndex !== null && desktopIndex === null) {
-    filters.push(micProcessingFilter(micIndex, settings, '[outa]'))
+    filters.push(
+      micProcessingFilter(micIndex, settings, '[amix]'),
+      masterAudioFilter('[amix]', '[outa]')
+    )
     audioOut = '[outa]'
   } else if (desktopIndex !== null && micIndex === null) {
-    filters.push(desktopProcessingFilter(desktopIndex, deskVol, '[outa]'))
+    filters.push(
+      desktopProcessingFilter(desktopIndex, deskVol, '[amix]'),
+      masterAudioFilter('[amix]', '[outa]')
+    )
     audioOut = '[outa]'
   } else if (micIndex !== null && desktopIndex !== null) {
     filters.push(
       micProcessingFilter(micIndex, settings, '[a0]'),
       desktopProcessingFilter(desktopIndex, deskVol, '[a1]'),
-      `[a0][a1]amix=inputs=2:duration=longest:dropout_transition=0:normalize=1,alimiter=limit=0.95:level=false:attack=2:release=5[outa]`
+      '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amix]',
+      masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   }

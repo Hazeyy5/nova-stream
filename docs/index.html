@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nova Stream — Votre studio de streaming</title>
-  <meta name="description" content="Connectez Twitch à Nova Stream. Chat, alertes et widgets synchronisés avec votre application desktop." />
+  <meta name="description" content="Connectez Twitch à Nova Stream. Alertes EventSub, chat box, widgets et Go Live synchronisés avec l'application desktop." />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -15,38 +15,174 @@
         Nova Stream
       </a>
       <div class="nav-links">
+        <a href="#alertes">Alertes</a>
+        <a href="#chat">Chat</a>
+        <a href="#widgets">Widgets</a>
         <a href="https://github.com/Hazeyy5/nova-stream" target="_blank">GitHub</a>
         <a href="dashboard.html" id="nav-dashboard" style="display:none">Mon compte</a>
       </div>
     </nav>
 
     <section class="hero">
-      <h1>Votre compte.<br>Votre stream.<br>Connectés.</h1>
+      <span class="badge">v0.6 — Studio NEXUS</span>
+      <h1>Alertes, chat et widgets<br>pour votre stream Twitch</h1>
       <p>
-        Connectez-vous avec Twitch sur le web, puis liez votre compte à l'application
-        Nova Stream pour synchroniser chat, alertes et widgets.
+        Connectez-vous sur le web, liez Nova Stream sur votre PC, et profitez
+        d'alertes EventSub, de designs de chat box et de widgets intégrés à vos scènes.
       </p>
-      <button class="btn btn-twitch" id="btn-connect">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 0L4 4v16l4.4 2.5V11.6h2.8L17.6 20 24 16.4V0H11.6zm1.2 11.6H9.2V4.4h3.6v7.2z"/></svg>
-        Se connecter avec Twitch
-      </button>
+      <div class="hero-actions">
+        <button class="btn btn-twitch" id="btn-connect">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 0L4 4v16l4.4 2.5V11.6h2.8L17.6 20 24 16.4V0H11.6zm1.2 11.6H9.2V4.4h3.6v7.2z"/></svg>
+          Se connecter avec Twitch
+        </button>
+        <a href="#alertes" class="btn btn-outline">Voir les alertes →</a>
+      </div>
+    </section>
+
+    <section class="section" id="alertes">
+      <div class="section-head">
+        <h2>🔔 Alertes Twitch</h2>
+        <p>Follows, subs, dons et raids — déclenchés en temps réel via EventSub et IRC, avec 6 styles visuels et 6 animations.</p>
+      </div>
+
+      <div class="demo-grid">
+        <div class="demo-stage">
+          <div id="alert-preview" class="alert-preview alert-style-classic"></div>
+          <p class="demo-hint">Aperçu animé — change automatiquement toutes les 5 s</p>
+        </div>
+
+        <div class="demo-controls">
+          <div class="control-group">
+            <span class="control-label">Type d'alerte</span>
+            <div class="pill-tabs">
+              <button class="pill active" data-alert-type="0">💜 Follow</button>
+              <button class="pill" data-alert-type="1">⭐ Sub</button>
+              <button class="pill" data-alert-type="2">💰 Don</button>
+              <button class="pill" data-alert-type="3">🚀 Raid</button>
+            </div>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Style d'alerte</span>
+            <div class="pill-tabs alert-style-tabs">
+              <button class="pill active" data-style="classic">Classique</button>
+              <button class="pill" data-style="minimal">Minimal</button>
+              <button class="pill" data-style="neon">Néon</button>
+              <button class="pill" data-style="banner">Bannière</button>
+              <button class="pill" data-style="celebration">Célébration</button>
+              <button class="pill" data-style="sleek">Épuré</button>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>Animations : pop, glissée, rebond, fondu, pulsation</li>
+            <li>Personnalisation dans l'app : durée, style, position sur scène</li>
+            <li>Test d'alerte intégré dans Nova Stream</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="chat">
+      <div class="section-head">
+        <h2>💬 Chat Box</h2>
+        <p>Le chat Twitch s'affiche en direct dans vos scènes. Cinq designs au choix, messages en temps réel et envoi depuis l'app.</p>
+      </div>
+
+      <div class="demo-grid demo-grid-reverse">
+        <div class="demo-controls">
+          <div class="control-group">
+            <span class="control-label">Design du chat</span>
+            <div class="pill-tabs chat-style-tabs">
+              <button class="pill active" data-style="classic">Classique</button>
+              <button class="pill" data-style="minimal">Minimal</button>
+              <button class="pill" data-style="neon">Néon</button>
+              <button class="pill" data-style="bubble">Bulles</button>
+              <button class="pill" data-style="retro">Rétro</button>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>Connexion IRC prioritaire + secours Helix</li>
+            <li>Rafraîchissement automatique du token OAuth</li>
+            <li>Mini flux et aperçu scène synchronisés</li>
+          </ul>
+        </div>
+
+        <div class="demo-stage">
+          <div id="chat-preview" class="chat-preview chat-style-classic"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="widgets">
+      <div class="section-head">
+        <h2>📊 Widgets canvas</h2>
+        <p>Ajoutez des sources widget à vos scènes : objectifs, compteur de viewers et sondages.</p>
+      </div>
+
+      <div class="widget-showcase">
+        <div class="widget-card">
+          <div class="widget-mock goal-mock">
+            <span class="widget-label">Objectif followers</span>
+            <div class="goal-bar"><div class="goal-fill" style="width:72%"></div></div>
+            <span class="widget-stat">720 / 1000</span>
+          </div>
+          <h3>Objectif followers</h3>
+          <p>Barre de progression mise à jour via Twitch.</p>
+        </div>
+        <div class="widget-card">
+          <div class="widget-mock goal-mock sub">
+            <span class="widget-label">Objectif subs</span>
+            <div class="goal-bar"><div class="goal-fill" style="width:45%"></div></div>
+            <span class="widget-stat">9 / 20</span>
+          </div>
+          <h3>Objectif subs</h3>
+          <p>Suivez vos abonnements en direct sur scène.</p>
+        </div>
+        <div class="widget-card">
+          <div class="widget-mock viewer-mock">
+            <span class="widget-label">Viewers</span>
+            <span class="viewer-count">1 284</span>
+            <span class="viewer-live">● LIVE</span>
+          </div>
+          <h3>Compteur viewers</h3>
+          <p>Affiche le nombre de spectateurs en temps réel.</p>
+        </div>
+        <div class="widget-card">
+          <div class="widget-mock poll-mock">
+            <span class="widget-label">Sondage</span>
+            <div class="poll-option"><span>Jeu A</span><div class="poll-bar" style="width:60%"></div></div>
+            <div class="poll-option"><span>Jeu B</span><div class="poll-bar" style="width:40%"></div></div>
+          </div>
+          <h3>Sondage</h3>
+          <p>Résultats visuels pour vos votes communautaires.</p>
+        </div>
+      </div>
     </section>
 
     <section class="features">
       <div class="feature-card">
         <div class="feature-icon">🔗</div>
         <h3>Liaison cloud → desktop</h3>
-        <p>Authentifiez-vous ici, puis reliez en un clic à Nova Stream sur votre PC.</p>
+        <p>Authentifiez-vous ici, puis reliez en un clic à Nova Stream sur votre PC (port 3847).</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">💬</div>
-        <h3>Chat Box</h3>
-        <p>Le chat Twitch s'affiche en direct dans vos scènes et votre mini flux.</p>
+        <div class="feature-icon">📡</div>
+        <h3>Clé stream auto</h3>
+        <p>Récupération de la clé RTMP Twitch via l'API Helix — plus besoin de la copier à la main.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🔔</div>
-        <h3>Alertes</h3>
-        <p>Follows, subs, dons et raids — synchronisés avec l'application.</p>
+        <div class="feature-icon">📺</div>
+        <h3>Go Live</h3>
+        <p>Définissez titre et catégorie Twitch avant de passer en live depuis l'application.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎬</div>
+        <h3>Scènes & transitions</h3>
+        <p>Transitions animées, chroma key, export/import de scènes et aperçu redimensionnable.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>Audio optimisé</h3>
+        <p>Mixage micro + bureau avec compresseur et limiteur pour éviter la saturation.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🎮</div>
@@ -68,7 +204,7 @@
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <p>Cliquez « Lier à Nova Stream » — c'est fait !</p>
+          <p>Cliquez « Lier à Nova Stream » — chat, alertes et widgets sont actifs !</p>
         </div>
       </div>
     </section>
@@ -78,10 +214,11 @@
 
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/widgets-demo.js"></script>
   <script>
     if (NovaAuth.getSession()) {
       document.getElementById('nav-dashboard').style.display = 'inline'
-      document.getElementById('btn-connect').textContent = 'Accéder au tableau de bord →'
+      document.getElementById('btn-connect').innerHTML = 'Accéder au tableau de bord →'
       document.getElementById('btn-connect').onclick = () => location.href = NovaAuth.asset('/dashboard.html')
     } else {
       document.getElementById('btn-connect').onclick = () => NovaAuth.startTwitchLogin()
