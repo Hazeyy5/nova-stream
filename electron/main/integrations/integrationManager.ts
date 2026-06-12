@@ -13,12 +13,14 @@ import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
+import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
   private eventSub = new TwitchEventSubService()
   private alerts = new AlertManager()
+  private widgetModules = new WidgetModuleStore()
   private messages: ChatMessage[] = []
   private feedEvents: FeedEvent[] = []
   private activeAlerts: StreamAlert[] = []
@@ -134,6 +136,7 @@ export class IntegrationManager {
     displayName: string
     avatarUrl?: string
     widgetSettings?: WebWidgetSettings
+    widgetToken?: string
   }): Promise<PlatformConnectionPublic> {
     const conn = {
       platform: 'twitch' as const,
@@ -150,13 +153,70 @@ export class IntegrationManager {
     this.alerts.stopDemo()
     const pub = await this.activateTwitchConnection(conn)
     if (data.widgetSettings) {
-      this.applyWebWidgetSettings(data.widgetSettings)
+      this.applyWebWidgetSettings(data.widgetSettings, data.widgetToken)
+    } else if (data.widgetToken) {
+      this.widgetModules.setToken(data.widgetToken)
     }
     return pub
   }
 
-  applyWebWidgetSettings(settings: WebWidgetSettings): void {
+  applyWebWidgetSettings(settings: WebWidgetSettings, token?: string): void {
+    this.widgetModules.setSettings(settings)
+    if (token?.trim()) this.widgetModules.setToken(token)
     this.broadcast('widgets:settings', settings)
+  }
+
+  registerWebWidgetSession(payload: { settings?: WebWidgetSettings; widgetToken?: string }): void {
+    if (payload.settings) this.widgetModules.setSettings(payload.settings)
+    if (payload.widgetToken?.trim()) this.widgetModules.setToken(payload.widgetToken)
+  }
+
+  getWidgetModuleConfig(widget: string, token: string | undefined): unknown {
+    return this.widgetModules.getWidgetConfig(widget, token)
+  }
+
+  testWidget(payload: {
+    widget: string
+    settings?: Record<string, unknown>
+    alertType?: StreamAlert['type']
+  }): void {
+    if (payload.settings) {
+      const merged = {
+        ...this.widgetModules.getSettings(),
+        [payload.widget]: payload.settings
+      } as WebWidgetSettings
+      this.applyWebWidgetSettings(merged)
+    }
+
+    switch (payload.widget) {
+      case 'alert':
+        this.testAlert(payload.alertType ?? 'follow')
+        break
+      case 'chat': {
+        const msg = createTestChatMessage()
+        this.messages = [...this.messages.slice(-99), msg]
+        this.broadcast('chat:message', msg)
+        break
+      }
+      case 'followerGoal':
+      case 'subGoal':
+      case 'viewerCount': {
+        const demo = createDemoWidgetStats()
+        this.widgetLiveData = demo
+        this.broadcast('widget:stats', demo)
+        break
+      }
+      case 'poll':
+        this.addFeedEvent({
+          id: `test-poll-${Date.now()}`,
+          type: 'system',
+          platform: 'system',
+          icon: '📊',
+          text: 'Test sondage — consultez le widget sur votre scène',
+          timestamp: Date.now()
+        })
+        break
+    }
   }
 
   private async activateTwitchConnection(conn: {

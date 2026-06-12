@@ -366,13 +366,16 @@
       el.addEventListener('input', () => {
         const next = readForm(widgetId)
         updatePreview(widgetId, next, alertTypeRef.current)
+        refreshModuleUrls(widgetId, next)
         if (el.type === 'range') {
           const out = el.parentElement?.querySelector('output')
           if (out) out.textContent = el.value + (el.id === 'cfg-duration' ? 's' : '')
         }
       })
       el.addEventListener('change', () => {
-        updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
+        const next = readForm(widgetId)
+        updatePreview(widgetId, next, alertTypeRef.current)
+        refreshModuleUrls(widgetId, next)
       })
     })
 
@@ -417,10 +420,7 @@
 
     updatePreview(widgetId, cfg, alertTypeRef.current)
     bindFormEvents(widgetId, cfg, alertTypeRef)
-
-    document.getElementById('btn-test')?.addEventListener('click', () => {
-      updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
-    })
+    bindModuleUrlUi(widgetId, alertTypeRef)
 
     const saveMsg = document.getElementById('save-msg')
     document.getElementById('btn-save')?.addEventListener('click', async () => {
@@ -430,6 +430,7 @@
       try {
         cfg = readForm(widgetId)
         NovaWidgetSettings.saveWidget(widgetId, cfg)
+        refreshModuleUrls(widgetId, cfg)
         const sync = await NovaWidgetSettings.syncToDesktop()
         saveMsg.className = 'save-msg success'
         saveMsg.textContent = sync.synced
@@ -440,6 +441,71 @@
         saveMsg.className = 'save-msg error'
         saveMsg.textContent = err.message
         saveMsg.style.display = 'block'
+      } finally {
+        btn.disabled = false
+      }
+    })
+  }
+
+  function refreshModuleUrls(widgetId, cfg) {
+    const urls = NovaWidgetSettings.getModuleUrls(widgetId, cfg)
+    const localEl = document.getElementById('url-local')
+    const webEl = document.getElementById('url-web')
+    if (localEl) localEl.value = urls.local
+    if (webEl) webEl.value = urls.web
+  }
+
+  async function copyText(text) {
+    await navigator.clipboard.writeText(text)
+  }
+
+  function showTestMsg(text, ok) {
+    const el = document.getElementById('test-msg')
+    if (!el) return
+    el.className = ok ? 'test-msg success' : 'test-msg error'
+    el.textContent = text
+    el.style.display = 'block'
+  }
+
+  function bindModuleUrlUi(widgetId, alertTypeRef) {
+    refreshModuleUrls(widgetId, NovaWidgetSettings.getWidget(widgetId) || {})
+
+    document.getElementById('btn-copy-local')?.addEventListener('click', () => {
+      void copyText(document.getElementById('url-local')?.value ?? '').then(() =>
+        showTestMsg('URL locale copiée.', true)
+      )
+    })
+    document.getElementById('btn-copy-web')?.addEventListener('click', () => {
+      void copyText(document.getElementById('url-web')?.value ?? '').then(() =>
+        showTestMsg('URL web copiée.', true)
+      )
+    })
+    document.getElementById('btn-open-local')?.addEventListener('click', () => {
+      const url = document.getElementById('url-local')?.value
+      if (url) window.open(url, '_blank', 'noopener')
+    })
+    document.getElementById('btn-open-web')?.addEventListener('click', () => {
+      const url = document.getElementById('url-web')?.value
+      if (url) window.open(url, '_blank', 'noopener')
+    })
+    document.getElementById('btn-preview')?.addEventListener('click', () => {
+      updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
+    })
+    document.getElementById('btn-test-app')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-test-app')
+      const cfg = readForm(widgetId)
+      NovaWidgetSettings.saveWidget(widgetId, cfg)
+      btn.disabled = true
+      try {
+        await NovaLink.syncWidgetSettings()
+        const payload = { widget: widgetId, settings: cfg }
+        if (widgetId === 'alert') {
+          payload.alertType = alertTypeRef.current
+        }
+        await NovaLink.testWidget(payload)
+        showTestMsg('✓ Test envoyé — regardez Nova Stream sur votre scène active.', true)
+      } catch (err) {
+        showTestMsg(err instanceof Error ? err.message : 'Test échoué', false)
       } finally {
         btn.disabled = false
       }

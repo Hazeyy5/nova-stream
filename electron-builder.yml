@@ -12,6 +12,12 @@ files:
 extraResources:
   - from: shared/platform.json
     to: shared/platform.json
+  - from: docs/overlays
+    to: docs/overlays
+  - from: docs/css
+    to: docs/css
+  - from: docs/js/overlay-runtime.js
+    to: docs/js/overlay-runtime.js
 
 win:
   target:

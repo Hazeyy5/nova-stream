@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Stream — Widget overlay</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      background: transparent;
+      overflow: hidden;
+    }
+    .overlay-root {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-root" id="overlay-root"></div>
+  <script>
+    window.OVERLAY_WIDGET = '__WIDGET_ID__'
+    window.OVERLAY_TOKEN = '__WIDGET_TOKEN__'
+    window.OVERLAY_DESKTOP = 'http://127.0.0.1:3847'
+  </script>
+  <script src="../js/overlay-runtime.js"></script>
+</body>
+</html>

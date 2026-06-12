@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'http'
 import type { IntegrationManager } from './integrationManager'
+import { handleWidgetLinkRequest } from '../widgetLinkRoutes'
 
 const LINK_PORT = 3847
 const ALLOWED_ORIGINS = [
@@ -21,6 +22,8 @@ export class LinkServer {
     this.server = createServer(async (req, res) => {
       const origin = req.headers.origin ?? ''
       const corsOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+      const rawUrl = req.url ?? '/'
+      const pathname = rawUrl.split('?')[0]
 
       res.setHeader('Access-Control-Allow-Origin', corsOrigin)
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -30,6 +33,10 @@ export class LinkServer {
       if (req.method === 'OPTIONS') {
         res.writeHead(204)
         res.end()
+        return
+      }
+
+      if (handleWidgetLinkRequest(req, res, this.integrations, pathname, req.method ?? 'GET')) {
         return
       }
 
@@ -63,7 +70,8 @@ export class LinkServer {
               username: data.username,
               displayName: data.displayName,
               avatarUrl: data.avatarUrl,
-              widgetSettings: data.widgetSettings
+              widgetSettings: data.widgetSettings,
+              widgetToken: data.widgetToken
             })
             res.writeHead(200, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({ success: true, connection: conn }))
@@ -87,7 +95,7 @@ export class LinkServer {
               res.end(JSON.stringify({ success: false, message: 'Paramètres invalides' }))
               return
             }
-            this.integrations.applyWebWidgetSettings(data.settings)
+            this.integrations.applyWebWidgetSettings(data.settings, data.widgetToken)
             res.writeHead(200, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({ success: true }))
           } catch (err) {

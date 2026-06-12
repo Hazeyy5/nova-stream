@@ -105,7 +105,7 @@
     const res = await fetch(`${window.NOVA_CONFIG.DESKTOP_LINK_URL}/api/widget-settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: loadAll() })
+      body: JSON.stringify({ settings: loadAll(), widgetToken: getWidgetToken() })
     })
     const data = await res.json()
     if (!res.ok || !data.success) {
@@ -114,12 +114,51 @@
     return { synced: true }
   }
 
+  function getWidgetToken() {
+    const session = window.NovaAuth?.getSession()
+    if (!session?.userId) return null
+    const key = `nova_widget_token_${session.userId}`
+    let token = localStorage.getItem(key)
+    if (!token) {
+      token = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+        b.toString(16).padStart(2, '0')
+      ).join('')
+      localStorage.setItem(key, token)
+    }
+    return token
+  }
+
+  function encodeCfg(obj) {
+    try {
+      return btoa(unescape(encodeURIComponent(JSON.stringify(obj ?? {}))))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    } catch {
+      return ''
+    }
+  }
+
+  function getModuleUrls(widgetId, cfgOverride) {
+    const token = getWidgetToken()
+    const uid = window.NovaAuth?.getSession()?.userId ?? ''
+    const cfg = cfgOverride ?? getWidget(widgetId) ?? DEFAULTS[widgetId] ?? {}
+    const cfgParam = encodeCfg(cfg)
+    const desktop = window.NOVA_CONFIG.DESKTOP_LINK_URL.replace(/\/$/, '')
+    const web = window.NOVA_CONFIG.WEBSITE_URL.replace(/\/$/, '')
+    const q = `t=${encodeURIComponent(token ?? '')}&uid=${encodeURIComponent(uid)}&cfg=${cfgParam}`
+    return {
+      local: `${desktop}/overlay/${widgetId}?t=${encodeURIComponent(token ?? '')}`,
+      web: `${web}/overlays/widget.html?w=${encodeURIComponent(widgetId)}&${q}`
+    }
+  }
+
   window.NovaWidgetSettings = {
     DEFAULTS,
     loadAll,
     saveAll,
     saveWidget,
     getWidget,
-    syncToDesktop
+    syncToDesktop,
+    getWidgetToken,
+    getModuleUrls
   }
 })()

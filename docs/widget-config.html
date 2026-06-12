@@ -15,10 +15,36 @@
         <h1 id="widget-title">Widget</h1>
         <p id="widget-desc" class="widget-config-desc"></p>
       </div>
-      <div class="widget-config-toolbar">
-        <button type="button" class="btn btn-outline btn-sm" id="btn-test">▶ Aperçu</button>
-      </div>
     </header>
+
+    <section class="module-url-card">
+      <h3>URL du module</h3>
+      <p class="module-url-hint">
+        Ajoutez cette URL comme <strong>source Navigateur</strong> dans OBS ou Nova Stream.
+        Liez d'abord votre compte à l'app pour activer les tests en direct.
+      </p>
+      <label class="module-url-field">
+        <span>URL locale (Nova Stream ouvert)</span>
+        <div class="module-url-row">
+          <input type="text" id="url-local" readonly />
+          <button type="button" class="module-url-btn" id="btn-copy-local" title="Copier">📋</button>
+          <button type="button" class="module-url-btn" id="btn-open-local" title="Lancer">↗</button>
+        </div>
+      </label>
+      <label class="module-url-field">
+        <span>URL web (OBS / autre logiciel)</span>
+        <div class="module-url-row">
+          <input type="text" id="url-web" readonly />
+          <button type="button" class="module-url-btn" id="btn-copy-web" title="Copier">📋</button>
+          <button type="button" class="module-url-btn" id="btn-open-web" title="Lancer">↗</button>
+        </div>
+      </label>
+      <div class="module-url-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-preview">▶ Aperçu local</button>
+        <button type="button" class="btn btn-twitch btn-sm" id="btn-test-app">Test dans l'app</button>
+      </div>
+      <div id="test-msg" class="test-msg" style="display:none"></div>
+    </section>
 
     <div id="alert-type-tabs" class="cfg-tabs" style="display:none"></div>
 

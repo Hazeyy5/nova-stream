@@ -30,7 +30,8 @@ async function linkToDesktop() {
       username: session.username,
       displayName: session.displayName,
       avatarUrl: session.avatarUrl,
-      widgetSettings: window.NovaWidgetSettings?.loadAll?.() ?? undefined
+      widgetSettings: window.NovaWidgetSettings?.loadAll?.() ?? undefined,
+      widgetToken: window.NovaWidgetSettings?.getWidgetToken?.() ?? undefined
     })
   })
 
@@ -41,4 +42,30 @@ async function linkToDesktop() {
   return data
 }
 
-window.NovaLink = { checkDesktopOnline, linkToDesktop }
+async function testWidget(payload) {
+  const status = await checkDesktopOnline()
+  if (!status?.online) {
+    throw new Error('Nova Stream n\'est pas lancé. Ouvrez l\'application puis réessayez.')
+  }
+
+  const res = await fetch(`${window.NOVA_CONFIG.DESKTOP_LINK_URL}/api/test-widget`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  const data = await res.json()
+  if (!res.ok || !data.success) {
+    throw new Error(data.message ?? 'Test échoué')
+  }
+  return data
+}
+
+async function syncWidgetSettings() {
+  const status = await checkDesktopOnline()
+  if (!status?.online) {
+    throw new Error('Nova Stream non détecté')
+  }
+  return NovaWidgetSettings.syncToDesktop()
+}
+
+window.NovaLink = { checkDesktopOnline, linkToDesktop, testWidget, syncWidgetSettings }
