@@ -78,15 +78,28 @@
   function renderGoalPreview(cfg, kind) {
     const el = document.getElementById('widget-preview')
     if (!el) return
-    const current = kind === 'followerGoal' ? 72 : 45
-    const target = cfg.target || 100
+    const target = Math.max(1, cfg.target || 100)
+    const demoRatio = kind === 'followerGoal' ? 0.72 : 0.45
+    const current = Math.max(0, Math.min(target - 1, Math.round(target * demoRatio)))
     const pct = Math.min(100, Math.round((current / target) * 100))
-    el.className = 'widget-preview-stage widget-preview-goal'
+    const style = cfg.style || 'classic'
+    const accent = kind === 'subGoal' ? 'accent-gold' : 'accent-purple'
+    const label = esc(cfg.label || (kind === 'followerGoal' ? 'Objectif followers' : 'Objectif abonnés'))
+
+    el.className = `widget-preview-stage w-preview-root goal-preview goal-style-${style} ${accent}`
+
+    if (style === 'minimal') {
+      el.innerHTML = `<p class="w-preview-minimal-text">${label}: ${current} / ${target}</p>`
+      return
+    }
+
     el.innerHTML = `
-      <div class="goal-mock goal-style-${cfg.style || 'classic'}">
-        <span class="widget-label">${esc(cfg.label)}</span>
-        <div class="goal-bar"><div class="goal-fill" style="width:${pct}%"></div></div>
-        <span class="widget-stat">${current} / ${target}</span>
+      <div class="w-preview-box">
+        <span class="w-preview-label">${label.toUpperCase()}</span>
+        <div class="w-preview-bar-track">
+          <div class="w-preview-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="w-preview-stat">${current} / ${target}</span>
       </div>
     `
   }
@@ -94,12 +107,27 @@
   function renderViewerPreview(cfg) {
     const el = document.getElementById('widget-preview')
     if (!el) return
-    el.className = 'widget-preview-stage widget-preview-viewer'
+    const style = cfg.style || 'neon'
+    const label = esc(cfg.label || 'Spectateurs')
+    const count = '1 284'
+
+    el.className = `widget-preview-stage w-preview-root viewer-preview viewer-style-${style}`
+
+    if (style === 'minimal') {
+      el.innerHTML = `
+        <div class="w-preview-minimal-viewer">
+          <span class="w-preview-label-min">${label.toUpperCase()}</span>
+          <span class="w-preview-count-min">${count}</span>
+        </div>
+      `
+      return
+    }
+
     el.innerHTML = `
-      <div class="viewer-mock goal-style-${cfg.style || 'classic'}">
-        <span class="widget-label">${esc(cfg.label)}</span>
-        <span class="viewer-count">1 284</span>
-        <span class="viewer-live">● LIVE</span>
+      <div class="w-preview-box viewer-box">
+        <span class="w-preview-label">👁 ${label.toUpperCase()}</span>
+        <span class="w-preview-count">${count}</span>
+        ${style === 'neon' ? '<span class="w-preview-live">● LIVE</span>' : ''}
       </div>
     `
   }
@@ -107,18 +135,36 @@
   function renderPollPreview(cfg) {
     const el = document.getElementById('widget-preview')
     if (!el) return
-    const opts = (cfg.options || []).slice(0, 4)
-    const votes = [12, 28, 9, 5]
-    el.className = 'widget-preview-stage widget-preview-poll'
+    const style = cfg.style || 'bars'
+    const question = esc(cfg.question || 'Votre question ici')
+    const opts = (cfg.options || []).filter(Boolean)
+    const displayOpts = opts.length ? opts : ['Option A', 'Option B', 'Option C']
+    const votes = displayOpts.map((_, i) => [40, 28, 18, 14][i] ?? 10)
+    const total = votes.reduce((a, b) => a + b, 0) || 1
+
+    el.className = `widget-preview-stage w-preview-root poll-preview poll-style-${style}`
     el.innerHTML = `
-      <div class="poll-mock poll-style-${cfg.style || 'bars'}">
-        <span class="widget-label">${esc(cfg.question)}</span>
-        ${opts.map((o, i) => `
-          <div class="poll-option">
-            <span>${esc(o)}</span>
-            <div class="poll-bar-wrap"><div class="poll-bar" style="width:${votes[i] ?? 10}%"></div></div>
-          </div>
-        `).join('')}
+      <div class="w-preview-box poll-box">
+        <span class="w-preview-tag">📊 SONDAGE</span>
+        <span class="w-preview-question">${question}</span>
+        <div class="w-preview-poll-rows">
+          ${displayOpts.map((opt, i) => {
+            const pct = Math.round((votes[i] / total) * 100)
+            return `
+              <div class="w-preview-poll-row">
+                <div class="w-preview-poll-row-head">
+                  <span>${esc(opt)}</span>
+                  <span class="w-preview-poll-pct">${pct}%</span>
+                </div>
+                ${style === 'bars' ? `
+                  <div class="w-preview-bar-track w-preview-poll-track">
+                    <div class="w-preview-bar-fill w-preview-poll-fill" style="width:${pct}%"></div>
+                  </div>
+                ` : ''}
+              </div>
+            `
+          }).join('')}
+        </div>
       </div>
     `
   }
