@@ -62,12 +62,36 @@ export class LinkServer {
               userId: data.userId,
               username: data.username,
               displayName: data.displayName,
-              avatarUrl: data.avatarUrl
+              avatarUrl: data.avatarUrl,
+              widgetSettings: data.widgetSettings
             })
             res.writeHead(200, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({ success: true, connection: conn }))
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Erreur de liaison'
+            res.writeHead(500, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ success: false, message }))
+          }
+        })
+        return
+      }
+
+      if (req.method === 'POST' && req.url === '/api/widget-settings') {
+        let body = ''
+        req.on('data', (chunk) => { body += chunk })
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body)
+            if (!data.settings || typeof data.settings !== 'object') {
+              res.writeHead(400, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ success: false, message: 'Paramètres invalides' }))
+              return
+            }
+            this.integrations.applyWebWidgetSettings(data.settings)
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ success: true }))
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Erreur de synchronisation'
             res.writeHead(500, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({ success: false, message }))
           }

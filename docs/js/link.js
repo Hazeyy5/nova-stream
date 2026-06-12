@@ -29,7 +29,8 @@ async function linkToDesktop() {
       userId: session.userId,
       username: session.username,
       displayName: session.displayName,
-      avatarUrl: session.avatarUrl
+      avatarUrl: session.avatarUrl,
+      widgetSettings: window.NovaWidgetSettings?.loadAll?.() ?? undefined
     })
   })
 

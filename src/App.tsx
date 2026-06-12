@@ -151,6 +151,12 @@ function App() {
 
   }, [])
 
+  useEffect(() => {
+    return window.novaStream.integrations.onWebWidgetSettings((settings) => {
+      scenes.applyWebWidgetSettings(settings)
+    })
+  }, [scenes.applyWebWidgetSettings])
+
 
 
   useEffect(() => {

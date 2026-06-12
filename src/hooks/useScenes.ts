@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
-import type { Scene, Source, SourceType } from '../types'
+import type { Scene, Source, SourceType, WebWidgetSettings } from '../types'
 import { createSource } from '../types'
+import { applyWebWidgetSettingsToScenes } from '../lib/applyWebWidgetSettings'
 
 const STORAGE_KEY = 'nova-stream-scenes'
 
@@ -192,6 +193,10 @@ export function useScenes() {
     updateScene(activeScene.id, (s) => ({ ...s, sources: reindexed }))
   }, [activeScene, updateScene])
 
+  const applyWebWidgetSettings = useCallback((settings: WebWidgetSettings) => {
+    persist(applyWebWidgetSettingsToScenes(scenes, settings))
+  }, [scenes, persist])
+
   const selectedSource = activeScene?.sources.find((s) => s.id === selectedSourceId) ?? null
 
   return {
@@ -213,6 +218,7 @@ export function useScenes() {
     removeSource,
     updateSource,
     moveSource,
-    duplicateSource
+    duplicateSource,
+    applyWebWidgetSettings
   }
 }

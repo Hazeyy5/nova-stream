@@ -14,7 +14,8 @@ import type {
   Source,
   WidgetLiveData,
   TwitchCategory,
-  TwitchChannelInfo
+  TwitchChannelInfo,
+  WebWidgetSettings
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
 
@@ -152,6 +153,11 @@ const api = {
       const handler = (_e: Electron.IpcRendererEvent, conns: PlatformConnectionPublic[]) => callback(conns)
       ipcRenderer.on('integrations:updated', handler)
       return () => ipcRenderer.removeListener('integrations:updated', handler)
+    },
+    onWebWidgetSettings: (callback: (settings: WebWidgetSettings) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, settings: WebWidgetSettings) => callback(settings)
+      ipcRenderer.on('widgets:settings', handler)
+      return () => ipcRenderer.removeListener('widgets:settings', handler)
     }
   },
   sourceProps: {

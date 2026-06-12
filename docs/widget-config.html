@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration widget — Nova Stream</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <div data-dash-main class="dash-main widget-config-page">
+    <header class="widget-config-header">
+      <div>
+        <h1 id="widget-title">Widget</h1>
+        <p id="widget-desc" class="widget-config-desc"></p>
+      </div>
+      <div class="widget-config-toolbar">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-test">▶ Aperçu</button>
+      </div>
+    </header>
+
+    <div id="alert-type-tabs" class="cfg-tabs" style="display:none"></div>
+
+    <div class="widget-config-grid">
+      <section class="widget-config-panel">
+        <h2 class="panel-title">Paramètres</h2>
+        <form id="widget-form" class="widget-form" onsubmit="return false"></form>
+      </section>
+
+      <section class="widget-config-preview">
+        <div class="preview-header">
+          <h2 class="panel-title">Aperçu</h2>
+          <span class="preview-badge">Live preview</span>
+        </div>
+        <div class="preview-canvas">
+          <div id="widget-preview" class="widget-preview-stage"></div>
+        </div>
+        <p class="preview-hint">Même rendu que dans vos scènes Nova Stream.</p>
+      </section>
+    </div>
+
+    <footer class="widget-config-footer">
+      <div id="save-msg" class="save-msg" style="display:none"></div>
+      <button type="button" class="btn btn-primary" id="btn-save">Enregistrer les paramètres</button>
+    </footer>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/link.js"></script>
+  <script src="js/widget-settings.js"></script>
+  <script src="js/dashboard-shell.js"></script>
+  <script src="js/widget-editor.js"></script>
+</body>
+</html>

@@ -13,7 +13,7 @@ import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
-import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData } from '../../../src/types'
+import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
@@ -133,6 +133,7 @@ export class IntegrationManager {
     username: string
     displayName: string
     avatarUrl?: string
+    widgetSettings?: WebWidgetSettings
   }): Promise<PlatformConnectionPublic> {
     const conn = {
       platform: 'twitch' as const,
@@ -147,7 +148,15 @@ export class IntegrationManager {
     }
     saveConnection('twitch', conn)
     this.alerts.stopDemo()
-    return this.activateTwitchConnection(conn)
+    const pub = await this.activateTwitchConnection(conn)
+    if (data.widgetSettings) {
+      this.applyWebWidgetSettings(data.widgetSettings)
+    }
+    return pub
+  }
+
+  applyWebWidgetSettings(settings: WebWidgetSettings): void {
+    this.broadcast('widgets:settings', settings)
   }
 
   private async activateTwitchConnection(conn: {

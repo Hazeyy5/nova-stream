@@ -155,6 +155,48 @@ export interface TwitchChannelInfo {
   categoryName: string
 }
 
+/** Paramètres widgets synchronisés depuis le site web Nova Stream. */
+export interface WebWidgetSettings {
+  alert?: {
+    enabled?: boolean
+    style?: AlertBoxStyle
+    animation?: AlertAnimation
+    durationSec?: number
+    types?: Partial<Record<AlertType, boolean>>
+  }
+  chat?: {
+    enabled?: boolean
+    style?: ChatBoxStyle
+    maxMessages?: number
+  }
+  followerGoal?: {
+    enabled?: boolean
+    style?: GoalWidgetStyle
+    label?: string
+    target?: number
+    useLiveData?: boolean
+  }
+  subGoal?: {
+    enabled?: boolean
+    style?: GoalWidgetStyle
+    label?: string
+    target?: number
+    useLiveData?: boolean
+  }
+  viewerCount?: {
+    enabled?: boolean
+    style?: GoalWidgetStyle
+    label?: string
+    useLiveData?: boolean
+  }
+  poll?: {
+    enabled?: boolean
+    style?: PollWidgetStyle
+    question?: string
+    options?: string[]
+  }
+}
+
 export interface StreamSettings {
   rtmpUrl: string
   streamKey: string
