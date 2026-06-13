@@ -1,5 +1,5 @@
 export type VideoEncoder = 'x264' | 'nvenc'
-export type TransitionType = 'cut' | 'fade'
+export type TransitionType = 'cut' | 'fade' | 'slideLeft' | 'slideRight' | 'slideUp' | 'slideDown' | 'wipe' | 'zoom'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
 export type ChatBoxStyle = 'classic' | 'minimal' | 'neon' | 'bubble' | 'retro'
@@ -8,7 +8,7 @@ export type AlertAnimation = 'pop' | 'slideUp' | 'slideLeft' | 'bounce' | 'fadeS
 export type GoalWidgetStyle = 'classic' | 'bar' | 'minimal' | 'neon'
 export type PollWidgetStyle = 'classic' | 'bars'
 export type SourceType =
-  | 'display' | 'screen' | 'window' | 'browser' | 'webcam' | 'image' | 'text'
+  | 'display' | 'screen' | 'window' | 'game' | 'browser' | 'webcam' | 'image' | 'text'
   | 'chat' | 'alert' | 'followerGoal' | 'subGoal' | 'viewerCount' | 'poll'
 export type PlatformId = 'twitch' | 'kick'
 export type AppView = 'editor' | 'integrations'
@@ -111,6 +111,8 @@ export interface Source {
   textContent?: string
   captureId?: string
   captureName?: string
+  /** Caméra utilisée pour cette source webcam (nom DirectShow / navigateur). */
+  webcamDevice?: string
   browserUrl?: string
   scaleMode?: ScaleMode
   blendMode?: BlendMode
@@ -267,11 +269,19 @@ export interface DisplaySource {
   thumbnail?: string
 }
 
+export type CapturePickerKind = 'screen' | 'window' | 'game'
+
 export interface CaptureSourceOption {
   id: string
   name: string
   kind: 'screen' | 'window'
   thumbnail?: string
+}
+
+export interface CapturePickerOpenPayload {
+  kind: CapturePickerKind
+  mode: 'add' | 'recapture'
+  sourceId?: string
 }
 
 export interface MediaDevice {
@@ -300,6 +310,7 @@ export const DEFAULT_SOURCE_TRANSFORM: Record<SourceType, SourceTransform> = {
   display: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
   screen: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
   window: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
+  game: { x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
   browser: { x: 0, y: 0, width: 100, height: 100, zIndex: 2 },
   webcam: { x: 72, y: 68, width: 22, height: 22, zIndex: 10 },
   image: { x: 10, y: 10, width: 30, height: 30, zIndex: 5 },
@@ -317,6 +328,7 @@ export function createSource(type: SourceType, name?: string): Source {
     display: 'Capture écran',
     screen: 'Écran',
     window: 'Fenêtre',
+    game: 'Capture de jeu',
     browser: 'Navigateur',
     webcam: 'Webcam',
     image: 'Image',
@@ -347,7 +359,7 @@ export function createSource(type: SourceType, name?: string): Source {
     alertStyle: type === 'alert' ? 'classic' : undefined,
     alertAnimation: type === 'alert' ? 'pop' : undefined,
     widgetGoalTarget: type === 'followerGoal' ? 100 : type === 'subGoal' ? 50 : undefined,
-    widgetGoalCurrent: type === 'followerGoal' ? 42 : type === 'subGoal' ? 12 : type === 'viewerCount' ? 0 : undefined,
+    widgetGoalCurrent: type === 'followerGoal' || type === 'subGoal' || type === 'viewerCount' ? 0 : undefined,
     widgetUseLiveData: type === 'followerGoal' || type === 'subGoal' || type === 'viewerCount' ? true : undefined,
     widgetLabel:
       type === 'followerGoal' ? 'Objectif followers'

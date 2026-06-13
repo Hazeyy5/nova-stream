@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'path'
-import type { Source } from '../../src/types'
+import type { CapturePickerKind, Source } from '../../src/types'
+import { openCapturePickerWindow } from './capturePickerWindow'
 
 const windows = new Map<string, BrowserWindow>()
 let mainWindow: BrowserWindow | null = null
@@ -87,6 +88,6 @@ export function forwardPatch(sourceId: string, partial: Partial<Source>): void {
   mainWindow?.webContents.send('sourceProps:applyPatch', { sourceId, partial })
 }
 
-export function forwardRecapture(sourceId: string, kind: 'screen' | 'window'): void {
-  mainWindow?.webContents.send('sourceProps:openRecapture', { sourceId, kind })
+export function forwardRecapture(sourceId: string, kind: CapturePickerKind): void {
+  openCapturePickerWindow({ kind, mode: 'recapture', sourceId })
 }

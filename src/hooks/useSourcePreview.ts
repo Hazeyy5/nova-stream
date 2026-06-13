@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Source } from '../types'
-import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
+import { DEFAULT_WIDGET_LIVE_DATA, type WidgetLiveData } from '../types'
 import { isCanvasWidget } from '../lib/widgetTypes'
 import { acquireSourceStream, drawScene, releaseSourceStream, type StreamEntry } from '../lib/drawScene'
 
@@ -18,7 +18,7 @@ function previewFingerprint(source: Source): string {
 function canPreview(source: Source): boolean {
   if (source.type === 'text') return !!source.textContent
   if (isCanvasWidget(source.type)) return true
-  if (source.type === 'screen' || source.type === 'window') return !!source.captureId
+  if (source.type === 'screen' || source.type === 'window' || source.type === 'game') return !!source.captureId
   if (source.type === 'image') return !!(source.imageUrl || source.imageLocalPath)
   if (source.type === 'browser') return !!source.browserUrl
   return source.type === 'display' || source.type === 'webcam'
@@ -37,7 +37,20 @@ function drawPlaceholder(ctx: CanvasRenderingContext2D, message: string): void {
 export function useSourcePreview(source: Source) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamsRef = useRef<Map<string, StreamEntry>>(new Map())
+  const liveDataRef = useRef<WidgetLiveData>(DEFAULT_WIDGET_LIVE_DATA)
   const previewable = canPreview(source)
+
+  useEffect(() => {
+    const isGoalWidget =
+      source.type === 'followerGoal' || source.type === 'subGoal' || source.type === 'viewerCount'
+    if (!isGoalWidget) return
+    window.novaStream.integrations.getWidgetLiveData().then((data) => {
+      liveDataRef.current = data
+    })
+    return window.novaStream.integrations.onWidgetStats((data) => {
+      liveDataRef.current = data
+    })
+  }, [source.type])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -74,13 +87,7 @@ export function useSourcePreview(source: Source) {
             }]
           : [],
         frameTime: Date.now(),
-        widgetLiveData: {
-          ...DEFAULT_WIDGET_LIVE_DATA,
-          followerCount: 842,
-          viewerCount: 127,
-          subCount: 48,
-          live: true
-        }
+        widgetLiveData: liveDataRef.current
       })
       raf = requestAnimationFrame(drawFrame)
     }

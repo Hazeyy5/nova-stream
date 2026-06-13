@@ -1,5 +1,5 @@
-import { getToken } from './authStore'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
+import { getPublicTwitchClientId } from '../platformConfig'
 
 export interface TwitchWidgetStats {
   viewerCount: number
@@ -16,24 +16,24 @@ const EMPTY: TwitchWidgetStats = {
 }
 
 export async function fetchTwitchWidgetStats(): Promise<TwitchWidgetStats> {
-  const token = getToken('twitch')
-  if (!token?.userId) return EMPTY
+  const conn = await ensureFreshTwitchToken()
+  if (!conn?.userId) return EMPTY
 
-  const accessToken = await ensureFreshTwitchToken()
-  if (!accessToken) return EMPTY
-
-  const clientId = process.env.TWITCH_CLIENT_ID ?? ''
+  const clientId = getPublicTwitchClientId()
   if (!clientId) return EMPTY
 
   const headers = {
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${conn.accessToken}`,
     'Client-Id': clientId
   }
 
+  const broadcasterId = encodeURIComponent(conn.userId)
+
   try {
-    const [streamRes, followersRes] = await Promise.all([
-      fetch(`https://api.twitch.tv/helix/streams?user_id=${token.userId}`, { headers }),
-      fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${token.userId}&first=1`, { headers })
+    const [streamRes, followersRes, subsRes] = await Promise.all([
+      fetch(`https://api.twitch.tv/helix/streams?user_id=${broadcasterId}`, { headers }),
+      fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&first=1`, { headers }),
+      fetch(`https://api.twitch.tv/helix/subscriptions?broadcaster_id=${broadcasterId}&first=1`, { headers })
     ])
 
     let viewerCount = 0
@@ -53,7 +53,13 @@ export async function fetchTwitchWidgetStats(): Promise<TwitchWidgetStats> {
       followerCount = followersJson.total ?? 0
     }
 
-    return { viewerCount, followerCount, subCount: 0, live }
+    let subCount = 0
+    if (subsRes.ok) {
+      const subsJson = (await subsRes.json()) as { total?: number }
+      subCount = subsJson.total ?? 0
+    }
+
+    return { viewerCount, followerCount, subCount, live }
   } catch {
     return EMPTY
   }

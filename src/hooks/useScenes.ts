@@ -10,7 +10,7 @@ const DEFAULT_SCENES: Scene[] = [
     id: 'scene-1',
     name: 'GAMING',
     sources: [
-      { ...createSource('screen'), visible: true, name: 'Jeu' },
+      { ...createSource('game'), visible: true, name: 'Jeu' },
       { ...createSource('webcam'), visible: true, name: 'CAM' },
       { ...createSource('chat'), visible: true },
       { ...createSource('alert'), visible: true }
@@ -28,10 +28,25 @@ const DEFAULT_SCENES: Scene[] = [
   }
 ]
 
+function migrateSource(source: Source): Source {
+  const isGoalWidget =
+    source.type === 'followerGoal' || source.type === 'subGoal' || source.type === 'viewerCount'
+  if (!isGoalWidget) return source
+  if (source.widgetUseLiveData === undefined) {
+    return { ...source, widgetUseLiveData: true }
+  }
+  return source
+}
+
 function loadScenes(): Scene[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? JSON.parse(saved) : DEFAULT_SCENES
+    if (!saved) return DEFAULT_SCENES
+    const parsed = JSON.parse(saved) as Scene[]
+    return parsed.map((scene) => ({
+      ...scene,
+      sources: scene.sources.map(migrateSource)
+    }))
   } catch {
     return DEFAULT_SCENES
   }
@@ -127,14 +142,15 @@ export function useScenes() {
     setActiveSceneId(id)
   }, [scenes, persist])
 
-  const addSource = useCallback((type: SourceType, extra?: Partial<Source>) => {
-    if (!activeScene) return
+  const addSource = useCallback((type: SourceType, extra?: Partial<Source>): Source | null => {
+    if (!activeScene) return null
     const source = { ...createSource(type), ...extra }
     updateScene(activeScene.id, (s) => ({
       ...s,
       sources: [...s.sources, source]
     }))
     setSelectedSourceId(source.id)
+    return source
   }, [activeScene, updateScene])
 
   const removeSource = useCallback((sourceId: string) => {

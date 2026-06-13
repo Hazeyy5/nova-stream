@@ -47,6 +47,7 @@
   padding: 6px 12px 8px;
   margin: 0;
   border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .dock-add-btn {
@@ -266,6 +267,17 @@
   display: flex;
   gap: 1px;
   padding-right: 4px;
+}
+
+.scenes-dock {
+  flex: 1;
+  min-height: 0;
+}
+
+.scenes-dock-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .sources-dock-list {

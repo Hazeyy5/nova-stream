@@ -19,7 +19,8 @@ export default function BrowserSourceModal({ initialUrl = 'https://', onConfirm,
         </header>
         <div className="capture-picker-body">
           <p className="capture-picker-hint" style={{ padding: '0 0 12px' }}>
-            Entrez l'URL d'une page web à afficher dans votre scène (widgets, alertes, etc.).
+            Entrez l&apos;URL d&apos;une page web à afficher dans votre scène.
+            Pour un widget Nova Stream : <code>http://127.0.0.1:3847/overlay/alert?t=VOTRE_TOKEN</code>
           </p>
           <label className="browser-url-field">
             URL

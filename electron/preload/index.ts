@@ -11,6 +11,8 @@ import type {
   AlertType,
   SpeedtestResult,
   CaptureSourceOption,
+  CapturePickerKind,
+  CapturePickerOpenPayload,
   Source,
   WidgetLiveData,
   TwitchCategory,
@@ -39,7 +41,7 @@ const api = {
   },
   devices: {
     getDisplays: () => ipcRenderer.invoke('devices:getDisplays') as Promise<DisplaySource[]>,
-    getCaptureSources: (kind: 'screen' | 'window' | 'all') =>
+    getCaptureSources: (kind: CapturePickerKind | 'all') =>
       ipcRenderer.invoke('devices:getCaptureSources', kind) as Promise<CaptureSourceOption[]>,
     listMedia: () => ipcRenderer.invoke('devices:listMedia') as Promise<MediaDevice[]>
   },
@@ -168,7 +170,7 @@ const api = {
     patch: (sourceId: string, partial: Partial<Source>) => {
       ipcRenderer.send('sourceProps:patch', { sourceId, partial })
     },
-    requestRecapture: (sourceId: string, kind: 'screen' | 'window') => {
+    requestRecapture: (sourceId: string, kind: CapturePickerKind) => {
       ipcRenderer.send('sourceProps:recapture', { sourceId, kind })
     },
     onInit: (callback: (source: Source) => void) => {
@@ -186,8 +188,8 @@ const api = {
       ipcRenderer.on('sourceProps:applyPatch', handler)
       return () => ipcRenderer.removeListener('sourceProps:applyPatch', handler)
     },
-    onOpenRecapture: (callback: (payload: { sourceId: string; kind: 'screen' | 'window' }) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, payload: { sourceId: string; kind: 'screen' | 'window' }) => callback(payload)
+    onOpenRecapture: (callback: (payload: { sourceId: string; kind: CapturePickerKind }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: { sourceId: string; kind: CapturePickerKind }) => callback(payload)
       ipcRenderer.on('sourceProps:openRecapture', handler)
       return () => ipcRenderer.removeListener('sourceProps:openRecapture', handler)
     },
@@ -245,6 +247,37 @@ const api = {
       }) => callback(level)
       ipcRenderer.on('audioMeter:desktop', handler)
       return () => ipcRenderer.removeListener('audioMeter:desktop', handler)
+    }
+  },
+  capturePicker: {
+    open: (payload: CapturePickerOpenPayload) => ipcRenderer.invoke('capturePicker:open', payload),
+    ready: () => ipcRenderer.send('capturePicker:ready'),
+    select: (payload: {
+      mode: 'add' | 'recapture'
+      kind: CapturePickerKind
+      sourceId?: string
+      capture: CaptureSourceOption
+    }) => ipcRenderer.send('capturePicker:select', payload),
+    cancel: () => ipcRenderer.send('capturePicker:cancel'),
+    onInit: (callback: (payload: CapturePickerOpenPayload) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: CapturePickerOpenPayload) => callback(payload)
+      ipcRenderer.on('capturePicker:init', handler)
+      return () => ipcRenderer.removeListener('capturePicker:init', handler)
+    },
+    onSelect: (callback: (payload: {
+      mode: 'add' | 'recapture'
+      kind: CapturePickerKind
+      sourceId?: string
+      capture: CaptureSourceOption
+    }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: {
+        mode: 'add' | 'recapture'
+        kind: CapturePickerKind
+        sourceId?: string
+        capture: CaptureSourceOption
+      }) => callback(payload)
+      ipcRenderer.on('capturePicker:select', handler)
+      return () => ipcRenderer.removeListener('capturePicker:select', handler)
     }
   }
 }

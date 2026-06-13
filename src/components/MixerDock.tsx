@@ -27,9 +27,17 @@ function openChannelProperties(channel: AudioChannelId, settings: StreamSettings
   window.novaStream.audioProps.open(channel, settings)
 }
 
-const LevelMeterBars = memo(function LevelMeterBars({ peak, rms }: { peak: number; rms: number }) {
+const LevelMeterBars = memo(function LevelMeterBars({
+  peak,
+  rms,
+  muted = false
+}: {
+  peak: number
+  rms: number
+  muted?: boolean
+}) {
   return (
-    <div className="level-meter-stack">
+    <div className={`level-meter-stack${muted ? ' level-meter-muted' : ''}`}>
       <LevelMeterRow level={peak} />
       <LevelMeterRow level={rms} />
     </div>
@@ -79,7 +87,6 @@ function MixerChannel({
   monitorOn?: boolean
 }) {
   const [localGainDb, setLocalGainDb] = useState(gainDb)
-  const active = !muted && !!deviceName
 
   useEffect(() => {
     setLocalGainDb(gainDb)
@@ -110,7 +117,11 @@ function MixerChannel({
         </span>
       </div>
 
-      <LevelMeterBars peak={active ? meter.peak : 0} rms={active ? meter.rms : 0} />
+      <LevelMeterBars
+        peak={meter.peak}
+        rms={meter.rms}
+        muted={muted}
+      />
 
       <div className="mixer-slider-row">
         <input
@@ -180,11 +191,11 @@ export default function MixerDock({ settings, onUpdateSettings, onOpenSettings }
 
   const micMeter = useAudioMeter(
     settings.audioDevice,
-    settings.audioEnabled,
+    !!settings.audioDevice,
     micGainDb,
     settings.micMono ?? false
   )
-  const desktopMeter = useDesktopAudioMeter(settings.desktopAudioEnabled, desktopGainDb)
+  const desktopMeter = useDesktopAudioMeter(!!settings.desktopAudioDevice, desktopGainDb)
   useMicMonitor(
     settings.audioDevice,
     settings.audioEnabled,

@@ -31,7 +31,8 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/index.html'),
           sourceProps: resolve(__dirname, 'src/source-props.html'),
-          audioProps: resolve(__dirname, 'src/audio-props.html')
+          audioProps: resolve(__dirname, 'src/audio-props.html'),
+          capturePicker: resolve(__dirname, 'src/capture-picker.html')
         }
       }
     },

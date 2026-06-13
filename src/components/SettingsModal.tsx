@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { StreamSettings, MediaDevice, SpeedtestResult } from '../types'
+import { TRANSITION_OPTIONS } from '../lib/transitionVisual'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -382,24 +383,25 @@ export default function SettingsModal({
               </p>
             </>
           )}
-
           {tab === 'Avancé' && (
             <>
               <label className="settings-field">
                 Transition entre scènes
                 <select value={form.transition}
                   onChange={(e) => update({ transition: e.target.value as StreamSettings['transition'] })}>
-                  <option value="cut">Coupe directe</option>
-                  <option value="fade">Fondu</option>
+                  {TRANSITION_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                  ))}
                 </select>
               </label>
               <label className="settings-field">
-                Durée du fondu (ms)
+                Durée de la transition (ms)
                 <input type="number" value={form.transitionDuration} min={100} max={2000}
                   disabled={form.transition === 'cut'}
                   onChange={(e) => update({ transitionDuration: Number(e.target.value) })} />
               </label>
               <p className="settings-hint">
+                Les transitions sont aussi configurables dans le panneau Scènes, avec aperçu animé.
                 {devices.length} périphérique(s) détecté(s) via DirectShow.
               </p>
             </>

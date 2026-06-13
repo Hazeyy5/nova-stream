@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import type { Scene } from '../types'
+import type { Scene, TransitionType } from '../types'
 import { IconTrash } from './Icons'
+import TransitionControls from './TransitionControls'
 import './DockPanel.css'
 
 interface ScenesDockProps {
   scenes: Scene[]
   activeSceneId: string
+  transition: TransitionType
+  transitionDuration: number
+  onTransitionChange: (partial: { transition?: TransitionType; transitionDuration?: number }) => void
   onSceneSelect: (id: string) => void
   onAddScene: () => void
   onRemoveScene: (id: string) => void
@@ -19,6 +23,9 @@ interface ScenesDockProps {
 export default function ScenesDock({
   scenes,
   activeSceneId,
+  transition,
+  transitionDuration,
+  onTransitionChange,
   onSceneSelect,
   onAddScene,
   onRemoveScene,
@@ -30,14 +37,20 @@ export default function ScenesDock({
 }: ScenesDockProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
   const activeIndex = scenes.findIndex((s) => s.id === activeSceneId)
 
   useEffect(() => {
     if (editingId) inputRef.current?.focus()
   }, [editingId])
 
+  useEffect(() => {
+    const activeEl = listRef.current?.querySelector('li.active')
+    activeEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeSceneId])
+
   return (
-    <div className="dock-panel">
+    <div className="dock-panel scenes-dock">
       <div className="dock-panel-header">
         <h3>Scènes</h3>
         <div className="dock-header-actions">
@@ -46,7 +59,7 @@ export default function ScenesDock({
           <button className="dock-add-btn" onClick={onAddScene} title="Ajouter une scène">+</button>
         </div>
       </div>
-      <ul className="dock-list">
+      <ul className="dock-list scenes-dock-list" ref={listRef}>
         {scenes.map((scene, index) => (
           <li
             key={scene.id}
@@ -113,6 +126,11 @@ export default function ScenesDock({
       {activeIndex >= 0 && (
         <p className="dock-scene-hint">Scène {activeIndex + 1} / {scenes.length}</p>
       )}
+      <TransitionControls
+        transition={transition}
+        transitionDuration={transitionDuration}
+        onChange={onTransitionChange}
+      />
     </div>
   )
 }

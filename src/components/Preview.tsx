@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useCallback, useState } from 'react'
+import { useEffect, useMemo, useRef, useCallback, useState, type CSSProperties } from 'react'
 import type { Source, ChatMessage, StreamAlert, SourceTransform, WidgetLiveData } from '../types'
 import { isCanvasWidget } from '../lib/widgetTypes'
 import type { StreamEntry } from '../lib/drawScene'
@@ -21,7 +21,7 @@ interface PreviewProps {
   targetFps?: number
   onFps?: (fps: number) => void
   onFrameDrawn?: () => void
-  fadeOpacity?: number
+  transitionStyle?: CSSProperties
   captureActive?: boolean
 }
 
@@ -39,8 +39,13 @@ function applyResize(
   handle: ResizeHandle,
   orig: SourceTransform,
   dx: number,
-  dy: number
+  dy: number,
+  lockAspect = false
 ): SourceTransform {
+  if (lockAspect) {
+    return applyAspectLockedResize(handle, orig, dx, dy)
+  }
+
   let { x, y, width, height } = orig
 
   if (handle.includes('e')) width = orig.width + dx
@@ -52,6 +57,61 @@ function applyResize(
   if (handle.includes('n')) {
     y = orig.y + dy
     height = orig.height - dy
+  }
+
+  return clampTransform({ ...orig, x, y, width, height })
+}
+
+function applyAspectLockedResize(
+  handle: ResizeHandle,
+  orig: SourceTransform,
+  dx: number,
+  dy: number
+): SourceTransform {
+  const ratio = orig.width / orig.height
+  let x = orig.x
+  let y = orig.y
+  let width = orig.width
+  let height = orig.height
+
+  if (handle === 'e') {
+    width = orig.width + dx
+    height = width / ratio
+    y = orig.y + (orig.height - height) / 2
+  } else if (handle === 'w') {
+    width = orig.width - dx
+    height = width / ratio
+    x = orig.x + dx
+    y = orig.y + (orig.height - height) / 2
+  } else if (handle === 's') {
+    height = orig.height + dy
+    width = height * ratio
+    x = orig.x + (orig.width - width) / 2
+  } else if (handle === 'n') {
+    height = orig.height - dy
+    width = height * ratio
+    x = orig.x + (orig.width - width) / 2
+    y = orig.y + dy
+  } else if (handle === 'se') {
+    const scale = Math.max((orig.width + dx) / orig.width, (orig.height + dy) / orig.height)
+    width = orig.width * scale
+    height = orig.height * scale
+  } else if (handle === 'nw') {
+    const scale = Math.max((orig.width - dx) / orig.width, (orig.height - dy) / orig.height)
+    width = orig.width * scale
+    height = orig.height * scale
+    x = orig.x + orig.width - width
+    y = orig.y + orig.height - height
+  } else if (handle === 'ne') {
+    const scale = Math.max((orig.width + dx) / orig.width, (orig.height - dy) / orig.height)
+    width = orig.width * scale
+    height = orig.height * scale
+    y = orig.y + orig.height - height
+  } else if (handle === 'sw') {
+    const scale = Math.max((orig.width - dx) / orig.width, (orig.height + dy) / orig.height)
+    width = orig.width * scale
+    height = orig.height * scale
+    x = orig.x + orig.width - width
   }
 
   return clampTransform({ ...orig, x, y, width, height })
@@ -71,10 +131,11 @@ export default function Preview({
   targetFps = 30,
   onFps,
   onFrameDrawn,
-  fadeOpacity = 1,
+  transitionStyle,
   captureActive = false
 }: PreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ sourceId: string; startX: number; startY: number; origX: number; origY: number } | null>(null)
   const resizeRef = useRef<{
     sourceId: string
@@ -83,6 +144,26 @@ export default function Preview({
     startY: number
     orig: SourceTransform
   } | null>(null)
+  const pointerCaptureRef = useRef<{ el: HTMLElement; pointerId: number } | null>(null)
+
+  const releasePointerCapture = useCallback(() => {
+    const capture = pointerCaptureRef.current
+    if (capture?.el.hasPointerCapture(capture.pointerId)) {
+      capture.el.releasePointerCapture(capture.pointerId)
+    }
+    pointerCaptureRef.current = null
+  }, [])
+
+  const acquirePointerCapture = useCallback((el: HTMLElement | null, pointerId: number) => {
+    if (!el?.setPointerCapture) return
+    releasePointerCapture()
+    try {
+      el.setPointerCapture(pointerId)
+      pointerCaptureRef.current = { el, pointerId }
+    } catch {
+      /* ignore */
+    }
+  }, [releasePointerCapture])
 
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null)
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 })
@@ -174,6 +255,8 @@ export default function Preview({
       onSelectSource(hit.id)
       if (hit.locked) return
       dragRef.current = { sourceId: hit.id, startX: mx, startY: my, origX: hit.transform.x, origY: hit.transform.y }
+      acquirePointerCapture(stageRef.current, e.pointerId)
+      e.preventDefault()
     }
   }
 
@@ -184,7 +267,7 @@ export default function Preview({
       const { sourceId, handle, startX, startY, orig } = resizeRef.current
       const dx = mx - startX
       const dy = my - startY
-      onUpdateSource(sourceId, { transform: applyResize(handle, orig, dx, dy) })
+      onUpdateSource(sourceId, { transform: applyResize(handle, orig, dx, dy, e.shiftKey) })
       return
     }
 
@@ -204,9 +287,10 @@ export default function Preview({
   }, [sources, onUpdateSource])
 
   const handleMouseUp = useCallback(() => {
+    releasePointerCapture()
     dragRef.current = null
     resizeRef.current = null
-  }, [])
+  }, [releasePointerCapture])
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -240,6 +324,7 @@ export default function Preview({
 
   const startResize = (e: React.MouseEvent, handle: ResizeHandle) => {
     e.stopPropagation()
+    e.preventDefault()
     if (!selectedSource || selectedSource.locked) return
     const { mx, my } = pointerPercent(e)
     resizeRef.current = {
@@ -249,6 +334,7 @@ export default function Preview({
       startY: my,
       orig: { ...selectedSource.transform }
     }
+    acquirePointerCapture(stageRef.current, e.pointerId)
   }
 
   return (
@@ -265,12 +351,12 @@ export default function Preview({
       </div>
       <div className="preview-viewport" ref={containerRef}>
         <div
+          ref={stageRef}
           className="preview-stage"
           style={{
             width: stageSize.w > 0 ? stageSize.w : undefined,
             height: stageSize.h > 0 ? stageSize.h : undefined,
-            opacity: fadeOpacity,
-            transition: fadeOpacity === 1 ? 'none' : 'opacity 0.05s linear'
+            ...transitionStyle
           }}
         >
           <canvas
@@ -279,9 +365,6 @@ export default function Preview({
             height={outH}
             className="preview-canvas"
             onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
           />
           {showResizeHandles && selectedSource && (
             <div

@@ -1,6 +1,7 @@
 import { createServer, type Server } from 'http'
 import type { IntegrationManager } from './integrationManager'
 import { handleWidgetLinkRequest } from '../widgetLinkRoutes'
+import { tryServeDocsStatic } from '../docsStatic'
 
 const LINK_PORT = 3847
 const ALLOWED_ORIGINS = [
@@ -37,6 +38,10 @@ export class LinkServer {
       }
 
       if (handleWidgetLinkRequest(req, res, this.integrations, pathname, req.method ?? 'GET')) {
+        return
+      }
+
+      if (req.method === 'GET' && tryServeDocsStatic(pathname, res)) {
         return
       }
 

@@ -32,6 +32,7 @@ export class IntegrationManager {
     live: false
   }
   private widgetStatsTimer: ReturnType<typeof setInterval> | null = null
+  private widgetStatsRefreshDebounce: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     this.chat.setOnMessage((msg) => {
@@ -64,10 +65,21 @@ export class IntegrationManager {
       timestamp: Date.now()
     })
     this.broadcast('alert:show', stamped)
+    if (alert.type === 'follow' || alert.type === 'sub') {
+      this.scheduleWidgetStatsRefresh()
+    }
     setTimeout(() => {
       this.activeAlerts = this.activeAlerts.filter((a) => a.id !== stamped.id)
       this.broadcast('alert:dismiss', stamped.id)
     }, 5000)
+  }
+
+  private scheduleWidgetStatsRefresh(): void {
+    if (this.widgetStatsRefreshDebounce) clearTimeout(this.widgetStatsRefreshDebounce)
+    this.widgetStatsRefreshDebounce = setTimeout(() => {
+      this.widgetStatsRefreshDebounce = null
+      void this.refreshWidgetStats()
+    }, 3000)
   }
 
   private addFeedEvent(event: FeedEvent): void {
@@ -274,12 +286,12 @@ export class IntegrationManager {
     const twitch = getToken('twitch')
     if (twitch) {
       this.alerts.stopDemo()
+      this.startWidgetStatsPolling()
       try {
         await this.chat.connect(twitch.username, twitch.accessToken)
         this.chatAccessToken = twitch.accessToken
         void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
-        this.startWidgetStatsPolling()
-      } catch { /* token expired */ }
+      } catch { /* token expired or chat unavailable */ }
     }
     const hasConnection = getPublicConnections().length > 0
     if (!hasConnection) this.alerts.startDemo()
@@ -307,6 +319,10 @@ export class IntegrationManager {
   }
 
   private stopWidgetStatsPolling(): void {
+    if (this.widgetStatsRefreshDebounce) {
+      clearTimeout(this.widgetStatsRefreshDebounce)
+      this.widgetStatsRefreshDebounce = null
+    }
     if (this.widgetStatsTimer) {
       clearInterval(this.widgetStatsTimer)
       this.widgetStatsTimer = null
@@ -324,7 +340,7 @@ export class IntegrationManager {
     void this.refreshWidgetStats()
     this.widgetStatsTimer = setInterval(() => {
       void this.refreshWidgetStats()
-    }, 30_000)
+    }, 15_000)
   }
 
   testAlert(type?: StreamAlert['type']): void {

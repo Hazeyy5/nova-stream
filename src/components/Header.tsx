@@ -1,4 +1,5 @@
 import { IconLive, IconRecord } from './Icons'
+import logoUrl from '../assets/logo.png'
 import './Header.css'
 
 interface HeaderProps {
@@ -11,7 +12,13 @@ export default function Header({ sceneName, isLive, isRecording }: HeaderProps) 
   return (
     <header className="header">
       <div className="header-left">
-        <span className="header-brand-name">Nova Stream</span>
+        <div className="header-brand" title="Nova Stream">
+          <img src={logoUrl} alt="" className="header-brand-logo" width={28} height={28} draggable={false} />
+          <div className="header-brand-text">
+            <span className="header-brand-nova">Nova</span>
+            <span className="header-brand-stream">Stream</span>
+          </div>
+        </div>
       </div>
 
       <div className="header-center">

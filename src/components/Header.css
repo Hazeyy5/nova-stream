@@ -13,7 +13,7 @@
 
 .header-left,
 .header-right {
-  width: 140px;
+  width: 160px;
   -webkit-app-region: no-drag;
 }
 
@@ -22,12 +22,39 @@
   justify-content: flex-end;
 }
 
-.header-brand-name {
-  font-family: Georgia, 'Times New Roman', serif;
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.header-brand-logo {
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.35);
+}
+
+.header-brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  line-height: 1;
+}
+
+.header-brand-nova {
+  font-size: 15px;
   font-weight: 700;
-  font-size: 20px;
-  letter-spacing: 0.06em;
-  background: linear-gradient(135deg, #fafafa 0%, #e9d5ff 50%, #c4b5fd 100%);
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.header-brand-stream {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 45%, #7c3aed 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

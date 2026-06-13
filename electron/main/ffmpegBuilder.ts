@@ -25,7 +25,7 @@ function resolveDesktopLinear(settings: StreamSettings): number {
 }
 
 const MASTER_AUDIO_CHAIN =
-  'acompressor=threshold=-18dB:ratio=3:attack=5:release=120:makeup=0,' +
+  'acompressor=threshold=-18dB:ratio=3:attack=5:release=120:makeup=1,' +
   'alimiter=limit=0.82:attack=5:release=80:level=disabled'
 
 export interface FfmpegBuildResult {
@@ -227,11 +227,20 @@ export function defaultRecordingPath(): string {
 }
 
 export function parseFfmpegError(stderr: string): string {
+  if (stderr.includes('Could not find audio device') || stderr.includes('Could not find audio only device')) {
+    return 'Microphone introuvable — vérifiez Paramètres → Audio et choisissez un micro DirectShow.'
+  }
   if (stderr.includes('Could not find video device')) {
     return 'Périphérique vidéo introuvable — vérifiez Paramètres → Vidéo, ou masquez la source CAM.'
   }
-  if (stderr.includes('Could not find audio device')) {
-    return 'Microphone introuvable — vérifiez Paramètres → Audio.'
+  if (stderr.includes('acompressor') && stderr.includes('makeup')) {
+    return 'Filtre audio incompatible — mettez à jour Nova Stream.'
+  }
+  if (stderr.includes('Result too large') && stderr.includes('filter_complex')) {
+    return 'Chaîne de filtres audio invalide — vérifiez les périphériques audio dans Paramètres.'
+  }
+  if (stderr.includes('Error opening input file audio=')) {
+    return 'Impossible d\'ouvrir le microphone — vérifiez le périphérique dans Paramètres → Audio.'
   }
   if (stderr.includes('Error opening input')) {
     return 'Impossible d\'ouvrir une source de capture. Vérifiez vos périphériques dans Paramètres.'

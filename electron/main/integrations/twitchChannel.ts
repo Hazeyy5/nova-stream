@@ -19,13 +19,13 @@ async function requireTwitchAuth(): Promise<{
   clientId: string
   broadcasterId: string
 }> {
-  const conn = getToken('twitch')
-  if (!conn) {
+  const stored = getToken('twitch')
+  if (!stored) {
     throw new Error('Compte Twitch non connecté — liez votre compte dans Apps.')
   }
 
-  const accessToken = await ensureFreshTwitchToken()
-  if (!accessToken) {
+  const conn = await ensureFreshTwitchToken()
+  if (!conn) {
     throw new Error('Session Twitch expirée — reconnectez votre compte.')
   }
 
@@ -34,7 +34,7 @@ async function requireTwitchAuth(): Promise<{
     throw new Error('Client ID Twitch non configuré.')
   }
 
-  return { accessToken, clientId, broadcasterId: conn.userId }
+  return { accessToken: conn.accessToken, clientId, broadcasterId: conn.userId }
 }
 
 export async function getTwitchChannelInfo(): Promise<TwitchChannelInfo> {

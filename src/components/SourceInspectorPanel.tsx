@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AlertAnimation, AlertBoxStyle, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source } from '../types'
+import type { AlertAnimation, AlertBoxStyle, CapturePickerKind, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source } from '../types'
 import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
 import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
@@ -9,7 +9,7 @@ import './SourceInspector.css'
 interface SourceInspectorPanelProps {
   source: Source
   onUpdate: (partial: Partial<Source>) => void
-  onRecapture?: (kind: 'screen' | 'window') => void
+  onRecapture?: (kind: CapturePickerKind) => void
 }
 
 export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: SourceInspectorPanelProps) {
@@ -91,7 +91,7 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
         </label>
       )}
 
-      {(source.type === 'screen' || source.type === 'window') && (
+      {(source.type === 'screen' || source.type === 'window' || source.type === 'game') && (
         <div className="inspector-capture-info">
           <span className="inspector-field-label">Capture</span>
           {source.captureName ? (
@@ -102,20 +102,33 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
           <button
             type="button"
             className="inspector-recapture-btn"
-            onClick={() => onRecapture?.(source.type as 'screen' | 'window')}
+            onClick={() => onRecapture?.(source.type as CapturePickerKind)}
           >
-            Choisir {source.type === 'screen' ? 'un écran' : 'une fenêtre'}
+            {source.type === 'screen'
+              ? 'Choisir un écran'
+              : source.type === 'game'
+                ? 'Choisir un jeu'
+                : 'Choisir une fenêtre'}
           </button>
         </div>
       )}
 
       {source.type === 'webcam' && (
-        <p className="inspector-hint">
-          La webcam utilise le périphérique défini dans Paramètres → Vidéo.
-          {videoDevices.length > 0 && (
-            <> Détectées : {videoDevices.map((d) => d.name).join(', ')}</>
+        <label className="inspector-field">
+          Caméra
+          <select
+            value={source.webcamDevice ?? ''}
+            onChange={(e) => onUpdate({ webcamDevice: e.target.value || undefined })}
+          >
+            <option value="">Par défaut (première disponible)</option>
+            {videoDevices.map((d) => (
+              <option key={d.name} value={d.name}>{d.name}</option>
+            ))}
+          </select>
+          {videoDevices.length === 0 && (
+            <p className="inspector-hint">Aucune caméra détectée. Vérifiez Paramètres → Vidéo.</p>
           )}
-        </p>
+        </label>
       )}
 
       <fieldset className="inspector-section">
@@ -222,7 +235,7 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
         </div>
       </fieldset>
 
-      {['webcam', 'image', 'screen', 'window', 'browser', 'display'].includes(source.type) && (
+      {['webcam', 'image', 'screen', 'window', 'game', 'browser', 'display'].includes(source.type) && (
         <fieldset className="inspector-section">
           <legend>Chroma key</legend>
           <label className="inspector-checkbox">
@@ -344,13 +357,13 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
             <span className="settings-checkbox">
               <input
                 type="checkbox"
-                checked={source.widgetUseLiveData ?? false}
+                checked={source.widgetUseLiveData !== false}
                 onChange={(e) => onUpdate({ widgetUseLiveData: e.target.checked })}
               />
               Données Twitch en direct
             </span>
           </label>
-          {!source.widgetUseLiveData && (
+          {!source.widgetUseLiveData && source.widgetUseLiveData === false && (
             <label className="inspector-field">
               Valeur manuelle
               <input
@@ -373,7 +386,8 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
             </select>
           </label>
           <p className="inspector-hint">
-            Connectez Twitch dans Apps pour les stats live (followers, spectateurs).
+            Les compteurs utilisent votre compte Twitch connecté (followers, abonnés, spectateurs live).
+            Reconnectez Twitch si les valeurs restent à 0.
           </p>
         </fieldset>
       )}

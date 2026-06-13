@@ -143,21 +143,30 @@ export function setMediaListWindow(win: BrowserWindow | null): void {
   mediaListWindow = win
 }
 
+export async function listDshowMediaDevices(): Promise<MediaDevice[]> {
+  return listDshowDevices()
+}
+
 export async function listMediaDevices(mainWindow: BrowserWindow | null = null): Promise<MediaDevice[]> {
   const windowRef = mainWindow ?? mediaListWindow
   const dshow = await listDshowDevices()
+  const dshowMics = dshow.filter((d) => d.type === 'audio' && d.audioRole === 'input')
+  const dshowLoopbacks = dshow.filter((d) => d.type === 'audio' && d.audioRole === 'loopback')
 
   if (isNativeAudioAvailable()) {
     const native = await listNativeMediaDevices()
     const video = listNativeVideoDevicesFromDshow(dshow)
-    const dshowLoopbacks = dshow.filter(
-      (d) => d.type === 'audio' && d.audioRole === 'loopback'
-    )
-    return mergeDeviceLists(video, native, dshowLoopbacks)
+    return mergeDeviceLists(video, native, dshowMics, dshowLoopbacks)
   }
 
   const browser = await listBrowserAudioDevices(windowRef)
   return mergeDeviceLists(dshow, browser)
+}
+
+function resolveFfmpegMicName(selected: string, dshowDevices: MediaDevice[]): string {
+  const dshowMics = dshowDevices.filter((d) => d.type === 'audio' && d.audioRole === 'input')
+  if (selected && dshowMics.some((d) => d.name === selected)) return selected
+  return dshowMics[0]?.name ?? ''
 }
 
 export function getMicDevices(devices: MediaDevice[]): MediaDevice[] {
@@ -211,7 +220,8 @@ export function resolveDesktopCaptureName(
 
 export function resolveStreamSettings(
   settings: StreamSettings,
-  devices: MediaDevice[]
+  devices: MediaDevice[],
+  dshowDevices: MediaDevice[] = []
 ): StreamSettings {
   const videoDevices = devices.filter((d) => d.type === 'video')
   const micDevices = getMicDevices(devices)
@@ -220,8 +230,12 @@ export function resolveStreamSettings(
   const pickDevice = (current: string, available: MediaDevice[]) =>
     current && available.some((d) => d.name === current) ? current : available[0]?.name ?? ''
 
-  const audioDevice = settings.audioEnabled
+  const selectedMic = settings.audioEnabled
     ? pickDevice(settings.audioDevice, micDevices)
+    : ''
+
+  const ffmpegMic = settings.audioEnabled
+    ? resolveFfmpegMicName(selectedMic, dshowDevices.length > 0 ? dshowDevices : devices)
     : ''
 
   const desktopAudioDevice = settings.desktopAudioEnabled
@@ -244,8 +258,8 @@ export function resolveStreamSettings(
     webcamDevice: settings.webcamDevice && videoDevices.some((d) => d.name === settings.webcamDevice)
       ? settings.webcamDevice
       : '',
-    audioDevice,
-    audioEnabled: settings.audioEnabled && !!audioDevice,
+    audioDevice: ffmpegMic,
+    audioEnabled: settings.audioEnabled && !!ffmpegMic,
     desktopAudioDevice,
     desktopAudioEnabled: settings.desktopAudioEnabled && !!desktopAudioDevice,
     desktopAudioBackend,

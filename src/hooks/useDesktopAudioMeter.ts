@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AudioMeterReading } from './useAudioMeter'
 import { gainDbToLinear } from '../lib/audioGain'
+import { linearToDisplayLevel } from '../lib/audioLevel'
 
 const SILENT: AudioMeterReading = {
   peak: 0,
@@ -9,11 +10,11 @@ const SILENT: AudioMeterReading = {
   displayDb: -60
 }
 
-export function useDesktopAudioMeter(enabled: boolean, gainDb = 0): AudioMeterReading {
+export function useDesktopAudioMeter(hasDevice: boolean, gainDb = 0): AudioMeterReading {
   const [reading, setReading] = useState<AudioMeterReading>(SILENT)
 
   useEffect(() => {
-    if (!enabled) {
+    if (!hasDevice) {
       setReading(SILENT)
       return
     }
@@ -24,8 +25,8 @@ export function useDesktopAudioMeter(enabled: boolean, gainDb = 0): AudioMeterRe
     const handler = (level: AudioMeterReading) => {
       if (!active) return
       setReading({
-        peak: Math.min(1, level.peak * gain),
-        rms: Math.min(1, level.rms * gain),
+        peak: Math.min(1, linearToDisplayLevel(level.peak) * gain),
+        rms: Math.min(1, linearToDisplayLevel(level.rms) * gain),
         peakDb: level.peakDb,
         displayDb: level.displayDb
       })
@@ -40,7 +41,7 @@ export function useDesktopAudioMeter(enabled: boolean, gainDb = 0): AudioMeterRe
       void window.novaStream.audioMeter.unsubscribeDesktop()
       setReading(SILENT)
     }
-  }, [enabled, gainDb])
+  }, [hasDevice, gainDb])
 
   return reading
 }

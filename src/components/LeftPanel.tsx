@@ -20,6 +20,7 @@ interface LeftPanelProps {
 }
 
 const SOURCE_TYPES: { type: SourceType; label: string; Icon?: typeof IconDisplay; emoji?: string }[] = [
+  { type: 'game', label: 'Capture de jeu', emoji: '🎮' },
   { type: 'screen', label: 'Écran', Icon: IconDisplay },
   { type: 'window', label: 'Fenêtre', emoji: '🪟' },
   { type: 'browser', label: 'Navigateur', emoji: '🌐' },
@@ -166,7 +167,7 @@ export default function LeftPanel(props: LeftPanelProps) {
 
 function SourceTypeIcon({ type }: { type: SourceType }) {
   const emojis: Partial<Record<SourceType, string>> = {
-    window: '🪟', browser: '🌐', chat: '💬', alert: '🔔'
+    window: '🪟', browser: '🌐', chat: '💬', alert: '🔔', game: '🎮'
   }
   if (emojis[type]) return <span className="source-type-emoji">{emojis[type]}</span>
   const icons = { display: IconDisplay, screen: IconDisplay, webcam: IconCamera, image: IconImage, text: IconText }

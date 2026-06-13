@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { gainDbToLinear } from '../lib/audioGain'
+import { linearToDb, linearToDisplayLevel } from '../lib/audioLevel'
 import { connectCenteredMono } from '../lib/monoAudio'
 import { acquireMicStream, releaseMicStream } from '../lib/micStreamPool'
 
@@ -17,14 +18,9 @@ const SILENT: AudioMeterReading = {
   displayDb: -60
 }
 
-function linearToDb(linear: number): number {
-  if (linear < 0.00001) return -60
-  return Math.max(-60, Math.min(0, 20 * Math.log10(linear)))
-}
-
 export function useAudioMeter(
   deviceName: string | undefined,
-  enabled: boolean,
+  monitorEnabled: boolean,
   gainDb = 0,
   micMono = false
 ): AudioMeterReading {
@@ -34,7 +30,7 @@ export function useAudioMeter(
   const readingRef = useRef<AudioMeterReading>(SILENT)
 
   useEffect(() => {
-    if (!enabled || !deviceName || document.hidden) {
+    if (!monitorEnabled || !deviceName || document.hidden) {
       peakHoldRef.current = 0
       peakDbHoldRef.current = -60
       readingRef.current = SILENT
@@ -46,7 +42,7 @@ export function useAudioMeter(
     let raf = 0
     let audioCtx: AudioContext | null = null
     let analyser: AnalyserNode | null = null
-    const timeData = new Uint8Array(1024)
+    let timeData: Float32Array | null = null
     let lastEmit = 0
 
     const teardown = () => {
@@ -56,45 +52,49 @@ export function useAudioMeter(
       }
       audioCtx = null
       analyser = null
+      timeData = null
       if (deviceName) releaseMicStream(deviceName)
     }
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick)
-      if (!active || !analyser || document.hidden) return
-      if (now - lastEmit < 50) return
+      if (!active || !analyser || !timeData || document.hidden) return
+      if (now - lastEmit < 33) return
 
-      analyser.getByteTimeDomainData(timeData)
+      analyser.getFloatTimeDomainData(timeData)
 
       let peak = 0
       let sumSq = 0
       for (let i = 0; i < timeData.length; i++) {
-        const sample = Math.abs(timeData[i] - 128) / 128
+        const sample = Math.abs(timeData[i])
         if (sample > peak) peak = sample
         sumSq += sample * sample
       }
       const rms = Math.sqrt(sumSq / timeData.length)
 
-      if (peak > peakHoldRef.current) {
-        peakHoldRef.current = peak
+      const displayPeak = linearToDisplayLevel(peak)
+      const displayRms = linearToDisplayLevel(rms)
+
+      if (displayPeak > peakHoldRef.current) {
+        peakHoldRef.current = displayPeak
         peakDbHoldRef.current = linearToDb(peak)
       } else {
-        peakHoldRef.current *= 0.92
+        peakHoldRef.current *= 0.88
         peakDbHoldRef.current = linearToDb(peakHoldRef.current)
       }
 
       lastEmit = now
       const next: AudioMeterReading = {
         peak: Math.min(1, peakHoldRef.current),
-        rms: Math.min(1, rms),
+        rms: Math.min(1, displayRms),
         peakDb: linearToDb(peak),
         displayDb: peakDbHoldRef.current
       }
 
       const prev = readingRef.current
       if (
-        Math.abs(next.peak - prev.peak) < 0.015 &&
-        Math.abs(next.displayDb - prev.displayDb) < 0.5
+        Math.abs(next.peak - prev.peak) < 0.008 &&
+        Math.abs(next.rms - prev.rms) < 0.008
       ) {
         return
       }
@@ -113,20 +113,31 @@ export function useAudioMeter(
         }
 
         audioCtx = new AudioContext()
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume()
+        }
+
         analyser = audioCtx.createAnalyser()
-        analyser.fftSize = 1024
-        analyser.smoothingTimeConstant = 0.5
+        analyser.fftSize = 2048
+        analyser.smoothingTimeConstant = 0.35
+        timeData = new Float32Array(analyser.fftSize)
 
         const source = audioCtx.createMediaStreamSource(stream)
         const gain = audioCtx.createGain()
         gain.gain.value = gainDbToLinear(gainDb)
 
+        const silentOut = audioCtx.createGain()
+        silentOut.gain.value = 0.0001
+
         if (micMono) {
           connectCenteredMono(source, gain, analyser, source.channelCount || 2)
+          analyser.connect(silentOut)
         } else {
           source.connect(gain)
           gain.connect(analyser)
+          analyser.connect(silentOut)
         }
+        silentOut.connect(audioCtx.destination)
 
         peakHoldRef.current = 0
         peakDbHoldRef.current = -60
@@ -155,7 +166,7 @@ export function useAudioMeter(
       readingRef.current = SILENT
       setReading(SILENT)
     }
-  }, [deviceName, enabled, gainDb, micMono])
+  }, [deviceName, monitorEnabled, gainDb, micMono])
 
   return reading
 }

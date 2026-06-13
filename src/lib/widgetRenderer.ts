@@ -18,9 +18,14 @@ function roundRect(
   ctx.closePath()
 }
 
+function usesLiveWidgetData(source: Source): boolean {
+  return source.widgetUseLiveData !== false
+}
+
 function resolveCurrent(source: Source, live: WidgetLiveData, kind: 'followers' | 'subs' | 'viewers'): number {
-  if (source.widgetUseLiveData) {
+  if (usesLiveWidgetData(source)) {
     if (kind === 'followers') return live.followerCount
+    if (kind === 'subs') return live.subCount
     if (kind === 'viewers') return live.viewerCount
   }
   return Math.max(0, source.widgetGoalCurrent ?? 0)
@@ -121,9 +126,7 @@ export function drawSubGoalWidget(
   source: Source,
   live: WidgetLiveData
 ): void {
-  const current = source.widgetUseLiveData
-    ? live.subCount
-    : Math.max(0, source.widgetGoalCurrent ?? 0)
+  const current = resolveCurrent(source, live, 'subs')
   const target = Math.max(1, source.widgetGoalTarget ?? 50)
   const label = source.widgetLabel ?? 'Objectif abonnés'
   const style = source.goalStyle ?? 'classic'

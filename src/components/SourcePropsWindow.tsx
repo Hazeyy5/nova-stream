@@ -7,6 +7,7 @@ import './SourceInspector.css'
 const TYPE_LABELS: Partial<Record<Source['type'], string>> = {
   screen: 'Capture d\'écran',
   window: 'Capture de fenêtre',
+  game: 'Capture de jeu',
   display: 'Sélecteur système',
   browser: 'Source navigateur',
   webcam: 'Capture vidéo',

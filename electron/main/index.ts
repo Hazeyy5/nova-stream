@@ -24,8 +24,40 @@ import {
   closeAudioPropertiesWindow,
   forwardAudioSettingsPatch
 } from './audioPropertiesWindow'
+import {
+  setCapturePickerMainWindow,
+  openCapturePickerWindow,
+  closeCapturePickerWindow,
+  forwardCaptureSelect
+} from './capturePickerWindow'
 import { desktopAudioMeterService } from './audioMeterService'
 import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
+
+const GAME_CAPTURE_EXCLUDED = [
+  'program manager',
+  'nova stream',
+  'electron',
+  'barre des tâches',
+  'taskbar',
+  'paramètres',
+  'settings',
+  'explorateur de fichiers',
+  'file explorer',
+  'windows shell experience',
+  'input experience',
+  'nouvel onglet',
+  'new tab',
+  'cursor',
+  'visual studio code',
+  'obs studio',
+  'streamlabs'
+]
+
+function isGameCaptureWindow(name: string): boolean {
+  const normalized = name.toLowerCase().trim()
+  if (normalized.length < 2) return false
+  return !GAME_CAPTURE_EXCLUDED.some((excluded) => normalized.includes(excluded))
+}
 
 loadEnv()
 
@@ -64,12 +96,17 @@ function createWindow(): BrowserWindow {
 
   setMainWindow(mainWindow)
   setAudioPropsMainWindow(mainWindow)
+  setCapturePickerMainWindow(mainWindow)
   setMediaListWindow(mainWindow)
   appMainWindow = mainWindow
   return mainWindow
 }
 
 app.whenReady().then(async () => {
+  session.fromPartition('persist:nova-browser-sources').setPermissionRequestHandler((_wc, _permission, callback) => {
+    callback(true)
+  })
+
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
     desktopCapturer.getSources({ types: ['screen', 'window'] }).then((sources) => {
       const screen = sources.find((s) => s.id.startsWith('screen:'))
@@ -136,14 +173,17 @@ app.whenReady().then(async () => {
     }))
   })
 
-  ipcMain.handle('devices:getCaptureSources', async (_e, kind: 'screen' | 'window' | 'all') => {
-    const types = kind === 'all' ? (['screen', 'window'] as const) : [kind]
+  ipcMain.handle('devices:getCaptureSources', async (_e, kind: 'screen' | 'window' | 'game' | 'all') => {
+    const types = kind === 'all' ? (['screen', 'window'] as const) : kind === 'game' ? (['window'] as const) : [kind]
     const sources = await desktopCapturer.getSources({
       types: [...types],
       thumbnailSize: { width: 320, height: 180 },
       fetchWindowIcons: true
     })
-    return sources.map((s) => ({
+    const filtered = kind === 'game'
+      ? sources.filter((s) => isGameCaptureWindow(s.name))
+      : sources
+    return filtered.map((s) => ({
       id: s.id,
       name: s.name,
       kind: s.id.startsWith('screen:') ? 'screen' as const : 'window' as const,
@@ -336,8 +376,24 @@ app.whenReady().then(async () => {
     forwardPatch(payload.sourceId, payload.partial)
   })
 
-  ipcMain.on('sourceProps:recapture', (_e, payload: { sourceId: string; kind: 'screen' | 'window' }) => {
+  ipcMain.on('sourceProps:recapture', (_e, payload: { sourceId: string; kind: 'screen' | 'window' | 'game' }) => {
     forwardRecapture(payload.sourceId, payload.kind)
+  })
+
+  ipcMain.handle('capturePicker:open', (_e, payload: import('../../src/types').CapturePickerOpenPayload) => {
+    openCapturePickerWindow(payload)
+  })
+
+  ipcMain.on('capturePicker:ready', (event) => {
+    void event
+  })
+
+  ipcMain.on('capturePicker:select', (_e, payload: Parameters<typeof forwardCaptureSelect>[0]) => {
+    forwardCaptureSelect(payload)
+  })
+
+  ipcMain.on('capturePicker:cancel', () => {
+    closeCapturePickerWindow()
   })
 
   ipcMain.handle('audioProps:open', (_e, payload: { channel: AudioChannelId; settings: StreamSettings }) => {

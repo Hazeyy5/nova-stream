@@ -78,6 +78,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  width: 100%;
+}
+
+.level-meter-stack.level-meter-muted {
+  opacity: 0.55;
 }
 
 .level-meter-row {

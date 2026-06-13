@@ -3,7 +3,7 @@ import { mkdirSync } from 'fs'
 import { dirname } from 'path'
 import ffmpegPath from 'ffmpeg-static'
 import { buildFfmpegScenePipeArgs, buildRtmpUrl, resolveRecordingFilePath, parseFfmpegError } from './ffmpegBuilder'
-import { listMediaDevices, resolveStreamSettings } from './deviceManager'
+import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from './deviceManager'
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import type { MediaState, StreamSettings } from '../../src/types'
 
@@ -68,8 +68,11 @@ export class StreamManager {
     const { settings, stream = false, record = false, videoInputFormat = 'webm' } = options
     if (!stream && !record) throw new Error('Aucune sortie sélectionnée')
 
-    const devices = await listMediaDevices()
-    const resolved = resolveStreamSettings(settings, devices)
+    const [devices, dshowDevices] = await Promise.all([
+      listMediaDevices(),
+      listDshowMediaDevices()
+    ])
+    const resolved = resolveStreamSettings(settings, devices, dshowDevices)
 
     let recordPath: string | undefined
     if (record) {
@@ -156,7 +159,8 @@ export class StreamManager {
 
         const audioInputError =
           stderr.includes('Could not find audio device') ||
-          (stderr.includes('Error opening input') && includeAudio)
+          stderr.includes('Could not find audio only device') ||
+          stderr.includes('Error opening input file audio=')
 
         if (!started && audioInputError) {
           fail(parseFfmpegError(stderr))

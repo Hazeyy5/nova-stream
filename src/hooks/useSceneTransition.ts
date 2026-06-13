@@ -1,12 +1,24 @@
 import { useState, useCallback, useRef } from 'react'
 import type { TransitionType } from '../types'
+import {
+  computeTransitionFrame,
+  type TransitionFrame,
+  transitionFrameToStyle
+} from '../lib/transitionVisual'
+
+const DEFAULT_FRAME: TransitionFrame = {
+  opacity: 1,
+  transform: 'none',
+  clipPath: 'inset(0 0 0 0)',
+  filter: 'none'
+}
 
 export function useSceneTransition(
   transition: TransitionType,
   durationMs: number,
   onSwitch: (sceneId: string) => void
 ) {
-  const [fadeOpacity, setFadeOpacity] = useState(1)
+  const [frame, setFrame] = useState<TransitionFrame>(DEFAULT_FRAME)
   const busyRef = useRef(false)
 
   const switchScene = useCallback(
@@ -14,6 +26,7 @@ export function useSceneTransition(
       if (sceneId === currentSceneId) return
       if (transition === 'cut' || busyRef.current) {
         onSwitch(sceneId)
+        setFrame(DEFAULT_FRAME)
         return
       }
 
@@ -24,18 +37,15 @@ export function useSceneTransition(
 
       const tick = (now: number) => {
         const elapsed = now - start
-        if (elapsed < half) {
-          setFadeOpacity(1 - elapsed / half)
-          requestAnimationFrame(tick)
-        } else if (elapsed < half * 2) {
-          if (!switched) {
+        if (elapsed < half * 2) {
+          if (!switched && elapsed >= half) {
             switched = true
             onSwitch(sceneId)
           }
-          setFadeOpacity((elapsed - half) / half)
+          setFrame(computeTransitionFrame(transition, elapsed, half))
           requestAnimationFrame(tick)
         } else {
-          setFadeOpacity(1)
+          setFrame(DEFAULT_FRAME)
           busyRef.current = false
         }
       }
@@ -45,5 +55,8 @@ export function useSceneTransition(
     [transition, durationMs, onSwitch]
   )
 
-  return { switchScene, fadeOpacity }
+  return {
+    switchScene,
+    transitionStyle: transitionFrameToStyle(frame)
+  }
 }

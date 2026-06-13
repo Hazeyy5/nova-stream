@@ -1,6 +1,6 @@
 import type { Source } from '../types'
 
-const MOTION_TYPES = new Set<Source['type']>(['screen', 'window', 'display', 'webcam', 'browser'])
+const MOTION_TYPES = new Set<Source['type']>(['screen', 'window', 'game', 'display', 'webcam', 'browser'])
 
 export function sortVisibleLayers(sources: Source[]): Source[] {
   return sources

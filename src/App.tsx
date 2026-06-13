@@ -328,7 +328,7 @@ function App() {
 
   const handleFps = useCallback((fps: number) => setPreviewFps(fps), [])
 
-  const { switchScene, fadeOpacity } = useSceneTransition(
+  const { switchScene, transitionStyle } = useSceneTransition(
     settings.transition,
     settings.transitionDuration,
     scenes.setActiveSceneId
@@ -482,7 +482,7 @@ function App() {
                     targetFps={settings.framerate}
                     onFps={handleFps}
                     onFrameDrawn={sceneCapture.onFrameDrawn}
-                    fadeOpacity={fadeOpacity}
+                    transitionStyle={transitionStyle}
                     captureActive={isMediaActive}
                   />
 
@@ -501,6 +501,12 @@ function App() {
                       scenes={scenes.scenes}
 
                       activeSceneId={scenes.activeSceneId}
+
+                      transition={settings.transition}
+
+                      transitionDuration={settings.transitionDuration}
+
+                      onTransitionChange={(partial) => setSettings((s) => ({ ...s, ...partial }))}
 
                       onSceneSelect={handleSceneSelect}
 

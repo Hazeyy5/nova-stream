@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AlertAnimation, AlertBoxStyle, BlendMode, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
+import type { AlertAnimation, AlertBoxStyle, BlendMode, CapturePickerKind, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
 import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
 import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
 import './SourceContextMenu.css'
 
-const CHROMA_MEDIA_TYPES: SourceType[] = ['webcam', 'image', 'screen', 'window', 'browser', 'display']
+const CHROMA_MEDIA_TYPES: SourceType[] = ['webcam', 'image', 'screen', 'window', 'game', 'browser', 'display']
 
 const DEFAULT_CHROMA: ChromaKeySettings = {
   enabled: true,
@@ -31,7 +31,7 @@ interface SourceContextMenuProps {
   onProperties: () => void
   onToggleVisible: () => void
   onToggleLock: () => void
-  onRecapture?: (kind: 'screen' | 'window') => void
+  onRecapture?: (kind: CapturePickerKind) => void
 }
 
 interface MenuItemDef {
@@ -232,11 +232,11 @@ export default function SourceContextMenu({
     })
   }
 
-  if (source.type === 'screen' || source.type === 'window') {
+  if (source.type === 'screen' || source.type === 'window' || source.type === 'game') {
     items.splice(items.length - 1, 0, {
       id: 'recapture',
       label: 'Re-choisir la capture',
-      action: () => { onRecapture?.(source.type as 'screen' | 'window'); onClose() }
+      action: () => { onRecapture?.(source.type as CapturePickerKind); onClose() }
     })
   }
 

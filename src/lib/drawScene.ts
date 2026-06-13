@@ -10,6 +10,7 @@ import {
   drawViewerCountWidget
 } from './widgetRenderer'
 import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
+import { resolveVideoDeviceId } from './videoDeviceResolver'
 
 async function loadImageSource(source: Source): Promise<HTMLImageElement | null> {
   let src = source.imageUrl?.trim() ?? ''
@@ -76,7 +77,7 @@ async function acquireDesktopCapture(captureId: string): Promise<HTMLVideoElemen
 export async function acquireSourceStream(source: Source): Promise<StreamEntry> {
   const entry: StreamEntry = { sourceId: source.id, stream: null, video: null, image: null }
 
-  if (source.type === 'screen' || source.type === 'window') {
+  if (source.type === 'screen' || source.type === 'window' || source.type === 'game') {
     if (source.captureId) {
       const video = await acquireDesktopCapture(source.captureId)
       if (video) {
@@ -99,7 +100,13 @@ export async function acquireSourceStream(source: Source): Promise<StreamEntry> 
     return acquireBrowserSource(source.id, source.browserUrl)
   } else if (source.type === 'webcam') {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      const deviceId = source.webcamDevice
+        ? await resolveVideoDeviceId(source.webcamDevice)
+        : undefined
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: false
+      })
       const video = document.createElement('video')
       video.srcObject = stream
       video.muted = true
@@ -120,7 +127,7 @@ export function releaseSourceStream(sourceId: string, type: Source['type']): voi
   if (type === 'browser') releaseBrowserSource(sourceId)
 }
 
-const VIDEO_PLACEHOLDER_TYPES = new Set<Source['type']>(['display', 'screen', 'window', 'webcam', 'browser'])
+const VIDEO_PLACEHOLDER_TYPES = new Set<Source['type']>(['display', 'screen', 'window', 'game', 'webcam', 'browser'])
 
 const BLEND_MAP: Record<NonNullable<Source['blendMode']>, GlobalCompositeOperation> = {
   normal: 'source-over',
@@ -240,8 +247,12 @@ export function drawScene(
 
       if (entry?.video && entry.video.readyState >= 2) {
         drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
-      } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
-        drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
+      } else if (entry?.image && (entry.image.complete && entry.image.naturalWidth > 0 || entry.image.src)) {
+        if (entry.image.complete && entry.image.naturalWidth > 0) {
+          drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
+        } else if (source.type === 'browser') {
+          drawPlaceholder(ctx, dx, dy, dw, dh, source.name, 'Chargement de la page…')
+        }
       } else if (source.type === 'text' && source.textContent) {
         drawTextBox(ctx, dx, dy, dw, dh, source.textContent)
       } else if (VIDEO_PLACEHOLDER_TYPES.has(source.type)) {
