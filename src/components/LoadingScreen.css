@@ -1,0 +1,81 @@
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
+    #161625;
+}
+
+.loading-screen-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 44px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(28, 28, 46, 0.72);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  min-width: 280px;
+}
+
+.loading-screen-logo {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+}
+
+.loading-screen-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f4f4fa;
+}
+
+.loading-screen-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(167, 139, 250, 0.2);
+  border-top-color: #a78bfa;
+  animation: loading-spin 0.85s linear infinite;
+}
+
+.loading-screen-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #b4b4cc;
+  text-align: center;
+}
+
+.loading-screen-error {
+  margin: 0;
+  max-width: 320px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #fb7185;
+  text-align: center;
+}
+
+.loading-screen-retry {
+  margin-top: 4px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.loading-screen-retry:hover {
+  filter: brightness(1.08);
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

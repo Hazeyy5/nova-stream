@@ -35,9 +35,11 @@ export default function ControlsDock({
   const [now, setNow] = useState(Date.now())
   const isLive = mediaState.stream.status === 'live'
   const isRecording = mediaState.recording.status === 'recording'
-  const isBusy = ['starting', 'stopping'].includes(mediaState.stream.status)
+  const isStarting = mediaState.stream.status === 'starting'
+  const isStopping = mediaState.stream.status === 'stopping'
+  const isBusy = isStopping
   const canStream = settings.streamKey.trim().length > 0
-  const isActive = isLive || isRecording || isBusy
+  const isActive = isLive || isRecording || isStarting || isStopping
 
   useEffect(() => {
     if (!isLive && !isRecording) return
@@ -73,6 +75,12 @@ export default function ControlsDock({
           </div>
         )}
 
+        {isStarting && (
+          <p className="controls-status-hint">
+            {mediaState.stream.message ?? 'Connexion à Twitch en cours…'}
+          </p>
+        )}
+
         {mediaState.stream.status === 'error' && (
           <p className="controls-error">{mediaState.stream.message}</p>
         )}
@@ -102,8 +110,8 @@ export default function ControlsDock({
               </button>
             )}
             {!isLive && !isRecording && (
-              <button className="controls-btn controls-btn-stop" onClick={onStopAll} disabled={isBusy}>
-                Arrêter
+              <button className="controls-btn controls-btn-stop" onClick={onStopAll} disabled={isStopping}>
+                {isStarting ? 'Annuler' : 'Arrêter'}
               </button>
             )}
           </>

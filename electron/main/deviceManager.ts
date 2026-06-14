@@ -258,11 +258,9 @@ export function resolveStreamSettings(
   const pickDevice = (current: string, available: MediaDevice[]) =>
     current && available.some((d) => d.name === current) ? current : available[0]?.name ?? ''
 
-  const selectedMic = settings.audioEnabled
-    ? pickDevice(settings.audioDevice, micDevices)
-    : ''
+  const selectedMic = pickDevice(settings.audioDevice, micDevices)
 
-  const ffmpegMic = settings.audioEnabled
+  const ffmpegMic = settings.audioDevice || settings.audioEnabled
     ? resolveFfmpegMicName(selectedMic, dshowDevices.length > 0 ? dshowDevices : devices)
     : ''
 

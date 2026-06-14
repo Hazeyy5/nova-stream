@@ -10,6 +10,7 @@ import {
   drawViewerCountWidget
 } from './widgetRenderer'
 import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
+import { applySourceMaskClip, buildSourceCanvasFilter } from './sourceEffects'
 import { resolveVideoDeviceId } from './videoDeviceResolver'
 
 async function loadImageSource(source: Source): Promise<HTMLImageElement | null> {
@@ -127,8 +128,6 @@ export function releaseSourceStream(sourceId: string, type: Source['type']): voi
   if (type === 'browser') releaseBrowserSource(sourceId)
 }
 
-const VIDEO_PLACEHOLDER_TYPES = new Set<Source['type']>(['display', 'screen', 'window', 'game', 'webcam', 'browser'])
-
 const BLEND_MAP: Record<NonNullable<Source['blendMode']>, GlobalCompositeOperation> = {
   normal: 'source-over',
   multiply: 'multiply',
@@ -188,8 +187,11 @@ function drawMedia(
   }
 
   const chroma = source.chromaKey?.enabled ? source.chromaKey : null
+  const canvasFilter = buildSourceCanvasFilter(source)
 
   ctx.save()
+  applySourceMaskClip(ctx, x, y, w, h, source)
+  if (canvasFilter !== 'none') ctx.filter = canvasFilter
   ctx.globalCompositeOperation = BLEND_MAP[source.blendMode ?? 'normal']
   if (source.flipH || source.flipV) {
     ctx.translate(dx + dw / 2, dy + dh / 2)
@@ -247,16 +249,12 @@ export function drawScene(
 
       if (entry?.video && entry.video.readyState >= 2) {
         drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
-      } else if (entry?.image && (entry.image.complete && entry.image.naturalWidth > 0 || entry.image.src)) {
-        if (entry.image.complete && entry.image.naturalWidth > 0) {
-          drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
-        } else if (source.type === 'browser') {
-          drawPlaceholder(ctx, dx, dy, dw, dh, source.name, 'Chargement de la page…')
-        }
+      } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
+        drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
       } else if (source.type === 'text' && source.textContent) {
         drawTextBox(ctx, dx, dy, dw, dh, source.textContent)
-      } else if (VIDEO_PLACEHOLDER_TYPES.has(source.type)) {
-        drawPlaceholder(ctx, dx, dy, dw, dh, source.name, source.captureName)
+      } else if (source.type === 'game' && !source.captureId) {
+        drawPlaceholder(ctx, dx, dy, dw, dh, 'Capture de jeu', 'En attente de capture d\'un jeu…')
       }
     }
 

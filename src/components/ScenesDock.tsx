@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import type { Scene } from '../types'
+import type { Scene, SceneCollection } from '../types'
 import { IconTrash } from './Icons'
 import './DockPanel.css'
 
 interface ScenesDockProps {
   scenes: Scene[]
+  collections: SceneCollection[]
+  activeCollectionId: string
   activeSceneId: string
   onSceneSelect: (id: string) => void
+  onCollectionSelect: (id: string) => void
+  onAddCollection: () => void
   onAddScene: () => void
   onRemoveScene: (id: string) => void
   onRenameScene: (id: string, name: string) => void
@@ -18,8 +22,12 @@ interface ScenesDockProps {
 
 export default function ScenesDock({
   scenes,
+  collections,
+  activeCollectionId,
   activeSceneId,
   onSceneSelect,
+  onCollectionSelect,
+  onAddCollection,
   onAddScene,
   onRemoveScene,
   onRenameScene,
@@ -52,6 +60,27 @@ export default function ScenesDock({
           <button className="dock-add-btn" onClick={onAddScene} title="Ajouter une scène">+</button>
         </div>
       </div>
+
+      <div className="scenes-collection-row">
+        <select
+          className="scenes-collection-select"
+          value={activeCollectionId}
+          onChange={(e) => onCollectionSelect(e.target.value)}
+          title="Collection de scènes"
+        >
+          {collections.map((col) => (
+            <option key={col.id} value={col.id}>{col.name}</option>
+          ))}
+        </select>
+        <button
+          className="dock-add-btn"
+          onClick={onAddCollection}
+          title="Nouvelle collection"
+        >
+          ⧉
+        </button>
+      </div>
+
       <ul className="dock-list scenes-dock-list" ref={listRef}>
         {scenes.map((scene, index) => (
           <li

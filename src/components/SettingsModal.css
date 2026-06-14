@@ -237,6 +237,36 @@
   color: #f0a060;
 }
 
+.settings-scenes-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.settings-scenes-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.settings-scenes-btn:hover {
+  border-color: var(--accent);
+}
+
+.settings-scenes-btn.primary {
+  background: linear-gradient(135deg, var(--accent), #00a88e);
+  color: #041a16;
+  border-color: transparent;
+}
+
 .settings-devices-bar {
   display: flex;
   align-items: center;

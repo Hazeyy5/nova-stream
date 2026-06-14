@@ -122,8 +122,6 @@ app.whenReady().then(async () => {
   })
 
   linkServer.start()
-  await integrations.restoreSessions()
-
   ipcMain.handle('link:getPort', () => linkServer.getPort())
   ipcMain.handle('platform:getConfig', () => getPlatformConfig())
   ipcMain.handle('platform:openExternal', async (_e, url: unknown) => {
@@ -163,6 +161,11 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('media:updateAudioSettings', (_event, settings: StreamSettings) => {
     streamManager.updateAudioSettings(settings)
+    return { success: true }
+  })
+
+  ipcMain.handle('media:updateMixerSettings', (_event, settings: StreamSettings) => {
+    streamManager.updateMixerSettings(settings)
     return { success: true }
   })
 
@@ -439,6 +442,8 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+
+  void integrations.restoreSessions()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

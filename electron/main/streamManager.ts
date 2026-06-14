@@ -2,9 +2,10 @@ import { spawn, type ChildProcessWithoutNullStreams, type Writable } from 'child
 import { mkdirSync } from 'fs'
 import { dirname } from 'path'
 import ffmpegPath from 'ffmpeg-static'
-import { buildFfmpegScenePipeArgs, buildRtmpUrl, resolveRecordingFilePath, parseFfmpegError, isAudioStartupError } from './ffmpegBuilder'
+import { buildFfmpegScenePipeArgs, buildRtmpUrl, resolveRecordingFilePath, parseFfmpegError, isAudioStartupError, resolveStreamMicLinear, resolveStreamDesktopLinear } from './ffmpegBuilder'
 import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from './deviceManager'
 import { DesktopAudioCapture } from './desktopAudioCapture'
+import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
 import type { MediaState, StreamSettings } from '../../src/types'
 
@@ -19,6 +20,7 @@ export class StreamManager {
   private process: ChildProcessWithoutNullStreams | null = null
   private pendingChunks: Buffer[] = []
   private desktopCapture = new DesktopAudioCapture()
+  private micCapture = new MicAudioCapture()
   private sessionSettings: StreamSettings | null = null
   private sessionOptions: {
     stream: boolean
@@ -28,8 +30,19 @@ export class StreamManager {
   private audioRefreshTimer: ReturnType<typeof setTimeout> | null = null
   private refreshingAudio = false
   private sessionUsesNativeDesktop = false
+  private sessionUsesMicPipe = false
   private nativeDesktopPipe: Writable | null = null
+  private micPipe: Writable | null = null
   private nativeDesktopStarted = false
+  private micCaptureStarted = false
+  private startCancelled = false
+  private activeLaunch: {
+    reject: (err: Error) => void
+    resolve: () => void
+    proc: ChildProcessWithoutNullStreams
+    stream: boolean
+  } | null = null
+  private videoChunksReceived = 0
   private state: MediaState = {
     stream: { status: 'idle' },
     recording: { status: 'idle' }
@@ -58,6 +71,7 @@ export class StreamManager {
   private flushPendingChunks(): void {
     if (this.pendingChunks.length > 0) {
       this.startNativeDesktopCaptureIfNeeded()
+      this.startMicCaptureIfNeeded()
     }
     const stdin = this.process?.stdin
     if (!stdin || stdin.destroyed || !stdin.writable) return
@@ -67,7 +81,9 @@ export class StreamManager {
 
   handleVideoChunk(chunk: Buffer): void {
     if (chunk.length > 0) {
+      this.videoChunksReceived += 1
       this.startNativeDesktopCaptureIfNeeded()
+      this.startMicCaptureIfNeeded()
     }
 
     const stdin = this.process?.stdin
@@ -80,6 +96,30 @@ export class StreamManager {
     stdin.write(chunk)
   }
 
+  private applyDesktopMix(chunk: Buffer, settings: StreamSettings): Buffer {
+    if (!settings.desktopAudioEnabled) {
+      return Buffer.alloc(chunk.length)
+    }
+    const linear = resolveStreamDesktopLinear(settings)
+    if (linear <= 0) return Buffer.alloc(chunk.length)
+    if (Math.abs(linear - 1) < 0.001) return chunk
+
+    const samples = Math.floor(chunk.length / 2)
+    const out = Buffer.alloc(chunk.length)
+    for (let i = 0; i < samples; i++) {
+      const scaled = Math.round(chunk.readInt16LE(i * 2) * linear)
+      out.writeInt16LE(Math.max(-32768, Math.min(32767, scaled)), i * 2)
+    }
+    return out
+  }
+
+  private applyMixerLevels(settings: StreamSettings): void {
+    this.micCapture.setMix(
+      resolveStreamMicLinear(settings),
+      !settings.audioEnabled
+    )
+  }
+
   private startNativeDesktopCaptureIfNeeded(): void {
     if (!this.sessionUsesNativeDesktop || this.nativeDesktopStarted) return
     this.nativeDesktopStarted = true
@@ -87,10 +127,25 @@ export class StreamManager {
     const desktopPipe = this.nativeDesktopPipe
     desktopPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
     void this.desktopCapture.start((pcmChunk) => {
-      if (desktopPipe && !desktopPipe.destroyed && desktopPipe.writable) {
-        desktopPipe.write(pcmChunk)
-      }
+      const settings = this.sessionSettings
+      if (!settings || !desktopPipe || desktopPipe.destroyed || !desktopPipe.writable) return
+      desktopPipe.write(this.applyDesktopMix(pcmChunk, settings))
     }).catch(() => { /* capture bureau optionnelle */ })
+  }
+
+  private startMicCaptureIfNeeded(): void {
+    if (!this.sessionUsesMicPipe || this.micCaptureStarted || !this.sessionSettings?.audioDevice) return
+    this.micCaptureStarted = true
+
+    const micPipe = this.micPipe
+    const device = this.sessionSettings.audioDevice
+    this.applyMixerLevels(this.sessionSettings)
+    micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
+    void this.micCapture.start(device, (pcmChunk) => {
+      if (micPipe && !micPipe.destroyed && micPipe.writable) {
+        micPipe.write(pcmChunk)
+      }
+    }).catch(() => { /* capture micro optionnelle */ })
   }
 
   async start(options: StartMediaOptions): Promise<void> {
@@ -102,6 +157,7 @@ export class StreamManager {
 
     this.sessionSettings = settings
     this.sessionOptions = { stream, record, videoInputFormat }
+    this.startCancelled = false
 
     const [devices, dshowDevices] = await Promise.all([
       listMediaDevices(),
@@ -167,6 +223,12 @@ export class StreamManager {
     }, 400)
   }
 
+  updateMixerSettings(settings: StreamSettings): void {
+    if (!this.process || !this.sessionSettings) return
+    this.sessionSettings = settings
+    this.applyMixerLevels(settings)
+  }
+
   private async refreshAudioPipeline(): Promise<void> {
     if (!this.process || !this.sessionOptions || !this.sessionSettings || this.refreshingAudio) return
 
@@ -181,8 +243,11 @@ export class StreamManager {
     const proc = this.process
     this.process = null
     this.nativeDesktopStarted = false
+    this.micCaptureStarted = false
     this.nativeDesktopPipe = null
+    this.micPipe = null
     await this.desktopCapture.stop()
+    await this.micCapture.stop()
     try { proc.stdin.end() } catch { /* ignore */ }
     try { proc.kill('SIGKILL') } catch { /* ignore */ }
 
@@ -259,13 +324,18 @@ export class StreamManager {
     }
 
     const rtmpUrl = stream ? buildRtmpUrl(resolved) : undefined
-    const { args, usesNativeDesktop, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
+    const useNodeMix = includeAudio && !!resolved.audioDevice
+    const { args, usesNativeDesktop, usesMicPipe, micPipeFd, desktopPipeFd, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
       rtmpUrl,
       recordPath,
       includeAudio,
-      videoInputFormat
+      videoInputFormat,
+      micViaPipe: useNodeMix,
+      mixViaNode: useNodeMix
     })
     const meterParser = new StreamMeterParser(meterChannels)
+
+    console.info('[stream] ffmpeg', args.join(' '))
 
     if (stream && !quiet) {
       this.setState({ stream: { status: 'starting', message: 'Connexion au serveur...' } })
@@ -277,29 +347,74 @@ export class StreamManager {
     }
 
     return new Promise((resolve, reject) => {
+      const extraPipeFds = [micPipeFd, desktopPipeFd].filter((fd): fd is number => fd !== null)
+      const maxFd = Math.max(2, ...extraPipeFds)
+      const stdio: Array<'pipe' | 'ignore'> = ['pipe', 'pipe', 'pipe']
+      for (let fd = 3; fd <= maxFd; fd++) {
+        stdio[fd] = extraPipeFds.includes(fd) ? 'pipe' : 'ignore'
+      }
+
       const proc = spawn(ffmpegPath!, args, {
         windowsHide: true,
-        stdio: usesNativeDesktop ? ['pipe', 'pipe', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+        stdio
       })
       this.process = proc
       this.pendingChunks = []
+      this.videoChunksReceived = 0
       this.sessionUsesNativeDesktop = usesNativeDesktop
-      this.nativeDesktopPipe = usesNativeDesktop ? (proc.stdio[3] as Writable | null) : null
+      this.sessionUsesMicPipe = usesMicPipe
+      this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
+      this.micPipe = micPipeFd !== null ? (proc.stdio[micPipeFd] as Writable | null) : null
       this.nativeDesktopStarted = false
+      this.micCaptureStarted = false
 
       if (usesNativeDesktop) {
         this.nativeDesktopPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
+      }
+      if (usesMicPipe) {
+        this.micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
       }
 
       let stderr = ''
       let started = false
       let rejected = false
+      let spawnedAt = 0
+      let startTimeout: ReturnType<typeof setTimeout> | null = null
+      let videoWatchdog: ReturnType<typeof setTimeout> | null = null
+      let readyCheck: ReturnType<typeof setInterval> | null = null
+
+      const clearStartTimeout = () => {
+        if (startTimeout) {
+          clearTimeout(startTimeout)
+          startTimeout = null
+        }
+        if (videoWatchdog) {
+          clearTimeout(videoWatchdog)
+          videoWatchdog = null
+        }
+        if (readyCheck) {
+          clearInterval(readyCheck)
+          readyCheck = null
+        }
+      }
+
+      const rejectLaunch = (message: string) => {
+        if (rejected) return
+        rejected = true
+        clearStartTimeout()
+        const launch = this.activeLaunch
+        this.activeLaunch = null
+        launch?.reject(new Error(message))
+      }
 
       const fail = (message: string) => {
         if (rejected) return
         rejected = true
+        clearStartTimeout()
+        this.activeLaunch = null
         this.process = null
         void this.desktopCapture.stop()
+        void this.micCapture.stop()
         try { proc.stdin.end() } catch { /* ignore */ }
         try { proc.kill('SIGKILL') } catch { /* ignore */ }
         this.setState({
@@ -310,8 +425,10 @@ export class StreamManager {
       }
 
       const markStarted = () => {
-        if (started) return
+        if (started || rejected) return
         started = true
+        clearStartTimeout()
+        this.activeLaunch = null
         if (stream) {
           this.setState({
             stream: { status: 'live', message: 'En direct', startedAt: Date.now() }
@@ -320,16 +437,65 @@ export class StreamManager {
         resolve()
       }
 
+      const isRtmpOutputError = (text: string): boolean => (
+        text.includes('Error opening output') ||
+        text.includes('Error writing trailer') ||
+        text.includes('Error submitting a packet to muxer') ||
+        (text.includes('I/O error') && text.includes('rtmp')) ||
+        text.includes('Connection refused') ||
+        text.includes('Connection timed out') ||
+        text.includes('authfailed') ||
+        text.includes('authentication failed') ||
+        text.includes('Invalid stream key') ||
+        text.includes('Failed to resolve hostname')
+      )
+
+      const isStreamEncoding = (text: string): boolean => (
+        /frame=\s*\d+/i.test(text) ||
+        /size=\s*\d+/i.test(text) ||
+        /bitrate=\s*[\d.]+kbits\/s/i.test(text)
+      )
+
+      this.activeLaunch = { reject, resolve, proc, stream }
+
       proc.on('spawn', () => {
+        spawnedAt = Date.now()
         this.flushPendingChunks()
         if (record && !stream) markStarted()
       })
+
+      if (stream) {
+        videoWatchdog = setTimeout(() => {
+          if (!started && !rejected && this.videoChunksReceived < 3) {
+            fail('Aucune vidéo reçue par FFmpeg — vérifiez l\'aperçu et les sources de la scène.')
+          }
+        }, 6000)
+
+        readyCheck = setInterval(() => {
+          if (started || rejected || !spawnedAt) return
+          const elapsed = Date.now() - spawnedAt
+          if (elapsed < 2000 || this.videoChunksReceived < 4) return
+          if (isRtmpOutputError(stderr)) return
+          if (
+            stderr.includes('Invalid data found when processing input') ||
+            stderr.includes('Error while decoding stream')
+          ) {
+            return
+          }
+          markStarted()
+        }, 400)
+      }
 
       proc.stderr.on('data', (chunk: Buffer) => {
         stderr += chunk.toString()
 
         const meterUpdates = meterParser.parseChunk(chunk.toString())
         if (meterUpdates) streamAudioMeterService.push(meterUpdates)
+
+        if (!started && !rejected && stream && isRtmpOutputError(stderr)) {
+          fail(parseFfmpegError(stderr))
+          return
+        }
 
         const audioInputError =
           stderr.includes('Could not find audio device') ||
@@ -342,7 +508,7 @@ export class StreamManager {
           return
         }
 
-        if (!started && (stderr.includes('frame=') || stderr.includes('Output #0') || stderr.includes('rtmp://'))) {
+        if (!started && isStreamEncoding(stderr)) {
           markStarted()
         }
       })
@@ -354,16 +520,29 @@ export class StreamManager {
       })
 
       proc.on('close', (code) => {
+        clearStartTimeout()
+        this.activeLaunch = null
         this.process = null
         this.pendingChunks = []
-        const stopping = this.state.stream.status === 'stopping'
+        const stopping = this.state.stream.status === 'stopping' || this.startCancelled
+
+        if (stopping) {
+          if (!rejected) {
+            rejectLaunch('Connexion annulée')
+            this.setState({
+              stream: { status: 'idle', message: undefined, startedAt: undefined },
+              recording: { status: 'idle', filePath: undefined, startedAt: undefined }
+            })
+          }
+          return
+        }
 
         if (!started && !rejected) {
           fail(parseFfmpegError(stderr))
           return
         }
 
-        if (code !== 0 && code !== null && !stopping && !rejected) {
+        if (code !== 0 && code !== null && !rejected) {
           const message = parseFfmpegError(stderr)
           this.setState({
             stream: { status: 'error', message },
@@ -377,15 +556,19 @@ export class StreamManager {
         }
       })
 
-      setTimeout(() => {
+      startTimeout = setTimeout(() => {
         if (!started && this.process === proc && !rejected) {
           if (stream) {
-            fail('Timeout — vérifiez URL RTMP et clé de stream')
+            const hint = this.videoChunksReceived < 3
+              ? 'Aucune vidéo reçue par FFmpeg — vérifiez l\'aperçu.'
+              : 'FFmpeg n\'a pas pu envoyer le flux à Twitch — vérifiez la clé de stream.'
+            console.error('[stream] timeout', { videoChunks: this.videoChunksReceived, stderr: stderr.slice(-2000) })
+            fail(hint)
           } else {
             markStarted()
           }
         }
-      }, stream ? 20000 : 8000)
+      }, stream ? 12000 : 8000)
     })
   }
 
@@ -394,24 +577,68 @@ export class StreamManager {
       clearTimeout(this.audioRefreshTimer)
       this.audioRefreshTimer = null
     }
+
+    this.startCancelled = true
+    const launch = this.activeLaunch
+
+    if (!this.process && !launch) {
+      this.sessionSettings = null
+      this.sessionOptions = null
+      this.sessionUsesNativeDesktop = false
+      this.sessionUsesMicPipe = false
+      this.nativeDesktopPipe = null
+      this.micPipe = null
+      this.nativeDesktopStarted = false
+      this.micCaptureStarted = false
+      streamAudioMeterService.reset()
+      this.setState({
+        stream: { status: 'idle', message: undefined, startedAt: undefined },
+        recording: { status: 'idle', filePath: undefined, startedAt: undefined }
+      })
+      return
+    }
+
     this.sessionSettings = null
     this.sessionOptions = null
     this.sessionUsesNativeDesktop = false
+    this.sessionUsesMicPipe = false
     this.nativeDesktopPipe = null
+    this.micPipe = null
     this.nativeDesktopStarted = false
+    this.micCaptureStarted = false
     streamAudioMeterService.reset()
 
-    if (!this.process) return
-
     await this.desktopCapture.stop()
+    await this.micCapture.stop()
 
+    const wasStarting = this.state.stream.status === 'starting'
     this.setState({
-      stream: { ...this.state.stream, status: 'stopping', message: 'Arrêt en cours...' },
+      stream: {
+        ...this.state.stream,
+        status: wasStarting ? 'stopping' : 'stopping',
+        message: wasStarting ? 'Annulation...' : 'Arrêt en cours...'
+      },
       recording: { ...this.state.recording, status: 'stopping' }
     })
 
-    const proc = this.process
+    const proc = this.process ?? launch?.proc
+    if (!proc) {
+      this.setState({
+        stream: { status: 'idle', message: undefined, startedAt: undefined },
+        recording: { status: 'idle', filePath: undefined, startedAt: undefined }
+      })
+      return
+    }
+
+    this.process = null
+    this.activeLaunch = null
     this.flushPendingChunks()
+
+    if (wasStarting) {
+      rejectLaunch('Connexion annulée')
+      try { proc.stdin.end() } catch { /* ignore */ }
+      try { proc.kill('SIGKILL') } catch { /* ignore */ }
+    }
 
     return new Promise((resolve) => {
       let settled = false
@@ -421,6 +648,12 @@ export class StreamManager {
         clearTimeout(softKillTimeout)
         clearTimeout(hardKillTimeout)
         resolve()
+      }
+
+      if (wasStarting) {
+        proc.on('close', done)
+        setTimeout(done, 1200)
+        return
       }
 
       const endStdin = () => {
@@ -439,6 +672,14 @@ export class StreamManager {
       }, 25000)
 
       proc.on('close', done)
+    }).finally(() => {
+      this.startCancelled = false
+      if (this.state.stream.status === 'stopping') {
+        this.setState({
+          stream: { status: 'idle', message: undefined, startedAt: undefined },
+          recording: { status: 'idle', filePath: undefined, startedAt: undefined }
+        })
+      }
     })
   }
 

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AlertAnimation, AlertBoxStyle, BlendMode, CapturePickerKind, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceType } from '../types'
+import type { AlertAnimation, AlertBoxStyle, BlendMode, CapturePickerKind, ChatBoxStyle, ChromaKeySettings, ScaleMode, Source, SourceMaskShape, SourceType } from '../types'
 import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
 import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
+import { isMediaSource } from '../lib/sourceEffects'
 import './SourceContextMenu.css'
 
 const CHROMA_MEDIA_TYPES: SourceType[] = ['webcam', 'image', 'screen', 'window', 'game', 'browser', 'display']
@@ -173,7 +174,7 @@ export default function SourceContextMenu({
     {
       id: 'filters',
       label: 'Filtres',
-      disabled: !CHROMA_MEDIA_TYPES.includes(source.type),
+      disabled: !CHROMA_MEDIA_TYPES.includes(source.type) && !isMediaSource(source.type),
       submenu: [
         {
           id: 'chroma-toggle',
@@ -189,7 +190,14 @@ export default function SourceContextMenu({
           id: 'chroma-blue',
           label: 'Fond bleu',
           checked: source.chromaKey?.enabled && source.chromaKey.color === '#0000ff'
-        }
+        },
+        ...(isMediaSource(source.type)
+          ? [
+              { id: 'mask-none', label: 'Masque : aucun', checked: (source.maskShape ?? 'none') === 'none' },
+              { id: 'mask-rounded', label: 'Masque : coins arrondis', checked: source.maskShape === 'rounded' },
+              { id: 'mask-circle', label: 'Masque : cercle', checked: source.maskShape === 'circle' }
+            ]
+          : [])
       ]
     },
     {
@@ -281,6 +289,9 @@ export default function SourceContextMenu({
       if (subId === 'chroma-blue') {
         onUpdate({ chromaKey: { ...(source.chromaKey ?? DEFAULT_CHROMA), enabled: true, color: '#0000ff' } })
       }
+      if (subId === 'mask-none') onUpdate({ maskShape: 'none' })
+      if (subId === 'mask-rounded') onUpdate({ maskShape: 'rounded', maskRadius: source.maskRadius ?? 18 })
+      if (subId === 'mask-circle') onUpdate({ maskShape: 'circle' })
       onClose()
     }
   }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { StreamSettings, MediaDevice, SpeedtestResult } from '../types'
+import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult } from '../types'
+import { SCENE_TEMPLATES, type SceneTemplateId } from '../lib/sceneTemplates'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -8,6 +9,14 @@ interface SettingsModalProps {
   onClose: () => void
   twitchConnected?: boolean
   onFetchTwitchStreamKey?: () => Promise<string | null>
+  isMediaActive?: boolean
+  onLiveChange?: (partial: Partial<StreamSettings>) => void
+  collections?: SceneCollection[]
+  activeCollectionName?: string
+  onExportScenes?: () => void
+  onExportAllCollections?: () => void
+  onImportScenes?: () => void
+  onApplyTemplate?: (templateId: SceneTemplateId, mode: 'replace' | 'new') => void
 }
 
 const PLATFORMS = [
@@ -17,7 +26,7 @@ const PLATFORMS = [
   { name: 'Personnalisé', url: '' }
 ]
 
-const TABS = ['Stream', 'Vidéo', 'Audio', 'Enregistrement', 'Avancé'] as const
+const TABS = ['Stream', 'Vidéo', 'Audio', 'Enregistrement', 'Scènes', 'Avancé'] as const
 type Tab = typeof TABS[number]
 
 const RESOLUTIONS = ['1920x1080', '1280x720', '2560x1440', '854x480']
@@ -34,10 +43,19 @@ export default function SettingsModal({
   onSave,
   onClose,
   twitchConnected = false,
-  onFetchTwitchStreamKey
+  onFetchTwitchStreamKey,
+  isMediaActive = false,
+  onLiveChange,
+  collections = [],
+  activeCollectionName = 'Collection',
+  onExportScenes,
+  onExportAllCollections,
+  onImportScenes,
+  onApplyTemplate
 }: SettingsModalProps) {
   const [form, setForm] = useState<StreamSettings>({ ...settings })
   const [tab, setTab] = useState<Tab>('Stream')
+  const [selectedTemplate, setSelectedTemplate] = useState<SceneTemplateId>('gaming')
   const [fetchingKey, setFetchingKey] = useState(false)
   const [devices, setDevices] = useState<MediaDevice[]>([])
   const [devicesLoading, setDevicesLoading] = useState(true)
@@ -73,6 +91,9 @@ export default function SettingsModal({
 
   const update = (partial: Partial<StreamSettings>) => {
     setForm((prev) => ({ ...prev, ...partial }))
+    if (isMediaActive) {
+      onLiveChange?.(partial)
+    }
   }
 
   const handlePlatformChange = (name: string) => {
@@ -360,17 +381,18 @@ export default function SettingsModal({
                 <div className="settings-sync-row">
                   <input
                     type="range"
-                    min={-400}
-                    max={800}
-                    step={10}
-                    value={form.audioSyncOffsetMs ?? 280}
+                    min={-1000}
+                    max={5000}
+                    step={50}
+                    value={form.audioSyncOffsetMs ?? 3000}
                     onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value) })}
                   />
-                  <span>{form.audioSyncOffsetMs ?? 280} ms</span>
+                  <span>{form.audioSyncOffsetMs ?? 3000} ms</span>
                 </div>
               </label>
               <p className="settings-hint">
-                Si le son est en avance sur l&apos;image, augmentez la valeur. S&apos;il est en retard, diminuez-la.
+                Si le son est en avance sur l&apos;image, augmentez la valeur (ex. 3000 ms). S&apos;il est en retard, diminuez-la.
+                {isMediaActive && ' Le réglage s&apos;applique pendant le live (reconnexion brève du flux).'}
               </p>
             </>
           )}
@@ -400,6 +422,63 @@ export default function SettingsModal({
               </p>
             </>
           )}
+          {tab === 'Scènes' && (
+            <>
+              <p className="settings-hint">
+                Collection active : <strong>{activeCollectionName}</strong>
+                {collections.length > 1 && ` (${collections.length} collections)`}
+              </p>
+
+              <div className="settings-scenes-actions">
+                <button type="button" className="settings-scenes-btn" onClick={onExportScenes}>
+                  Exporter la collection active
+                </button>
+                <button type="button" className="settings-scenes-btn" onClick={onExportAllCollections}>
+                  Exporter toutes les collections
+                </button>
+                <button type="button" className="settings-scenes-btn primary" onClick={onImportScenes}>
+                  Importer des scènes / collections
+                </button>
+              </div>
+
+              <hr className="settings-hr" />
+
+              <label className="settings-field">
+                Appliquer un modèle
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value as SceneTemplateId)}
+                >
+                  {SCENE_TEMPLATES.map((t) => (
+                    <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="settings-hint">
+                {SCENE_TEMPLATES.find((t) => t.id === selectedTemplate)?.description}
+              </p>
+              <div className="settings-scenes-actions">
+                <button
+                  type="button"
+                  className="settings-scenes-btn"
+                  onClick={() => onApplyTemplate?.(selectedTemplate, 'replace')}
+                >
+                  Remplacer la collection active
+                </button>
+                <button
+                  type="button"
+                  className="settings-scenes-btn"
+                  onClick={() => onApplyTemplate?.(selectedTemplate, 'new')}
+                >
+                  Créer une nouvelle collection
+                </button>
+              </div>
+              <p className="settings-hint warn">
+                « Remplacer » écrase les scènes de la collection active. Utilisez l&apos;export avant si besoin.
+              </p>
+            </>
+          )}
+
           {tab === 'Avancé' && (
             <>
               <label className="settings-field">

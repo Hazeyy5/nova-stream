@@ -35,6 +35,8 @@ const api = {
     isActive: () => ipcRenderer.invoke('media:isActive') as Promise<boolean>,
     updateAudioSettings: (settings: StreamSettings) =>
       ipcRenderer.invoke('media:updateAudioSettings', settings) as Promise<{ success: boolean }>,
+    updateMixerSettings: (settings: StreamSettings) =>
+      ipcRenderer.invoke('media:updateMixerSettings', settings) as Promise<{ success: boolean }>,
     onStatusChange: (callback: (state: MediaState) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, state: MediaState) => callback(state)
       ipcRenderer.on('media:status', handler)

@@ -5,8 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nova Stream</title>
     <link rel="icon" type="image/png" href="./assets/logo.png" />
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #161625;
+        overflow: hidden;
+      }
+
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
+          #161625;
+        transition: opacity 0.28s ease, visibility 0.28s ease;
+      }
+
+      #app-splash.app-splash--hide {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .app-splash-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 36px 44px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(28, 28, 46, 0.72);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      }
+
+      .app-splash-mark {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 700;
+        color: #fff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+
+      .app-splash-title {
+        margin: 0;
+        font: 600 1.3rem/1.2 'Segoe UI', system-ui, sans-serif;
+        color: #f4f4fa;
+        letter-spacing: 0.02em;
+      }
+
+      .app-splash-spinner {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 3px solid rgba(167, 139, 250, 0.2);
+        border-top-color: #a78bfa;
+        animation: app-splash-spin 0.85s linear infinite;
+      }
+
+      .app-splash-text {
+        margin: 0;
+        font: 400 0.88rem/1.4 'Segoe UI', system-ui, sans-serif;
+        color: #b4b4cc;
+      }
+
+      @keyframes app-splash-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" aria-live="polite" aria-busy="true">
+      <div class="app-splash-inner">
+        <div class="app-splash-mark" aria-hidden="true">N</div>
+        <h1 class="app-splash-title">Nova Stream</h1>
+        <div class="app-splash-spinner" aria-hidden="true"></div>
+        <p class="app-splash-text">Chargement de l’interface…</p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="./main.tsx"></script>
   </body>

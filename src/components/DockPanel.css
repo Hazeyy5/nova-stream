@@ -280,6 +280,24 @@
   overflow-y: auto;
 }
 
+.scenes-collection-row {
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 8px;
+  align-items: center;
+}
+
+.scenes-collection-select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+}
+
 .sources-dock-list {
   flex: 1;
   min-height: 0;

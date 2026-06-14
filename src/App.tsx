@@ -38,6 +38,9 @@ import { useSceneMedia } from './hooks/useSceneMedia'
 import { useSceneCapture } from './hooks/useSceneCapture'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSceneTransition } from './hooks/useSceneTransition'
+import { useAppBootstrap } from './hooks/useAppBootstrap'
+
+import LoadingScreen from './components/LoadingScreen'
 
 import type { AppView, MediaState, StreamSettings } from './types'
 
@@ -59,10 +62,32 @@ const DEFAULT_MEDIA_STATE: MediaState = {
 
 
 function App() {
+  const bootstrap = useAppBootstrap()
+
+  if (bootstrap.status === 'loading') {
+    return <LoadingScreen message={bootstrap.message} />
+  }
+
+  if (bootstrap.status === 'error') {
+    return (
+      <LoadingScreen
+        error={bootstrap.error}
+        onRetry={() => window.location.reload()}
+      />
+    )
+  }
+
+  return <AppContent />
+}
+
+function AppContent() {
 
   const scenes = useScenes()
 
   const integrations = useIntegrations()
+
+  const twitchConnected = integrations.connections.some((c) => c.platform === 'twitch')
+  const streamKeyFetchRef = useRef(false)
 
   const { streamsRef } = useSceneMedia(scenes.activeScene?.sources ?? [])
 
@@ -240,10 +265,27 @@ function App() {
 
       const videoInputFormat = await sceneCapture.beginPipe(settings.videoBitrate, settings.framerate)
 
-      await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 1 : 2)
+      await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 2 : 3, 5000)
+
+      let liveSettings = settings
+      if (stream && twitchConnected) {
+        try {
+          const key = await integrations.fetchTwitchStreamKey()
+          if (key) {
+            liveSettings = {
+              ...settings,
+              streamKey: key,
+              rtmpUrl: settings.rtmpUrl.trim() || 'rtmp://live.twitch.tv/app'
+            }
+            setSettings(liveSettings)
+          }
+        } catch {
+          /* conserver la clé déjà saisie */
+        }
+      }
 
       const result = await window.novaStream.media.start({
-        settings,
+        settings: liveSettings,
         stream,
         record,
         videoInputFormat
@@ -265,11 +307,14 @@ function App() {
 
       await window.novaStream.media.stop()
 
-      alert(err instanceof Error ? err.message : 'Erreur au démarrage')
+      const message = err instanceof Error ? err.message : 'Erreur au démarrage'
+      if (message !== 'Connexion annulée') {
+        alert(message)
+      }
 
     }
 
-  }, [settings, scenes.activeScene, sceneCapture])
+  }, [settings, scenes.activeScene, sceneCapture, twitchConnected, integrations])
 
 
 
@@ -282,9 +327,6 @@ function App() {
   }, [sceneCapture])
 
 
-
-  const streamKeyFetchRef = useRef(false)
-  const twitchConnected = integrations.connections.some((c) => c.platform === 'twitch')
 
   const tryAutoFetchStreamKey = useCallback(async () => {
     if (!twitchConnected) return
@@ -337,27 +379,34 @@ function App() {
 
   const audioSettingsKey = useMemo(
     () => JSON.stringify({
-      audioGainDb: settings.audioGainDb,
-      desktopAudioGainDb: settings.desktopAudioGainDb,
-      audioEnabled: settings.audioEnabled,
-      desktopAudioEnabled: settings.desktopAudioEnabled,
       micMono: settings.micMono,
       audioDevice: settings.audioDevice,
       desktopAudioDevice: settings.desktopAudioDevice,
       audioSyncOffsetMs: settings.audioSyncOffsetMs
     }),
     [
-      settings.audioGainDb,
-      settings.desktopAudioGainDb,
-      settings.audioEnabled,
-      settings.desktopAudioEnabled,
       settings.micMono,
       settings.audioDevice,
       settings.desktopAudioDevice,
       settings.audioSyncOffsetMs
     ]
   )
+  const mixerSettingsKey = useMemo(
+    () => JSON.stringify({
+      audioGainDb: settings.audioGainDb,
+      desktopAudioGainDb: settings.desktopAudioGainDb,
+      audioEnabled: settings.audioEnabled,
+      desktopAudioEnabled: settings.desktopAudioEnabled
+    }),
+    [
+      settings.audioGainDb,
+      settings.desktopAudioGainDb,
+      settings.audioEnabled,
+      settings.desktopAudioEnabled
+    ]
+  )
   const lastAudioPushKey = useRef<string | null>(null)
+  const lastMixerPushKey = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isMediaPipelineActive) {
@@ -373,9 +422,24 @@ function App() {
     lastAudioPushKey.current = audioSettingsKey
     const timer = setTimeout(() => {
       void window.novaStream.media.updateAudioSettings(settings)
-    }, 400)
+    }, 150)
     return () => clearTimeout(timer)
   }, [audioSettingsKey, isMediaPipelineActive, settings])
+
+  useEffect(() => {
+    if (!isMediaPipelineActive) {
+      lastMixerPushKey.current = null
+      return
+    }
+    if (lastMixerPushKey.current === null) {
+      lastMixerPushKey.current = mixerSettingsKey
+      return
+    }
+    if (lastMixerPushKey.current === mixerSettingsKey) return
+
+    lastMixerPushKey.current = mixerSettingsKey
+    void window.novaStream.media.updateMixerSettings(settings)
+  }, [mixerSettingsKey, isMediaPipelineActive, settings])
 
   const handleFps = useCallback((fps: number) => setPreviewFps(fps), [])
 
@@ -393,7 +457,7 @@ function App() {
   const handleImportScenes = useCallback(async () => {
     try {
       const json = await window.novaStream.dialog.importScenesFile()
-      if (json) scenes.importScenesFromJson(json)
+      if (json) scenes.importCollectionsFromJson(json)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Import échoué')
     }
@@ -495,22 +559,6 @@ function App() {
 
         bitrate={settings.videoBitrate}
 
-        onAddWidget={() => {
-
-          setView('editor')
-
-          scenes.addSource('chat')
-
-        }}
-
-        onAddAlert={() => {
-
-          setView('editor')
-
-          scenes.addSource('alert')
-
-        }}
-
       />
 
 
@@ -578,9 +626,17 @@ function App() {
 
                       scenes={scenes.scenes}
 
+                      collections={scenes.collections}
+
+                      activeCollectionId={scenes.activeCollection?.id ?? ''}
+
                       activeSceneId={scenes.activeSceneId}
 
                       onSceneSelect={handleSceneSelect}
+
+                      onCollectionSelect={scenes.switchCollection}
+
+                      onAddCollection={scenes.addCollection}
 
                       onAddScene={scenes.addScene}
 
@@ -718,21 +774,19 @@ function App() {
 
         <WelcomeModal
 
-          websiteUrl={websiteUrl}
-
-          onClose={() => {
+          onComplete={(result) => {
 
             localStorage.setItem('nova-welcome-seen', '1')
+
+            localStorage.setItem('nova-user-mode', result.userMode)
+
+            scenes.applyTemplate(result.templateId, 'replace')
 
             setShowWelcome(false)
 
           }}
 
-          onOpenIntegrations={() => {
-
-            localStorage.setItem('nova-welcome-seen', '1')
-
-            setShowWelcome(false)
+          onConnectTwitch={() => {
 
             void openTwitchConnectWebsite()
 
@@ -770,6 +824,22 @@ function App() {
           twitchConnected={integrations.isConnected('twitch')}
 
           onFetchTwitchStreamKey={integrations.fetchTwitchStreamKey}
+
+          isMediaActive={isMediaPipelineActive}
+
+          onLiveChange={(partial) => setSettings((s) => ({ ...s, ...partial }))}
+
+          collections={scenes.collections}
+
+          activeCollectionName={scenes.activeCollection?.name}
+
+          onExportScenes={scenes.exportScenes}
+
+          onExportAllCollections={scenes.exportAllCollections}
+
+          onImportScenes={handleImportScenes}
+
+          onApplyTemplate={scenes.applyTemplate}
 
         />
 

@@ -1,6 +1,7 @@
 import { join } from 'path'
 import { existsSync, statSync } from 'fs'
 import { DESKTOP_AUDIO_PCM } from './desktopAudioCapture'
+import { MIC_AUDIO_PCM } from './micAudioCapture'
 import type { StreamSettings } from '../../src/types'
 
 const RECORDING_MOVFLAGS = 'frag_keyframe+empty_moov+default_base_moof'
@@ -15,13 +16,23 @@ function dbToLinear(db: number): number {
 }
 
 function resolveMicLinear(settings: StreamSettings): number {
+  if (!settings.audioEnabled) return 0
   const db = settings.audioGainDb ?? (settings.audioVolume != null ? 20 * Math.log10(Math.max(settings.audioVolume, 1) / 100) : 0)
   return dbToLinear(db) * MIC_HEADROOM
 }
 
 function resolveDesktopLinear(settings: StreamSettings): number {
+  if (!settings.desktopAudioEnabled) return 0
   const db = settings.desktopAudioGainDb ?? (settings.desktopAudioVolume != null ? 20 * Math.log10(Math.max(settings.desktopAudioVolume, 1) / 100) : 0)
   return dbToLinear(db) * DESKTOP_HEADROOM
+}
+
+export function resolveStreamMicLinear(settings: StreamSettings): number {
+  return resolveMicLinear(settings)
+}
+
+export function resolveStreamDesktopLinear(settings: StreamSettings): number {
+  return resolveDesktopLinear(settings)
 }
 
 const MASTER_AUDIO_CHAIN =
@@ -31,6 +42,9 @@ const MASTER_AUDIO_CHAIN =
 export interface FfmpegBuildResult {
   args: string[]
   usesNativeDesktop: boolean
+  usesMicPipe: boolean
+  micPipeFd: number | null
+  desktopPipeFd: number | null
   meterChannels: { mic: boolean; desktop: boolean }
 }
 
@@ -92,20 +106,27 @@ export function resolveRecordingFilePath(recordingPath = ''): string {
   return join(base, fileName)
 }
 
-function resolveAudioSyncOffsetSec(settings: StreamSettings, videoInputFormat: 'h264' | 'webm'): number {
-  let ms: number
+function resolveAudioSyncOffsetMs(settings: StreamSettings, videoInputFormat: 'h264' | 'webm'): number {
   if (typeof settings.audioSyncOffsetMs === 'number' && Number.isFinite(settings.audioSyncOffsetMs)) {
-    ms = settings.audioSyncOffsetMs
-  } else {
-    ms = videoInputFormat === 'h264' ? 120 : 280
+    return Math.max(-5000, Math.min(5000, settings.audioSyncOffsetMs))
   }
-  return Math.max(-2, Math.min(2, ms / 1000))
+  return videoInputFormat === 'h264' ? 800 : 3000
 }
 
-function pushAudioInput(args: string[], offsetSec: number, inputArgs: string[]): void {
-  if (Math.abs(offsetSec) > 0.001) {
-    args.push('-itsoffset', offsetSec.toFixed(3))
+function buildAudioSyncSuffix(offsetMs: number, channels: number): string {
+  if (offsetMs > 5) {
+    const delay = Math.round(offsetMs)
+    const perChannel = Array.from({ length: channels }, () => delay).join('|')
+    return `,adelay=${perChannel}`
   }
+  if (offsetMs < -5) {
+    const startSec = (-offsetMs / 1000).toFixed(3)
+    return `,atrim=start=${startSec},asetpts=PTS-STARTPTS`
+  }
+  return ''
+}
+
+function pushAudioInput(args: string[], inputArgs: string[]): void {
   args.push(...inputArgs)
 }
 
@@ -113,11 +134,18 @@ function dshowInput(device: string, kind: 'video' | 'audio'): string {
   return `${kind}=${device}`
 }
 
-function micPreprocessFilter(micIndex: number, settings: StreamSettings, outputLabel: string): string {
-  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:first_pts=0,aformat=sample_fmts=fltp`
+function micPreprocessFilter(
+  micIndex: number,
+  settings: StreamSettings,
+  videoInputFormat: 'h264' | 'webm',
+  outputLabel: string
+): string {
+  const channels = settings.micMono ? 1 : 2
+  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:first_pts=0,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
+  chain += buildAudioSyncSuffix(resolveAudioSyncOffsetMs(settings, videoInputFormat), channels)
   return `${chain}${outputLabel}`
 }
 
@@ -133,6 +161,56 @@ function meterStatFilters(inputLabel: string, tag: 'mic' | 'desk', outputLabel: 
   ]
 }
 
+function micProcessingChain(
+  micIndex: number,
+  settings: StreamSettings,
+  videoInputFormat: 'h264' | 'webm',
+  linear: number,
+  outputLabel: string,
+  enableMeters: boolean
+): string[] {
+  const filters = [
+    micPreprocessFilter(micIndex, settings, videoInputFormat, '[micpre]'),
+    volumeFilter('[micpre]', linear, '[micpost]')
+  ]
+  if (enableMeters) {
+    filters.push(...meterStatFilters('[micpost]', 'mic', outputLabel))
+  } else {
+    filters.push(`[micpost]anull${outputLabel}`)
+  }
+  return filters
+}
+
+function desktopPreprocessFilter(
+  desktopIndex: number,
+  settings: StreamSettings,
+  videoInputFormat: 'h264' | 'webm',
+  outputLabel: string
+): string {
+  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:first_pts=0,aformat=sample_fmts=fltp`
+  return `${chain}${buildAudioSyncSuffix(resolveAudioSyncOffsetMs(settings, videoInputFormat), 2)}${outputLabel}`
+}
+
+function desktopProcessingChain(
+  desktopIndex: number,
+  settings: StreamSettings,
+  videoInputFormat: 'h264' | 'webm',
+  linear: number,
+  outputLabel: string,
+  enableMeters: boolean
+): string[] {
+  const filters = [
+    desktopPreprocessFilter(desktopIndex, settings, videoInputFormat, '[deskpre]'),
+    volumeFilter('[deskpre]', linear, '[deskpost]')
+  ]
+  if (enableMeters) {
+    filters.push(...meterStatFilters('[deskpost]', 'desk', outputLabel))
+  } else {
+    filters.push(`[deskpost]anull${outputLabel}`)
+  }
+  return filters
+}
+
 function masterAudioFilter(inputLabel: string, outputLabel: string): string {
   return `${inputLabel}${MASTER_AUDIO_CHAIN}${outputLabel}`
 }
@@ -144,27 +222,33 @@ export function buildFfmpegScenePipeArgs(
     recordPath?: string
     includeAudio?: boolean
     videoInputFormat?: 'h264' | 'webm'
+    micViaPipe?: boolean
+    mixViaNode?: boolean
   } = {}
 ): FfmpegBuildResult {
   const includeAudio = options.includeAudio !== false
   const videoInputFormat = options.videoInputFormat ?? 'webm'
+  const micViaPipe = options.micViaPipe === true
+  const mixViaNode = options.mixViaNode === true
   const copyVideo = videoInputFormat === 'h264'
-  const audioSyncOffsetSec = resolveAudioSyncOffsetSec(settings, videoInputFormat)
-  const args: string[] = ['-y', '-fflags', '+genpts+nobuffer', '-max_interleave_delta', '0']
+  const isStreaming = !!options.rtmpUrl
+  const enableMeters = !isStreaming
+  const args: string[] = ['-y', '-loglevel', 'warning', '-stats', '-fflags', '+genpts+igndts']
 
   if (copyVideo) {
     args.push(
-      '-thread_queue_size', '512',
+      '-thread_queue_size', '1024',
       '-f', 'h264',
       '-r', String(settings.framerate),
+      '-use_wallclock_as_timestamps', '1',
       '-i', 'pipe:0'
     )
   } else {
     args.push(
       '-thread_queue_size', '512',
-      '-probesize', '500000',
-      '-analyzeduration', '500000',
-      '-fflags', '+nobuffer+flush_packets+genpts',
+      '-probesize', '32768',
+      '-analyzeduration', '100000',
+      '-fflags', '+genpts+igndts+discardcorrupt+nobuffer',
       '-flags', 'low_delay',
       '-f', 'webm',
       '-i', 'pipe:0'
@@ -174,62 +258,72 @@ export function buildFfmpegScenePipeArgs(
   let inputIndex = 1
   const filters: string[] = []
   let usesNativeDesktop = false
+  let usesMicPipe = false
+  let micPipeFd: number | null = null
+  let desktopPipeFd: number | null = null
+  let nextPipeFd = 3
 
   let micIndex: number | null = null
   let desktopIndex: number | null = null
 
-  if (includeAudio && settings.audioEnabled && settings.audioDevice) {
-    pushAudioInput(args, audioSyncOffsetSec, ['-f', 'dshow', '-i', dshowInput(settings.audioDevice, 'audio')])
-    micIndex = inputIndex++
+  if (includeAudio && settings.audioDevice) {
+    if (micViaPipe) {
+      micPipeFd = nextPipeFd++
+      usesMicPipe = true
+      pushAudioInput(args, [
+        '-f', MIC_AUDIO_PCM.format,
+        '-ar', String(MIC_AUDIO_PCM.sampleRate),
+        '-ac', String(MIC_AUDIO_PCM.channels),
+        '-i', `pipe:${micPipeFd}`
+      ])
+      micIndex = inputIndex++
+    } else {
+      pushAudioInput(args, ['-f', 'dshow', '-i', dshowInput(settings.audioDevice, 'audio')])
+      micIndex = inputIndex++
+    }
   }
 
   if (includeAudio && settings.desktopAudioEnabled) {
     const backend = settings.desktopAudioBackend ?? 'dshow'
     if (backend === 'native') {
-      pushAudioInput(args, audioSyncOffsetSec, [
+      desktopPipeFd = nextPipeFd++
+      pushAudioInput(args, [
         '-f', DESKTOP_AUDIO_PCM.format,
         '-ar', String(DESKTOP_AUDIO_PCM.sampleRate),
         '-ac', String(DESKTOP_AUDIO_PCM.channels),
-        '-i', 'pipe:3'
+        '-i', `pipe:${desktopPipeFd}`
       ])
       desktopIndex = inputIndex++
       usesNativeDesktop = true
     } else {
       const desktopCapture = settings.desktopAudioCaptureDevice || settings.desktopAudioDevice
       if (desktopCapture) {
-        pushAudioInput(args, audioSyncOffsetSec, ['-f', 'dshow', '-i', dshowInput(desktopCapture, 'audio')])
+        pushAudioInput(args, ['-f', 'dshow', '-i', dshowInput(desktopCapture, 'audio')])
         desktopIndex = inputIndex++
       }
     }
   }
 
   let audioOut: string | null = null
-  const deskVol = resolveDesktopLinear(settings)
+  const deskVol = mixViaNode || usesNativeDesktop ? 1 : resolveDesktopLinear(settings)
+  const micVol = mixViaNode || micViaPipe ? 1 : resolveMicLinear(settings)
 
   if (micIndex !== null && desktopIndex === null) {
     filters.push(
-      micPreprocessFilter(micIndex, settings, '[micpre]'),
-      volumeFilter('[micpre]', resolveMicLinear(settings), '[micpost]'),
-      ...meterStatFilters('[micpost]', 'mic', '[amix]'),
+      ...micProcessingChain(micIndex, settings, videoInputFormat, micVol, '[amix]', enableMeters),
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   } else if (desktopIndex !== null && micIndex === null) {
     filters.push(
-      `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:first_pts=0,aformat=sample_fmts=fltp[deskpre]`,
-      volumeFilter('[deskpre]', deskVol, '[deskpost]'),
-      ...meterStatFilters('[deskpost]', 'desk', '[amix]'),
+      ...desktopProcessingChain(desktopIndex, settings, videoInputFormat, deskVol, '[amix]', enableMeters),
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   } else if (micIndex !== null && desktopIndex !== null) {
     filters.push(
-      micPreprocessFilter(micIndex, settings, '[micpre]'),
-      volumeFilter('[micpre]', resolveMicLinear(settings), '[micpost]'),
-      ...meterStatFilters('[micpost]', 'mic', '[a0]'),
-      `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:first_pts=0,aformat=sample_fmts=fltp[deskpre]`,
-      volumeFilter('[deskpre]', deskVol, '[deskpost]'),
-      ...meterStatFilters('[deskpost]', 'desk', '[a1]'),
+      ...micProcessingChain(micIndex, settings, videoInputFormat, micVol, '[a0]', enableMeters),
+      ...desktopProcessingChain(desktopIndex, settings, videoInputFormat, deskVol, '[a1]', enableMeters),
       '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amix]',
       masterAudioFilter('[amix]', '[outa]')
     )
@@ -237,14 +331,8 @@ export function buildFfmpegScenePipeArgs(
   }
 
   if (filters.length > 0) {
-    if (!copyVideo) {
-      filters.unshift(`[0:v]setpts=PTS-STARTPTS[vout]`)
-      args.push('-filter_complex', filters.join(';'))
-      args.push('-map', '[vout]')
-    } else {
-      args.push('-filter_complex', filters.join(';'))
-      args.push('-map', '0:v')
-    }
+    args.push('-filter_complex', filters.join(';'))
+    args.push('-map', '0:v')
     args.push('-map', audioOut!)
   } else {
     args.push('-map', '0:v')
@@ -264,9 +352,7 @@ export function buildFfmpegScenePipeArgs(
       '-b:v', `${settings.videoBitrate}k`,
       '-maxrate', `${settings.videoBitrate}k`,
       '-bufsize', `${settings.videoBitrate * 2}k`,
-      '-g', String(settings.framerate * 2),
-      '-vsync', 'cfr',
-      '-r', String(settings.framerate)
+      '-g', String(settings.framerate * 2)
     )
   }
 
@@ -281,7 +367,14 @@ export function buildFfmpegScenePipeArgs(
   if (options.rtmpUrl && options.recordPath) {
     args.push('-muxdelay', '0', '-muxpreload', '0', '-f', 'tee', buildTeeOutput(options.rtmpUrl, options.recordPath))
   } else if (options.rtmpUrl) {
-    args.push('-muxdelay', '0', '-muxpreload', '0', '-flvflags', 'no_duration_filesize', '-f', 'flv', options.rtmpUrl)
+    args.push(
+      '-muxdelay', '0',
+      '-muxpreload', '0',
+      '-flush_packets', '1',
+      '-flvflags', 'no_duration_filesize',
+      '-f', 'flv',
+      options.rtmpUrl
+    )
   } else if (options.recordPath) {
     args.push('-movflags', RECORDING_MOVFLAGS, '-f', 'mp4', ffmpegOutputPath(options.recordPath))
   } else {
@@ -291,6 +384,9 @@ export function buildFfmpegScenePipeArgs(
   return {
     args,
     usesNativeDesktop,
+    usesMicPipe,
+    micPipeFd,
+    desktopPipeFd,
     meterChannels: {
       mic: micIndex !== null,
       desktop: desktopIndex !== null
@@ -327,6 +423,15 @@ export function parseFfmpegError(stderr: string): string {
   }
   if (stderr.includes('Connection refused') || (stderr.includes('I/O error') && stderr.includes('rtmp'))) {
     return 'Connexion RTMP refusée — vérifiez l\'URL et la clé de stream Twitch dans Paramètres.'
+  }
+  if (stderr.includes('Error opening output') || stderr.includes('authfailed') || stderr.includes('authentication failed')) {
+    return 'Connexion Twitch refusée — vérifiez votre clé de stream dans Paramètres.'
+  }
+  if (stderr.includes('Invalid stream key') || stderr.includes('403')) {
+    return 'Clé de stream Twitch invalide — régénérez-la sur le tableau de bord Twitch.'
+  }
+  if (stderr.includes('Cannot open connection') || stderr.includes('Connection to tcp://')) {
+    return 'Impossible de joindre les serveurs Twitch — vérifiez votre connexion internet.'
   }
   const lines = stderr.trim().split('\n').filter((l) => l.trim())
   return lines[lines.length - 1] ?? 'Erreur FFmpeg'

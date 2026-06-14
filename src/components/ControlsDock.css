@@ -43,6 +43,12 @@
   line-height: 1.4;
 }
 
+.controls-status-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .controls-btn {
   width: 100%;
   padding: 11px 12px;

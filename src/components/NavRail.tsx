@@ -9,8 +9,6 @@ interface NavRailProps {
   onSettingsClick: () => void
   hasConnection: boolean
   bitrate: number
-  onAddWidget?: () => void
-  onAddAlert?: () => void
 }
 
 const NAV_ITEMS: { id: AppView | 'settings'; view?: AppView; label: string; icon: string }[] = [
@@ -23,9 +21,7 @@ export default function NavRail({
   onViewChange,
   onSettingsClick,
   hasConnection,
-  bitrate,
-  onAddWidget,
-  onAddAlert
+  bitrate
 }: NavRailProps) {
   return (
     <nav className="nav-rail">
@@ -47,28 +43,6 @@ export default function NavRail({
           </button>
         ))}
 
-        <button
-          className="nav-item"
-          title="Ajouter un widget Chat"
-          onClick={() => {
-            onViewChange('editor')
-            onAddWidget?.()
-          }}
-        >
-          <span className="nav-item-icon">◇</span>
-          <span>Widgets</span>
-        </button>
-        <button
-          className="nav-item"
-          title="Ajouter une boîte d'alertes"
-          onClick={() => {
-            onViewChange('editor')
-            onAddAlert?.()
-          }}
-        >
-          <span className="nav-item-icon">🔔</span>
-          <span>Alertes</span>
-        </button>
       </div>
 
       <div className="nav-rail-status">

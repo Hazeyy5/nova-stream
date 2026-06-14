@@ -57,13 +57,15 @@ export function useSceneCapture(
       encodeFrameRef.current = null
     }
 
+    const minChunks = format === 'h264' ? 2 : 3
+    await encoder.waitForChunks(minChunks, 5000)
+
     encoderRef.current = encoder
     videoInputFormatRef.current = format
-    videoChunksSentRef.current = 0
     return format
   }, [canvasRef])
 
-  const waitForVideoPipeReady = useCallback(async (minChunks = 2, timeoutMs = 1500) => {
+  const waitForVideoPipeReady = useCallback(async (minChunks = 2, timeoutMs = 3000) => {
     const start = Date.now()
     while (Date.now() - start < timeoutMs) {
       if (videoChunksSentRef.current >= minChunks) return

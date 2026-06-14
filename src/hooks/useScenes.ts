@@ -1,32 +1,15 @@
 import { useState, useCallback } from 'react'
-import type { Scene, Source, SourceType, WebWidgetSettings } from '../types'
+import type { Scene, SceneCollection, SceneCollectionsStore, Source, SourceType, WebWidgetSettings } from '../types'
 import { createSource } from '../types'
 import { applyWebWidgetSettingsToScenes } from '../lib/applyWebWidgetSettings'
+import { createCollectionFromTemplate, createDefaultCollection, type SceneTemplateId } from '../lib/sceneTemplates'
 
-const STORAGE_KEY = 'nova-stream-scenes'
+const LEGACY_SCENES_KEY = 'nova-stream-scenes'
+const COLLECTIONS_KEY = 'nova-stream-collections'
 
-const DEFAULT_SCENES: Scene[] = [
-  {
-    id: 'scene-1',
-    name: 'GAMING',
-    sources: [
-      { ...createSource('game'), visible: true, name: 'Jeu' },
-      { ...createSource('webcam'), visible: true, name: 'CAM' },
-      { ...createSource('chat'), visible: true },
-      { ...createSource('alert'), visible: true }
-    ]
-  },
-  {
-    id: 'scene-2',
-    name: 'Just Chatting',
-    sources: [{ ...createSource('webcam'), visible: true }]
-  },
-  {
-    id: 'scene-3',
-    name: 'BRB',
-    sources: [{ ...createSource('text'), visible: true, name: 'Pause', textContent: '⏸ Pause — je reviens !' }]
-  }
-]
+function freshId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
 
 function migrateSource(source: Source): Source {
   const isGoalWidget =
@@ -38,51 +21,232 @@ function migrateSource(source: Source): Source {
   return source
 }
 
-function loadScenes(): Scene[] {
+function migrateScenes(scenes: Scene[]): Scene[] {
+  return scenes.map((scene) => ({
+    ...scene,
+    sources: scene.sources.map(migrateSource)
+  }))
+}
+
+function loadStore(): SceneCollectionsStore {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return DEFAULT_SCENES
-    const parsed = JSON.parse(saved) as Scene[]
-    return parsed.map((scene) => ({
-      ...scene,
-      sources: scene.sources.map(migrateSource)
-    }))
+    const saved = localStorage.getItem(COLLECTIONS_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as SceneCollectionsStore
+      if (parsed.collections?.length > 0 && parsed.activeCollectionId) {
+        return {
+          collections: parsed.collections.map((col) => ({
+            ...col,
+            scenes: migrateScenes(col.scenes)
+          })),
+          activeCollectionId: parsed.activeCollectionId
+        }
+      }
+    }
   } catch {
-    return DEFAULT_SCENES
+    /* ignore */
   }
+
+  try {
+    const legacy = localStorage.getItem(LEGACY_SCENES_KEY)
+    if (legacy) {
+      const scenes = migrateScenes(JSON.parse(legacy) as Scene[])
+      const collection: SceneCollection = {
+        id: 'col-legacy',
+        name: 'Ma collection',
+        scenes,
+        activeSceneId: scenes[0]?.id ?? ''
+      }
+      return { collections: [collection], activeCollectionId: collection.id }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const defaultCol = createDefaultCollection()
+  return { collections: [defaultCol], activeCollectionId: defaultCol.id }
+}
+
+function saveStore(store: SceneCollectionsStore): void {
+  localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(store))
+  localStorage.removeItem(LEGACY_SCENES_KEY)
+}
+
+function parseImportedScenes(json: string): Scene[] {
+  const data = JSON.parse(json) as unknown
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) throw new Error('Fichier de scènes vide')
+    for (const scene of data) {
+      const s = scene as Scene
+      if (!s.id || !s.name || !Array.isArray(s.sources)) {
+        throw new Error('Format de scène invalide')
+      }
+    }
+    return migrateScenes(data as Scene[])
+  }
+
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    if (obj.type === 'nova-stream-collection' && obj.collection) {
+      const col = obj.collection as SceneCollection
+      if (!Array.isArray(col.scenes) || col.scenes.length === 0) {
+        throw new Error('Collection vide ou invalide')
+      }
+      return migrateScenes(col.scenes)
+    }
+    if (Array.isArray(obj.scenes)) {
+      const scenes = obj.scenes as Scene[]
+      if (scenes.length === 0) throw new Error('Fichier de scènes vide')
+      return migrateScenes(scenes)
+    }
+  }
+
+  throw new Error('Format de fichier non reconnu')
 }
 
 export function useScenes() {
-  const [scenes, setScenes] = useState<Scene[]>(loadScenes)
-  const [activeSceneId, setActiveSceneId] = useState(() => loadScenes()[0]?.id ?? '')
+  const [store, setStore] = useState<SceneCollectionsStore>(loadStore)
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
+
+  const activeCollection =
+    store.collections.find((c) => c.id === store.activeCollectionId) ?? store.collections[0]
+
+  const scenes = activeCollection?.scenes ?? []
+  const activeSceneId = activeCollection?.activeSceneId ?? ''
+  const activeScene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0]
+
+  const persistStore = useCallback((next: SceneCollectionsStore) => {
+    setStore(next)
+    saveStore(next)
+  }, [])
+
+  const updateActiveCollection = useCallback((
+    updater: (collection: SceneCollection) => SceneCollection
+  ) => {
+    if (!activeCollection) return
+    const nextCollections = store.collections.map((col) =>
+      col.id === activeCollection.id ? updater(col) : col
+    )
+    persistStore({ ...store, collections: nextCollections })
+  }, [activeCollection, persistStore, store])
+
+  const setActiveSceneId = useCallback((sceneId: string) => {
+    updateActiveCollection((col) => ({ ...col, activeSceneId: sceneId }))
+  }, [updateActiveCollection])
 
   const selectSource = (id: string | null) => setSelectedSourceId(id)
 
-  const persist = useCallback((next: Scene[]) => {
-    setScenes(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  }, [])
-
-  const activeScene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0]
+  const persistScenes = useCallback((nextScenes: Scene[], nextActiveSceneId?: string) => {
+    updateActiveCollection((col) => ({
+      ...col,
+      scenes: nextScenes,
+      activeSceneId: nextActiveSceneId ?? col.activeSceneId
+    }))
+  }, [updateActiveCollection])
 
   const updateScene = useCallback((sceneId: string, updater: (scene: Scene) => Scene) => {
-    persist(scenes.map((s) => (s.id === sceneId ? updater(s) : s)))
-  }, [scenes, persist])
+    persistScenes(scenes.map((s) => (s.id === sceneId ? updater(s) : s)))
+  }, [scenes, persistScenes])
+
+  const switchCollection = useCallback((collectionId: string) => {
+    if (!store.collections.some((c) => c.id === collectionId)) return
+    persistStore({ ...store, activeCollectionId: collectionId })
+    setSelectedSourceId(null)
+  }, [persistStore, store])
+
+  const addCollection = useCallback((name?: string) => {
+    const id = freshId('col')
+    const collection: SceneCollection = {
+      id,
+      name: name ?? `Collection ${store.collections.length + 1}`,
+      scenes: [{ id: freshId('scene'), name: 'Scène 1', sources: [] }],
+      activeSceneId: ''
+    }
+    collection.activeSceneId = collection.scenes[0].id
+    persistStore({
+      collections: [...store.collections, collection],
+      activeCollectionId: id
+    })
+    setSelectedSourceId(null)
+  }, [persistStore, store.collections])
+
+  const removeCollection = useCallback((collectionId: string) => {
+    if (store.collections.length <= 1) return
+    const next = store.collections.filter((c) => c.id !== collectionId)
+    const nextActiveId =
+      store.activeCollectionId === collectionId ? next[0].id : store.activeCollectionId
+    persistStore({ collections: next, activeCollectionId: nextActiveId })
+    setSelectedSourceId(null)
+  }, [persistStore, store])
+
+  const renameCollection = useCallback((collectionId: string, name: string) => {
+    const next = store.collections.map((c) =>
+      c.id === collectionId ? { ...c, name: name.trim() || c.name } : c
+    )
+    persistStore({ ...store, collections: next })
+  }, [persistStore, store])
+
+  const duplicateCollection = useCallback((collectionId: string) => {
+    const original = store.collections.find((c) => c.id === collectionId)
+    if (!original) return
+    const id = freshId('col')
+    const scenesCopy = original.scenes.map((scene, si) => ({
+      ...scene,
+      id: freshId('scene'),
+      sources: scene.sources.map((src, i) => ({
+        ...src,
+        id: `src-${Date.now()}-${si}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        transform: { ...src.transform }
+      }))
+    }))
+    const copy: SceneCollection = {
+      id,
+      name: `${original.name} (copie)`,
+      scenes: scenesCopy,
+      activeSceneId: scenesCopy[0]?.id ?? ''
+    }
+    persistStore({
+      collections: [...store.collections, copy],
+      activeCollectionId: id
+    })
+    setSelectedSourceId(null)
+  }, [persistStore, store.collections])
+
+  const applyTemplate = useCallback((templateId: SceneTemplateId, mode: 'replace' | 'new' = 'replace') => {
+    const fromTemplate = createCollectionFromTemplate(templateId)
+    if (mode === 'new') {
+      persistStore({
+        collections: [...store.collections, fromTemplate],
+        activeCollectionId: fromTemplate.id
+      })
+    } else if (activeCollection) {
+      const next = store.collections.map((col) =>
+        col.id === activeCollection.id
+          ? { ...fromTemplate, id: col.id, name: fromTemplate.name }
+          : col
+      )
+      persistStore({ ...store, collections: next })
+    } else {
+      persistStore({
+        collections: [fromTemplate],
+        activeCollectionId: fromTemplate.id
+      })
+    }
+    setSelectedSourceId(null)
+  }, [activeCollection, persistStore, store])
 
   const addScene = useCallback(() => {
-    const id = `scene-${Date.now()}`
-    const next = [...scenes, { id, name: `Scène ${scenes.length + 1}`, sources: [] }]
-    persist(next)
-    setActiveSceneId(id)
-  }, [scenes, persist])
+    const id = freshId('scene')
+    persistScenes([...scenes, { id, name: `Scène ${scenes.length + 1}`, sources: [] }], id)
+  }, [scenes, persistScenes])
 
   const removeScene = useCallback((sceneId: string) => {
     if (scenes.length <= 1) return
     const next = scenes.filter((s) => s.id !== sceneId)
-    persist(next)
-    if (activeSceneId === sceneId) setActiveSceneId(next[0].id)
-  }, [scenes, activeSceneId, persist])
+    const nextActive = activeSceneId === sceneId ? next[0].id : activeSceneId
+    persistScenes(next, nextActive)
+  }, [scenes, activeSceneId, persistScenes])
 
   const renameScene = useCallback((sceneId: string, name: string) => {
     updateScene(sceneId, (s) => ({ ...s, name }))
@@ -95,39 +259,79 @@ export function useScenes() {
     if (swapIdx < 0 || swapIdx >= scenes.length) return
     const next = [...scenes]
     ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
-    persist(next)
-  }, [scenes, persist])
+    persistScenes(next)
+  }, [scenes, persistScenes])
 
   const exportScenes = useCallback(() => {
-    const blob = new Blob([JSON.stringify(scenes, null, 2)], { type: 'application/json' })
+    const payload = {
+      version: 1,
+      type: 'nova-stream-collection',
+      exportedAt: new Date().toISOString(),
+      collection: {
+        name: activeCollection?.name ?? 'Collection',
+        scenes
+      }
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    const safeName = (activeCollection?.name ?? 'scenes').replace(/[^\w\-]+/g, '-')
+    anchor.href = url
+    anchor.download = `nova-stream-${safeName}-${stamp}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }, [activeCollection?.name, scenes])
+
+  const exportAllCollections = useCallback(() => {
+    const payload = {
+      version: 1,
+      type: 'nova-stream-collections',
+      exportedAt: new Date().toISOString(),
+      activeCollectionId: store.activeCollectionId,
+      collections: store.collections
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     const stamp = new Date().toISOString().slice(0, 10)
     anchor.href = url
-    anchor.download = `nova-stream-scenes-${stamp}.json`
+    anchor.download = `nova-stream-collections-${stamp}.json`
     anchor.click()
     URL.revokeObjectURL(url)
-  }, [scenes])
+  }, [store])
 
   const importScenesFromJson = useCallback((json: string) => {
-    const data = JSON.parse(json) as Scene[]
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error('Fichier de scènes vide ou invalide')
-    }
-    for (const scene of data) {
-      if (!scene.id || !scene.name || !Array.isArray(scene.sources)) {
-        throw new Error('Format de scène invalide')
-      }
-    }
-    persist(data)
-    setActiveSceneId(data[0].id)
+    const importedScenes = parseImportedScenes(json)
+    persistScenes(importedScenes, importedScenes[0].id)
     setSelectedSourceId(null)
-  }, [persist])
+  }, [persistScenes])
+
+  const importCollectionsFromJson = useCallback((json: string) => {
+    const data = JSON.parse(json) as Record<string, unknown>
+    if (data.type === 'nova-stream-collections' && Array.isArray(data.collections)) {
+      const collections = (data.collections as SceneCollection[]).map((col) => ({
+        ...col,
+        id: col.id || freshId('col'),
+        scenes: migrateScenes(col.scenes ?? [])
+      }))
+      if (collections.length === 0) throw new Error('Aucune collection dans le fichier')
+      const activeCollectionId =
+        typeof data.activeCollectionId === 'string' &&
+        collections.some((c) => c.id === data.activeCollectionId)
+          ? data.activeCollectionId
+          : collections[0].id
+      persistStore({ collections, activeCollectionId })
+      setSelectedSourceId(null)
+      return
+    }
+    importScenesFromJson(json)
+  }, [importScenesFromJson, persistStore])
 
   const duplicateScene = useCallback((sceneId: string) => {
     const original = scenes.find((s) => s.id === sceneId)
     if (!original) return
-    const id = `scene-${Date.now()}`
+    const id = freshId('scene')
     const copy: Scene = {
       id,
       name: `${original.name} (copie)`,
@@ -137,10 +341,8 @@ export function useScenes() {
         transform: { ...src.transform }
       }))
     }
-    const next = [...scenes, copy]
-    persist(next)
-    setActiveSceneId(id)
-  }, [scenes, persist])
+    persistScenes([...scenes, copy], id)
+  }, [scenes, persistScenes])
 
   const addSource = useCallback((type: SourceType, extra?: Partial<Source>): Source | null => {
     if (!activeScene) return null
@@ -166,9 +368,17 @@ export function useScenes() {
     if (!activeScene) return
     updateScene(activeScene.id, (s) => ({
       ...s,
-      sources: s.sources.map((src) =>
-        src.id === sourceId ? { ...src, ...partial } : src
-      )
+      sources: s.sources.map((src) => {
+        if (src.id !== sourceId) return src
+        const next: Source = { ...src, ...partial }
+        if (partial.transform) {
+          next.transform = { ...src.transform, ...partial.transform }
+        }
+        if (partial.chromaKey) {
+          next.chromaKey = { ...src.chromaKey, ...partial.chromaKey } as Source['chromaKey']
+        }
+        return next
+      })
     }))
   }, [activeScene, updateScene])
 
@@ -178,7 +388,7 @@ export function useScenes() {
     if (!original) return
     const copy: Source = {
       ...original,
-      id: `src-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: freshId('src'),
       name: `${original.name} (copie)`,
       transform: {
         ...original.transform,
@@ -210,26 +420,36 @@ export function useScenes() {
   }, [activeScene, updateScene])
 
   const applyWebWidgetSettings = useCallback((settings: WebWidgetSettings) => {
-    persist(applyWebWidgetSettingsToScenes(scenes, settings))
-  }, [scenes, persist])
+    persistScenes(applyWebWidgetSettingsToScenes(scenes, settings))
+  }, [scenes, persistScenes])
 
   const selectedSource = activeScene?.sources.find((s) => s.id === selectedSourceId) ?? null
 
   return {
     scenes,
+    collections: store.collections,
+    activeCollection,
     activeScene,
     activeSceneId,
     setActiveSceneId,
     selectedSource,
     selectedSourceId,
     setSelectedSourceId: selectSource,
+    switchCollection,
+    addCollection,
+    removeCollection,
+    renameCollection,
+    duplicateCollection,
+    applyTemplate,
     addScene,
     removeScene,
     renameScene,
     duplicateScene,
     moveScene,
     exportScenes,
+    exportAllCollections,
     importScenesFromJson,
+    importCollectionsFromJson,
     addSource,
     removeSource,
     updateSource,

@@ -288,7 +288,12 @@ export class IntegrationManager {
       this.alerts.stopDemo()
       this.startWidgetStatsPolling()
       try {
-        await this.chat.connect(twitch.username, twitch.accessToken)
+        await Promise.race([
+          this.chat.connect(twitch.username, twitch.accessToken),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('chat connect timeout')), 8000)
+          })
+        ])
         this.chatAccessToken = twitch.accessToken
         void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
       } catch { /* token expired or chat unavailable */ }

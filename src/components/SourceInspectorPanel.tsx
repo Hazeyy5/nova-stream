@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { AlertAnimation, AlertBoxStyle, CapturePickerKind, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source } from '../types'
+import type { AlertAnimation, AlertBoxStyle, CapturePickerKind, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source, SourceMaskShape } from '../types'
 import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
 import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
+import { isMediaSource } from '../lib/sourceEffects'
 import { GOAL_WIDGET_STYLES, POLL_WIDGET_STYLES } from '../lib/widgetRenderer'
 import './SourceInspector.css'
 
@@ -234,6 +235,120 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
           </button>
         </div>
       </fieldset>
+
+      {isMediaSource(source.type) && (
+        <fieldset className="inspector-section">
+          <legend>Masque &amp; filtres vidéo</legend>
+          <label className="inspector-field">
+            Forme du masque
+            <select
+              value={source.maskShape ?? 'none'}
+              onChange={(e) => onUpdate({ maskShape: e.target.value as SourceMaskShape })}
+            >
+              <option value="none">Aucun</option>
+              <option value="rounded">Coins arrondis</option>
+              <option value="circle">Cercle</option>
+            </select>
+          </label>
+          {(source.maskShape ?? 'none') !== 'none' && source.maskShape !== 'circle' && (
+            <label className="inspector-field">
+              Rayon des coins ({source.maskRadius ?? 16} %)
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={source.maskRadius ?? 16}
+                onChange={(e) => onUpdate({ maskRadius: Number(e.target.value) })}
+              />
+            </label>
+          )}
+          <label className="inspector-field">
+            Luminosité ({source.brightness ?? 100} %)
+            <input
+              type="range"
+              min={0}
+              max={200}
+              step={1}
+              value={source.brightness ?? 100}
+              onChange={(e) => onUpdate({ brightness: Number(e.target.value) })}
+            />
+          </label>
+          <label className="inspector-field">
+            Contraste ({source.contrast ?? 100} %)
+            <input
+              type="range"
+              min={0}
+              max={200}
+              step={1}
+              value={source.contrast ?? 100}
+              onChange={(e) => onUpdate({ contrast: Number(e.target.value) })}
+            />
+          </label>
+          <label className="inspector-field">
+            Saturation ({source.saturation ?? 100} %)
+            <input
+              type="range"
+              min={0}
+              max={200}
+              step={1}
+              value={source.saturation ?? 100}
+              onChange={(e) => onUpdate({ saturation: Number(e.target.value) })}
+            />
+          </label>
+          <label className="inspector-field">
+            Flou ({source.blur ?? 0} px)
+            <input
+              type="range"
+              min={0}
+              max={20}
+              step={0.5}
+              value={source.blur ?? 0}
+              onChange={(e) => onUpdate({ blur: Number(e.target.value) })}
+            />
+          </label>
+          <button
+            type="button"
+            className="inspector-recapture-btn"
+            onClick={() => onUpdate({
+              maskShape: source.type === 'webcam' ? 'rounded' : 'none',
+              maskRadius: source.type === 'webcam' ? 18 : 16,
+              brightness: 100,
+              contrast: 100,
+              saturation: 100,
+              blur: 0
+            })}
+          >
+            Réinitialiser les filtres
+          </button>
+        </fieldset>
+      )}
+
+      {(source.type === 'webcam' || source.type === 'display') && (
+        <fieldset className="inspector-section">
+          <legend>Audio de la source</legend>
+          <label className="inspector-field">
+            Volume ({source.volume} %)
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={source.volume}
+              disabled={source.muted}
+              onChange={(e) => onUpdate({ volume: Number(e.target.value) })}
+            />
+          </label>
+          <label className="inspector-checkbox">
+            <input
+              type="checkbox"
+              checked={source.muted}
+              onChange={(e) => onUpdate({ muted: e.target.checked })}
+            />
+            Couper le son de cette source
+          </label>
+        </fieldset>
+      )}
 
       {['webcam', 'image', 'screen', 'window', 'game', 'browser', 'display'].includes(source.type) && (
         <fieldset className="inspector-section">

@@ -2,6 +2,7 @@ export type VideoEncoder = 'x264' | 'nvenc'
 export type TransitionType = 'cut' | 'fade'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
+export type SourceMaskShape = 'none' | 'rounded' | 'circle'
 export type ChatBoxStyle = 'classic' | 'minimal' | 'neon' | 'bubble' | 'retro'
 export type AlertBoxStyle = 'classic' | 'minimal' | 'neon' | 'banner' | 'celebration' | 'sleek'
 export type AlertAnimation = 'pop' | 'slideUp' | 'slideLeft' | 'bounce' | 'fadeScale' | 'pulse'
@@ -119,6 +120,15 @@ export interface Source {
   flipH?: boolean
   flipV?: boolean
   chromaKey?: ChromaKeySettings
+  /** Masque visuel (webcam, captures, images). */
+  maskShape?: SourceMaskShape
+  /** Rayon du masque en % de la plus petite dimension (0–50). */
+  maskRadius?: number
+  /** Filtres visuels — 100 = neutre. */
+  brightness?: number
+  contrast?: number
+  saturation?: number
+  blur?: number
   /** Opacité 0–100 (défaut 100). */
   opacity?: number
   chatStyle?: ChatBoxStyle
@@ -144,6 +154,20 @@ export interface Scene {
   name: string
   sources: Source[]
 }
+
+export interface SceneCollection {
+  id: string
+  name: string
+  scenes: Scene[]
+  activeSceneId: string
+}
+
+export interface SceneCollectionsStore {
+  collections: SceneCollection[]
+  activeCollectionId: string
+}
+
+export type UserMode = 'twitch' | 'basic'
 
 export interface TwitchCategory {
   id: string
@@ -355,6 +379,8 @@ export function createSource(type: SourceType, name?: string): Source {
     blendMode: 'normal',
     flipH: false,
     flipV: false,
+    maskShape: type === 'webcam' ? 'rounded' : 'none',
+    maskRadius: type === 'webcam' ? 18 : undefined,
     opacity: 100,
     chatStyle: type === 'chat' ? 'classic' : undefined,
     chatMaxMessages: type === 'chat' ? 6 : undefined,
@@ -401,5 +427,5 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   recordingPath: '',
   transition: 'fade',
   transitionDuration: 300,
-  audioSyncOffsetMs: 280
+  audioSyncOffsetMs: 3000
 }
