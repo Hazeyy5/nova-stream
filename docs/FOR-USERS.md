@@ -17,8 +17,8 @@ Comme OBS ou Streamlabs Desktop : **pas de serveur central obligatoire**. Vos do
 
 ## Installation (utilisateur final)
 
-1. Téléchargez **Nova-Stream-Setup.exe** depuis [GitHub Releases](https://github.com/Hazeyy5/nova-stream/releases)
-2. Installez et lancez l'application
+1. Téléchargez **Nova Stream** depuis le site [hazeyy5.github.io/nova-stream](https://hazeyy5.github.io/nova-stream) (bouton **Télécharger**) ou depuis [GitHub Releases](https://github.com/Hazeyy5/nova-stream/releases)
+2. Installez **Nova-Stream-Setup-x.x.x.exe** et lancez l'application
 3. Connectez-vous avec Twitch (site web ou onglet Apps)
 4. Configurez votre clé de stream dans Paramètres
 5. Cliquez **Diffuser en direct**

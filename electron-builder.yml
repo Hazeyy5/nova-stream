@@ -25,6 +25,7 @@ win:
       arch:
         - x64
   icon: build/icon.png
+  artifactName: Nova-Stream-Setup-${version}.${ext}
 
 nsis:
   oneClick: false

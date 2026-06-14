@@ -218,6 +218,34 @@ export function resolveDesktopCaptureName(
   return selected
 }
 
+function resolveFfmpegDesktop(
+  selected: string,
+  dshowDevices: MediaDevice[],
+  preferBackend: 'native' | 'dshow' | undefined
+): { enabled: boolean; backend: 'native' | 'dshow'; captureDevice: string } {
+  if (!selected) {
+    return { enabled: false, backend: 'dshow', captureDevice: '' }
+  }
+
+  const loopbacks = dshowDevices.filter((d) => d.type === 'audio' && d.audioRole === 'loopback')
+  const hasLoopback = loopbacks.some((d) => d.name === selected) || loopbacks.length > 0
+
+  if (preferBackend === 'native' && isNativeAudioAvailable()) {
+    return { enabled: true, backend: 'native', captureDevice: '' }
+  }
+
+  if (hasLoopback) {
+    const capture = loopbacks.find((d) => d.name === selected)?.name ?? loopbacks[0].name
+    return { enabled: true, backend: 'dshow', captureDevice: capture }
+  }
+
+  if (preferBackend === 'native' && isNativeAudioAvailable()) {
+    return { enabled: true, backend: 'native', captureDevice: '' }
+  }
+
+  return { enabled: false, backend: 'dshow', captureDevice: '' }
+}
+
 export function resolveStreamSettings(
   settings: StreamSettings,
   devices: MediaDevice[],
@@ -245,13 +273,17 @@ export function resolveStreamSettings(
   const selectedDesktop = devices.find(
     (d) => d.type === 'audio' && d.name === desktopAudioDevice
   )
-  const desktopAudioBackend = settings.desktopAudioEnabled
+  const preferredBackend = settings.desktopAudioEnabled
     ? resolveDesktopBackend(selectedDesktop)
     : undefined
 
-  const desktopAudioCaptureDevice = settings.desktopAudioEnabled
-    ? resolveDesktopCaptureName(desktopAudioDevice, devices, desktopAudioBackend ?? 'dshow')
-    : ''
+  const desktopResolved = settings.desktopAudioEnabled
+    ? resolveFfmpegDesktop(
+        desktopAudioDevice,
+        dshowDevices.length > 0 ? dshowDevices : devices.filter((d) => d.backend === 'dshow'),
+        preferredBackend
+      )
+    : { enabled: false, backend: 'dshow' as const, captureDevice: '' }
 
   return {
     ...settings,
@@ -260,9 +292,9 @@ export function resolveStreamSettings(
       : '',
     audioDevice: ffmpegMic,
     audioEnabled: settings.audioEnabled && !!ffmpegMic,
-    desktopAudioDevice,
-    desktopAudioEnabled: settings.desktopAudioEnabled && !!desktopAudioDevice,
-    desktopAudioBackend,
-    desktopAudioCaptureDevice
+    desktopAudioDevice: desktopResolved.enabled ? desktopAudioDevice : '',
+    desktopAudioEnabled: desktopResolved.enabled,
+    desktopAudioBackend: desktopResolved.enabled ? desktopResolved.backend : undefined,
+    desktopAudioCaptureDevice: desktopResolved.captureDevice
   }
 }

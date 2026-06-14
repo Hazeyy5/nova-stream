@@ -6,6 +6,7 @@ interface ControlsDockProps {
   mediaState: MediaState
   settings: StreamSettings
   onGoLive: () => void
+  onEditLiveInfo?: () => void
   onStartRecord: () => void
   onStopAll: () => void
   onOpenSettings: () => void
@@ -25,6 +26,7 @@ export default function ControlsDock({
   mediaState,
   settings,
   onGoLive,
+  onEditLiveInfo,
   onStartRecord,
   onStopAll,
   onOpenSettings,
@@ -52,9 +54,16 @@ export default function ControlsDock({
         {(isLive || isRecording) && (
           <div className="controls-dock-timers">
             {isLive && (
-              <span className="controls-timer live">
-                ● EN DIRECT {formatDuration(mediaState.stream.startedAt, now)}
-              </span>
+              <>
+                <span className="controls-timer live">
+                  ● EN DIRECT {formatDuration(mediaState.stream.startedAt, now)}
+                </span>
+                {settings.streamTitle && (
+                  <span className="controls-live-title" title={settings.streamTitle}>
+                    {settings.streamTitle}
+                  </span>
+                )}
+              </>
             )}
             {isRecording && (
               <span className="controls-timer record">
@@ -71,9 +80,21 @@ export default function ControlsDock({
         {isActive ? (
           <>
             {isLive && (
-              <button className="controls-btn controls-btn-stop-stream" onClick={onStopAll} disabled={isBusy}>
-                Arrêter le stream
-              </button>
+              <>
+                {onEditLiveInfo && (
+                  <button
+                    type="button"
+                    className="controls-btn controls-btn-secondary"
+                    onClick={onEditLiveInfo}
+                    disabled={isBusy}
+                  >
+                    Modifier le live
+                  </button>
+                )}
+                <button className="controls-btn controls-btn-stop-stream" onClick={onStopAll} disabled={isBusy}>
+                  Arrêter le stream
+                </button>
+              </>
             )}
             {isRecording && (
               <button className="controls-btn controls-btn-stop-rec" onClick={onStopAll} disabled={isBusy}>

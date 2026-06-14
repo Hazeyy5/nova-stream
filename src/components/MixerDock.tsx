@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react'
 import type { AudioChannelId, StreamSettings } from '../types'
 import { useAudioMeter } from '../hooks/useAudioMeter'
 import { useDesktopAudioMeter } from '../hooks/useDesktopAudioMeter'
+import { useStreamAudioMeter } from '../hooks/useStreamAudioMeter'
 import { useMicMonitor } from '../hooks/useMicMonitor'
 import {
   formatGainDb,
@@ -13,10 +14,12 @@ import {
   resolveMicGainDb
 } from '../lib/audioGain'
 import type { AudioMeterReading } from '../hooks/useAudioMeter'
+import { hookAudioContextResume, ensureAudioContextRunning } from '../lib/micMeterEngine'
 import './MixerDock.css'
 
 interface MixerDockProps {
   settings: StreamSettings
+  isMediaActive: boolean
   onUpdateSettings: (partial: Partial<StreamSettings>) => void
   onOpenSettings?: () => void
 }
@@ -61,7 +64,7 @@ const LevelMeterRow = memo(function LevelMeterRow({ level }: { level: number }) 
       })}
     </div>
   )
-}, (prev, next) => Math.abs(prev.level - next.level) < 0.02)
+}, (prev, next) => Math.abs(prev.level - next.level) < 0.003)
 
 function MixerChannel({
   label,
@@ -98,6 +101,10 @@ function MixerChannel({
     onGainChange(db)
   }
 
+  const wakeAudio = () => {
+    void ensureAudioContextRunning()
+  }
+
   return (
     <div className="mixer-channel">
       <div className="mixer-channel-header">
@@ -130,7 +137,7 @@ function MixerChannel({
           max={MAX_GAIN_DB}
           step={0.5}
           value={localGainDb}
-          disabled={muted}
+          onPointerDown={wakeAudio}
           onInput={(e) => handleGainInput(e.currentTarget.value)}
           onChange={(e) => handleGainInput(e.currentTarget.value)}
           className="mixer-slider"
@@ -184,18 +191,27 @@ function MixerChannel({
   )
 }
 
-export default function MixerDock({ settings, onUpdateSettings, onOpenSettings }: MixerDockProps) {
+export default function MixerDock({ settings, isMediaActive, onUpdateSettings, onOpenSettings }: MixerDockProps) {
   const [micMonitor, setMicMonitor] = useState(false)
   const micGainDb = resolveMicGainDb(settings)
   const desktopGainDb = resolveDesktopGainDb(settings)
 
-  const micMeter = useAudioMeter(
+  useEffect(() => {
+    hookAudioContextResume()
+  }, [])
+
+  const idleMicMeter = useAudioMeter(
     settings.audioDevice,
-    !!settings.audioDevice,
+    !isMediaActive && !!settings.audioDevice,
     micGainDb,
     settings.micMono ?? false
   )
-  const desktopMeter = useDesktopAudioMeter(!!settings.desktopAudioDevice, desktopGainDb)
+  const idleDesktopMeter = useDesktopAudioMeter(!isMediaActive && !!settings.desktopAudioDevice, desktopGainDb)
+  const streamMicMeter = useStreamAudioMeter(isMediaActive, 'mic', micGainDb)
+  const streamDesktopMeter = useStreamAudioMeter(isMediaActive, 'desktop', desktopGainDb)
+
+  const micMeter = isMediaActive ? streamMicMeter : idleMicMeter
+  const desktopMeter = isMediaActive ? streamDesktopMeter : idleDesktopMeter
   useMicMonitor(
     settings.audioDevice,
     settings.audioEnabled,

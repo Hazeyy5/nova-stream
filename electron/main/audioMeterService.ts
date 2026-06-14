@@ -2,6 +2,13 @@ import type { WebContents } from 'electron'
 import { loadNativeAudioModule } from './nativeAudioLoader'
 import { applyNoiseFloor, levelFromPcmBuffer, PCM_NOISE_FLOOR, type PcmFormat } from './pcmLevel'
 
+function linearToDisplayLevel(linear: number): number {
+  if (linear <= 0.000001) return 0
+  const db = 20 * Math.log10(linear)
+  const normalized = (db + 42) / 42
+  return Math.pow(Math.max(0, Math.min(1, normalized)), 0.65)
+}
+
 export interface AudioMeterLevel {
   peak: number
   rms: number
@@ -88,8 +95,8 @@ class DesktopAudioMeterService {
     }
 
     this.pendingLevel = {
-      peak: this.peakHold,
-      rms,
+      peak: linearToDisplayLevel(this.peakHold),
+      rms: linearToDisplayLevel(rms),
       peakDb,
       displayDb: peak > 0 ? this.peakDbHold : rmsDb
     }

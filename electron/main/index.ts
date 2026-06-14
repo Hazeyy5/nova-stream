@@ -31,6 +31,7 @@ import {
   forwardCaptureSelect
 } from './capturePickerWindow'
 import { desktopAudioMeterService } from './audioMeterService'
+import { streamAudioMeterService } from './streamMeterParser'
 import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
 
 const GAME_CAPTURE_EXCLUDED = [
@@ -159,6 +160,11 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('media:getStatus', () => streamManager.getState())
   ipcMain.handle('media:isActive', () => streamManager.isActive())
+
+  ipcMain.handle('media:updateAudioSettings', (_event, settings: StreamSettings) => {
+    streamManager.updateAudioSettings(settings)
+    return { success: true }
+  })
 
   ipcMain.handle('devices:getDisplays', async () => {
     const sources = await desktopCapturer.getSources({
@@ -422,6 +428,14 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('audioMeter:unsubscribeDesktop', (event) => {
     desktopAudioMeterService.unsubscribe(event.sender)
+  })
+
+  ipcMain.handle('audioMeter:subscribeStream', (event) => {
+    streamAudioMeterService.subscribe(event.sender)
+  })
+
+  ipcMain.handle('audioMeter:unsubscribeStream', (event) => {
+    streamAudioMeterService.unsubscribe(event.sender)
   })
 
   createWindow()

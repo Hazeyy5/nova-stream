@@ -1,14 +1,24 @@
 export async function resolveInputDeviceId(deviceName: string): Promise<string | undefined> {
   if (!deviceName) return undefined
 
-  try {
-    const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
-    probe.getTracks().forEach((t) => t.stop())
-  } catch {
-    return undefined
+  let inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput')
+
+  if (inputs.length === 0 || inputs.every((d) => !d.label)) {
+    try {
+      const probe = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      })
+      probe.getTracks().forEach((t) => t.stop())
+      inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput')
+    } catch {
+      return undefined
+    }
   }
 
-  const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput')
   if (inputs.length === 0) return undefined
 
   try {
@@ -35,5 +45,7 @@ export async function resolveInputDeviceId(deviceName: string): Promise<string |
     const label = d.label.toLowerCase()
     return label.includes(key) || key.includes(label)
   })
-  return contains?.deviceId
+  if (contains) return contains.deviceId
+
+  return inputs[0]?.deviceId
 }

@@ -173,6 +173,108 @@ body::before {
   color: var(--accent);
 }
 
+.btn.is-disabled {
+  opacity: 0.85;
+}
+
+.hero-download-hint {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.download-section {
+  padding-top: 0;
+  border-top: none;
+}
+
+.download-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: stretch;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.download-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.download-card-body p {
+  color: var(--text-muted);
+  max-width: 560px;
+}
+
+.download-list {
+  margin: 16px 0 20px;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.download-list li + li {
+  margin-top: 6px;
+}
+
+.download-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.download-card-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.download-card-aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 140px;
+  padding: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.download-os-badge {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(192, 132, 252, 0.12);
+  border: 1px solid rgba(192, 132, 252, 0.25);
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+
+.download-aside-note {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 160px;
+}
+
+@media (max-width: 760px) {
+  .download-card {
+    grid-template-columns: 1fr;
+  }
+
+  .download-card-aside {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+}
+
 /* Sections */
 .section {
   padding: 48px 0;

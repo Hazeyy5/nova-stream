@@ -1,15 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import type { Scene, TransitionType } from '../types'
+import type { Scene } from '../types'
 import { IconTrash } from './Icons'
-import TransitionControls from './TransitionControls'
 import './DockPanel.css'
 
 interface ScenesDockProps {
   scenes: Scene[]
   activeSceneId: string
-  transition: TransitionType
-  transitionDuration: number
-  onTransitionChange: (partial: { transition?: TransitionType; transitionDuration?: number }) => void
   onSceneSelect: (id: string) => void
   onAddScene: () => void
   onRemoveScene: (id: string) => void
@@ -23,9 +19,6 @@ interface ScenesDockProps {
 export default function ScenesDock({
   scenes,
   activeSceneId,
-  transition,
-  transitionDuration,
-  onTransitionChange,
   onSceneSelect,
   onAddScene,
   onRemoveScene,
@@ -126,11 +119,6 @@ export default function ScenesDock({
       {activeIndex >= 0 && (
         <p className="dock-scene-hint">Scène {activeIndex + 1} / {scenes.length}</p>
       )}
-      <TransitionControls
-        transition={transition}
-        transitionDuration={transitionDuration}
-        onChange={onTransitionChange}
-      />
     </div>
   )
 }

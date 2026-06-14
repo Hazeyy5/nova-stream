@@ -17,6 +17,7 @@
         Nova Stream
       </a>
       <div class="nav-links">
+        <a href="#download">Télécharger</a>
         <a href="#alertes">Alertes</a>
         <a href="#chat">Chat</a>
         <a href="#widgets">Widgets</a>
@@ -26,18 +27,67 @@
     </nav>
 
     <section class="hero">
-      <span class="badge">v0.6 — Studio NEXUS</span>
+      <span class="badge" data-version-badge>v0.6 — Studio NEXUS</span>
       <h1>Alertes, chat et widgets<br>pour votre stream Twitch</h1>
       <p>
-        Connectez-vous sur le web, liez Nova Stream sur votre PC, et profitez
-        d'alertes EventSub, de designs de chat box et de widgets intégrés à vos scènes.
+        Téléchargez Nova Stream sur Windows, connectez-vous sur le web, liez l'app sur votre PC,
+        et profitez d'alertes EventSub, de designs de chat box et de widgets intégrés à vos scènes.
       </p>
       <div class="hero-actions">
+        <a
+          href="https://github.com/Hazeyy5/nova-stream/releases"
+          class="btn btn-primary"
+          id="btn-download"
+          data-download-btn
+          data-download-icon="⬇️ "
+          data-download-label="Télécharger pour Windows"
+        >
+          ⬇️ Télécharger pour Windows
+        </a>
         <button class="btn btn-twitch" id="btn-connect">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 0L4 4v16l4.4 2.5V11.6h2.8L17.6 20 24 16.4V0H11.6zm1.2 11.6H9.2V4.4h3.6v7.2z"/></svg>
           Se connecter avec Twitch
         </button>
         <a href="#alertes" class="btn btn-outline">Voir les alertes →</a>
+      </div>
+      <p class="hero-download-hint" data-download-hint>Installateur Windows · Gratuit</p>
+    </section>
+
+    <section class="download-section section" id="download">
+      <div class="download-card">
+        <div class="download-card-body">
+          <h2>Télécharger Nova Stream</h2>
+          <p>
+            Application desktop gratuite pour Windows. Installez-la, connectez Twitch, configurez vos scènes
+            et lancez votre live — comme OBS ou Streamlabs, en local sur votre PC.
+          </p>
+          <ul class="download-list">
+            <li>Windows 10 / 11 (64 bits)</li>
+            <li>Installateur NSIS · dossier au choix</li>
+            <li>Aucun compte Nova Stream requis</li>
+          </ul>
+          <div class="download-card-actions">
+            <a
+              href="https://github.com/Hazeyy5/nova-stream/releases"
+              class="btn btn-primary"
+              data-download-btn
+              data-download-icon="⬇️ "
+              data-download-label="Télécharger Nova Stream"
+            >
+              ⬇️ Télécharger Nova Stream
+            </a>
+            <a href="https://github.com/Hazeyy5/nova-stream/releases" class="btn btn-outline" target="_blank" rel="noopener">
+              Toutes les versions
+            </a>
+          </div>
+          <p class="download-card-hint" data-download-hint>Installateur Windows · Gratuit</p>
+        </div>
+        <div class="download-card-aside">
+          <div class="download-os-badge">Windows</div>
+          <p class="download-aside-note">
+            macOS et Linux arriveront plus tard. Le code source est ouvert sur GitHub.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -198,15 +248,15 @@
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
-          <p>Connectez-vous avec Twitch sur ce site</p>
+          <p>Téléchargez et installez Nova Stream sur Windows</p>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <p>Lancez Nova Stream sur votre PC</p>
+          <p>Connectez-vous avec Twitch sur ce site</p>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <p>Cliquez « Lier à Nova Stream » — chat, alertes et widgets sont actifs !</p>
+          <p>Lancez l'app et cliquez « Lier à Nova Stream » — chat, alertes et widgets sont actifs !</p>
         </div>
       </div>
     </section>
@@ -215,6 +265,7 @@
   <footer>© Nova Stream — Propulsé par GitHub Pages</footer>
 
   <script src="js/config.js"></script>
+  <script src="js/download.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/widgets-demo.js"></script>
   <script>

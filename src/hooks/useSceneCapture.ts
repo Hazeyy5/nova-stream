@@ -8,6 +8,7 @@ export function useSceneCapture(
 ) {
   const encoderRef = useRef<VideoPipeEncoder | null>(null)
   const pendingVideoChunksRef = useRef(0)
+  const videoChunksSentRef = useRef(0)
   const activeRef = useRef(false)
   const encodeFrameRef = useRef<(() => void) | null>(null)
   const videoInputFormatRef = useRef<VideoInputFormat>('webm')
@@ -40,6 +41,7 @@ export function useSceneCapture(
       framerate,
       bitrateKbps: videoBitrate,
       onChunk: (chunk) => {
+        videoChunksSentRef.current += 1
         pendingVideoChunksRef.current += 1
         window.novaStream.media.sendVideoChunk(chunk)
         pendingVideoChunksRef.current -= 1
@@ -57,8 +59,17 @@ export function useSceneCapture(
 
     encoderRef.current = encoder
     videoInputFormatRef.current = format
+    videoChunksSentRef.current = 0
     return format
   }, [canvasRef])
+
+  const waitForVideoPipeReady = useCallback(async (minChunks = 2, timeoutMs = 1500) => {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      if (videoChunksSentRef.current >= minChunks) return
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    }
+  }, [])
 
   const getVideoInputFormat = useCallback((): VideoInputFormat => {
     return videoInputFormatRef.current
@@ -91,5 +102,5 @@ export function useSceneCapture(
     }
   }, [])
 
-  return { arm, beginPipe, disarm, onFrameDrawn, getVideoInputFormat }
+  return { arm, beginPipe, waitForVideoPipeReady, disarm, onFrameDrawn, getVideoInputFormat }
 }

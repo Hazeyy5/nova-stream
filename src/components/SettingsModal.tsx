@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import type { StreamSettings, MediaDevice, SpeedtestResult } from '../types'
-import { TRANSITION_OPTIONS } from '../lib/transitionVisual'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -355,6 +354,24 @@ export default function SettingsModal({
                   Aucune sortie détectée. Vérifiez vos pilotes audio puis cliquez Actualiser.
                 </p>
               )}
+              <hr className="settings-hr" />
+              <label className="settings-field">
+                Décalage audio / vidéo
+                <div className="settings-sync-row">
+                  <input
+                    type="range"
+                    min={-400}
+                    max={800}
+                    step={10}
+                    value={form.audioSyncOffsetMs ?? 280}
+                    onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value) })}
+                  />
+                  <span>{form.audioSyncOffsetMs ?? 280} ms</span>
+                </div>
+              </label>
+              <p className="settings-hint">
+                Si le son est en avance sur l&apos;image, augmentez la valeur. S&apos;il est en retard, diminuez-la.
+              </p>
             </>
           )}
 
@@ -389,19 +406,17 @@ export default function SettingsModal({
                 Transition entre scènes
                 <select value={form.transition}
                   onChange={(e) => update({ transition: e.target.value as StreamSettings['transition'] })}>
-                  {TRANSITION_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>{opt.label}</option>
-                  ))}
+                  <option value="cut">Coupe directe</option>
+                  <option value="fade">Fondu</option>
                 </select>
               </label>
               <label className="settings-field">
-                Durée de la transition (ms)
+                Durée du fondu (ms)
                 <input type="number" value={form.transitionDuration} min={100} max={2000}
                   disabled={form.transition === 'cut'}
                   onChange={(e) => update({ transitionDuration: Number(e.target.value) })} />
               </label>
               <p className="settings-hint">
-                Les transitions sont aussi configurables dans le panneau Scènes, avec aperçu animé.
                 {devices.length} périphérique(s) détecté(s) via DirectShow.
               </p>
             </>

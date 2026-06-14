@@ -1,5 +1,5 @@
 export type VideoEncoder = 'x264' | 'nvenc'
-export type TransitionType = 'cut' | 'fade' | 'slideLeft' | 'slideRight' | 'slideUp' | 'slideDown' | 'wipe' | 'zoom'
+export type TransitionType = 'cut' | 'fade'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
 export type ChatBoxStyle = 'classic' | 'minimal' | 'neon' | 'bubble' | 'retro'
@@ -233,6 +233,8 @@ export interface StreamSettings {
   recordingPath: string
   transition: TransitionType
   transitionDuration: number
+  /** Décalage A/V en ms. Positif = retarder l'audio ; négatif = l'avancer. */
+  audioSyncOffsetMs: number
 }
 
 export type AudioChannelId = 'mic' | 'desktop'
@@ -398,5 +400,6 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   recordAudioEnabled: true,
   recordingPath: '',
   transition: 'fade',
-  transitionDuration: 300
+  transitionDuration: 300,
+  audioSyncOffsetMs: 280
 }

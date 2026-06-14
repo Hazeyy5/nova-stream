@@ -270,6 +270,28 @@
   cursor: not-allowed;
 }
 
+.settings-field select {
+  width: 100%;
+}
+
+.settings-sync-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-sync-row input[type="range"] {
+  flex: 1;
+}
+
+.settings-sync-row span {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  min-width: 52px;
+  text-align: right;
+}
+
 .folder-picker {
   display: flex;
   gap: 8px;

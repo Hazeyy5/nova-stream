@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AudioMeterReading } from './useAudioMeter'
 import { gainDbToLinear } from '../lib/audioGain'
-import { linearToDisplayLevel } from '../lib/audioLevel'
 
 const SILENT: AudioMeterReading = {
   peak: 0,
@@ -24,9 +23,11 @@ export function useDesktopAudioMeter(hasDevice: boolean, gainDb = 0): AudioMeter
 
     const handler = (level: AudioMeterReading) => {
       if (!active) return
+      const peak = Math.min(1, level.peak * gain)
+      const rms = Math.min(1, level.rms * gain)
       setReading({
-        peak: Math.min(1, linearToDisplayLevel(level.peak) * gain),
-        rms: Math.min(1, linearToDisplayLevel(level.rms) * gain),
+        peak,
+        rms,
         peakDb: level.peakDb,
         displayDb: level.displayDb
       })

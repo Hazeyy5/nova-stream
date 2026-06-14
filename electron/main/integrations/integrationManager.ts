@@ -318,6 +318,29 @@ export class IntegrationManager {
     return { ...this.widgetLiveData }
   }
 
+  getRecentChatMessages(max = 6): ChatMessage[] {
+    return this.messages.slice(-max)
+  }
+
+  async getWidgetLiveDataFresh(): Promise<WidgetLiveData> {
+    const twitch = this.connections.find((c) => c.platform === 'twitch')
+    if (twitch) await this.refreshWidgetStats()
+    return this.getWidgetLiveData()
+  }
+
+  getTwitchConnectionPublic(): PlatformConnectionPublic | undefined {
+    const twitch = this.connections.find((c) => c.platform === 'twitch')
+    if (!twitch) return undefined
+    return {
+      platform: twitch.platform,
+      userId: twitch.userId,
+      username: twitch.username,
+      displayName: twitch.displayName,
+      avatarUrl: twitch.avatarUrl,
+      connectedAt: twitch.connectedAt
+    }
+  }
+
   private stopWidgetStatsPolling(): void {
     if (this.widgetStatsRefreshDebounce) {
       clearTimeout(this.widgetStatsRefreshDebounce)

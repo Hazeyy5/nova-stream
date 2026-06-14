@@ -68,4 +68,15 @@ async function syncWidgetSettings() {
   return NovaWidgetSettings.syncToDesktop()
 }
 
-window.NovaLink = { checkDesktopOnline, linkToDesktop, testWidget, syncWidgetSettings }
+async function getWidgetStats() {
+  const url = `${window.NOVA_CONFIG.DESKTOP_LINK_URL}/api/widget-stats`
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+window.NovaLink = { checkDesktopOnline, linkToDesktop, testWidget, syncWidgetSettings, getWidgetStats }

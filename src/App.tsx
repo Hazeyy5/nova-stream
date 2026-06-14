@@ -93,6 +93,8 @@ function App() {
 
   const [showSettings, setShowSettings] = useState(false)
   const [showGoLive, setShowGoLive] = useState(false)
+  const [showLiveInfoEdit, setShowLiveInfoEdit] = useState(false)
+  const [goLiveMode, setGoLiveMode] = useState<'go-live' | 'edit-live'>('go-live')
 
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('nova-welcome-seen'))
 
@@ -238,6 +240,8 @@ function App() {
 
       const videoInputFormat = await sceneCapture.beginPipe(settings.videoBitrate, settings.framerate)
 
+      await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 1 : 2)
+
       const result = await window.novaStream.media.start({
         settings,
         stream,
@@ -325,10 +329,57 @@ function App() {
   const isLive = mediaState.stream.status === 'live'
   const isRecording = mediaState.recording.status === 'recording'
   const isMediaActive = isLive || isRecording || mediaState.stream.status === 'starting'
+  const isMediaPipelineActive =
+    isLive ||
+    isRecording ||
+    mediaState.stream.status === 'starting' ||
+    mediaState.recording.status === 'starting'
+
+  const audioSettingsKey = useMemo(
+    () => JSON.stringify({
+      audioGainDb: settings.audioGainDb,
+      desktopAudioGainDb: settings.desktopAudioGainDb,
+      audioEnabled: settings.audioEnabled,
+      desktopAudioEnabled: settings.desktopAudioEnabled,
+      micMono: settings.micMono,
+      audioDevice: settings.audioDevice,
+      desktopAudioDevice: settings.desktopAudioDevice,
+      audioSyncOffsetMs: settings.audioSyncOffsetMs
+    }),
+    [
+      settings.audioGainDb,
+      settings.desktopAudioGainDb,
+      settings.audioEnabled,
+      settings.desktopAudioEnabled,
+      settings.micMono,
+      settings.audioDevice,
+      settings.desktopAudioDevice,
+      settings.audioSyncOffsetMs
+    ]
+  )
+  const lastAudioPushKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!isMediaPipelineActive) {
+      lastAudioPushKey.current = null
+      return
+    }
+    if (lastAudioPushKey.current === null) {
+      lastAudioPushKey.current = audioSettingsKey
+      return
+    }
+    if (lastAudioPushKey.current === audioSettingsKey) return
+
+    lastAudioPushKey.current = audioSettingsKey
+    const timer = setTimeout(() => {
+      void window.novaStream.media.updateAudioSettings(settings)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [audioSettingsKey, isMediaPipelineActive, settings])
 
   const handleFps = useCallback((fps: number) => setPreviewFps(fps), [])
 
-  const { switchScene, transitionStyle } = useSceneTransition(
+  const { switchScene, fadeOpacity } = useSceneTransition(
     settings.transition,
     settings.transitionDuration,
     scenes.setActiveSceneId
@@ -352,10 +403,38 @@ function App() {
 
   const requestGoLive = useCallback(() => {
     if (!canStream || isMediaActive) return
+    setGoLiveMode('go-live')
     setShowGoLive(true)
   }, [canStream, isMediaActive])
 
+  const requestLiveInfoEdit = useCallback(() => {
+    if (!isLive) return
+    setGoLiveMode('edit-live')
+    setShowLiveInfoEdit(true)
+  }, [isLive])
+
   const handleGoLiveConfirm = useCallback(async (payload: {
+    title: string
+    categoryId: string
+    categoryName: string
+    recordAlso: boolean
+  }) => {
+    setSettings((s) => ({
+      ...s,
+      streamTitle: payload.title,
+      streamCategoryId: payload.categoryId,
+      streamCategoryName: payload.categoryName
+    }))
+
+    if (twitchConnected && payload.categoryId) {
+      await integrations.updateTwitchChannelInfo(payload.title, payload.categoryId)
+    }
+
+    setShowGoLive(false)
+    await startMedia(true, payload.recordAlso)
+  }, [twitchConnected, integrations, startMedia])
+
+  const handleLiveInfoUpdate = useCallback(async (payload: {
     title: string
     categoryId: string
     categoryName: string
@@ -371,9 +450,8 @@ function App() {
       await integrations.updateTwitchChannelInfo(payload.title, payload.categoryId)
     }
 
-    setShowGoLive(false)
-    await startMedia(true, settings.recordingEnabled)
-  }, [twitchConnected, integrations, startMedia, settings.recordingEnabled])
+    setShowLiveInfoEdit(false)
+  }, [twitchConnected, integrations])
 
   const shortcutHandlers = useMemo(() => ({
     onSceneHotkey: (index: number) => {
@@ -482,7 +560,7 @@ function App() {
                     targetFps={settings.framerate}
                     onFps={handleFps}
                     onFrameDrawn={sceneCapture.onFrameDrawn}
-                    transitionStyle={transitionStyle}
+                    fadeOpacity={fadeOpacity}
                     captureActive={isMediaActive}
                   />
 
@@ -501,12 +579,6 @@ function App() {
                       scenes={scenes.scenes}
 
                       activeSceneId={scenes.activeSceneId}
-
-                      transition={settings.transition}
-
-                      transitionDuration={settings.transitionDuration}
-
-                      onTransitionChange={(partial) => setSettings((s) => ({ ...s, ...partial }))}
 
                       onSceneSelect={handleSceneSelect}
 
@@ -556,6 +628,7 @@ function App() {
 
                     <MixerDock
                       settings={settings}
+                      isMediaActive={isMediaPipelineActive}
                       onUpdateSettings={(partial) => setSettings((s) => ({ ...s, ...partial }))}
                       onOpenSettings={() => setShowSettings(true)}
                     />
@@ -571,6 +644,8 @@ function App() {
                       settings={settings}
 
                       onGoLive={requestGoLive}
+
+                      onEditLiveInfo={requestLiveInfoEdit}
 
                       onStartRecord={() => startMedia(false, true)}
 
@@ -669,13 +744,16 @@ function App() {
 
 
 
-      {showGoLive && (
+      {(showGoLive || showLiveInfoEdit) && (
         <GoLiveModal
+          mode={goLiveMode}
           settings={settings}
           twitchConnected={twitchConnected}
-          recordAlso={settings.recordingEnabled}
-          onClose={() => setShowGoLive(false)}
-          onConfirm={handleGoLiveConfirm}
+          onClose={() => {
+            setShowGoLive(false)
+            setShowLiveInfoEdit(false)
+          }}
+          onConfirm={goLiveMode === 'edit-live' ? handleLiveInfoUpdate : handleGoLiveConfirm}
         />
       )}
 

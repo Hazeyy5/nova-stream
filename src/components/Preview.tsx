@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useCallback, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useCallback, useState } from 'react'
 import type { Source, ChatMessage, StreamAlert, SourceTransform, WidgetLiveData } from '../types'
 import { isCanvasWidget } from '../lib/widgetTypes'
 import type { StreamEntry } from '../lib/drawScene'
@@ -21,7 +21,7 @@ interface PreviewProps {
   targetFps?: number
   onFps?: (fps: number) => void
   onFrameDrawn?: () => void
-  transitionStyle?: CSSProperties
+  fadeOpacity?: number
   captureActive?: boolean
 }
 
@@ -131,7 +131,7 @@ export default function Preview({
   targetFps = 30,
   onFps,
   onFrameDrawn,
-  transitionStyle,
+  fadeOpacity = 1,
   captureActive = false
 }: PreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -356,7 +356,8 @@ export default function Preview({
           style={{
             width: stageSize.w > 0 ? stageSize.w : undefined,
             height: stageSize.h > 0 ? stageSize.h : undefined,
-            ...transitionStyle
+            opacity: fadeOpacity,
+            transition: fadeOpacity === 1 ? 'none' : 'opacity 0.05s linear'
           }}
         >
           <canvas

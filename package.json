@@ -9,7 +9,8 @@
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
     "sync-config": "node scripts/sync-web-config.mjs",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+  "dist:win:publish": "npm run build && electron-builder --win --publish always",
     "dist": "npm run build && electron-builder"
   },
   "dependencies": {

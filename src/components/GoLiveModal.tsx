@@ -4,27 +4,30 @@ import './SettingsModal.css'
 import './GoLiveModal.css'
 
 interface GoLiveModalProps {
+  mode?: 'go-live' | 'edit-live'
   settings: StreamSettings
   twitchConnected: boolean
-  recordAlso: boolean
   onClose: () => void
   onConfirm: (payload: {
     title: string
     categoryId: string
     categoryName: string
+    recordAlso?: boolean
   }) => Promise<void>
 }
 
 const TITLE_MAX = 140
 
 export default function GoLiveModal({
+  mode = 'go-live',
   settings,
   twitchConnected,
-  recordAlso,
   onClose,
   onConfirm
 }: GoLiveModalProps) {
+  const isEditMode = mode === 'edit-live'
   const [title, setTitle] = useState(settings.streamTitle)
+  const [recordAlso, setRecordAlso] = useState(false)
   const [categoryId, setCategoryId] = useState(settings.streamCategoryId)
   const [categoryName, setCategoryName] = useState(settings.streamCategoryName)
   const [categoryQuery, setCategoryQuery] = useState(settings.streamCategoryName)
@@ -43,8 +46,16 @@ export default function GoLiveModal({
     }
 
     let cancelled = false
-    setLoadingInfo(true)
     setError(null)
+
+    if (isEditMode) {
+      setTitle(settings.streamTitle)
+      setCategoryId(settings.streamCategoryId)
+      setCategoryName(settings.streamCategoryName)
+      setCategoryQuery(settings.streamCategoryName)
+    }
+
+    setLoadingInfo(true)
 
     window.novaStream.integrations.getTwitchChannelInfo()
       .then((result) => {
@@ -63,7 +74,7 @@ export default function GoLiveModal({
       })
 
     return () => { cancelled = true }
-  }, [twitchConnected, settings.streamTitle, settings.streamCategoryId, settings.streamCategoryName])
+  }, [twitchConnected, isEditMode, settings.streamTitle, settings.streamCategoryId, settings.streamCategoryName])
 
   const runSearch = useCallback(async (query: string) => {
     if (!twitchConnected || !query.trim()) {
@@ -125,10 +136,11 @@ export default function GoLiveModal({
       await onConfirm({
         title: trimmedTitle,
         categoryId,
-        categoryName
+        categoryName,
+        ...(isEditMode ? {} : { recordAlso })
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur au démarrage')
+      setError(err instanceof Error ? err.message : isEditMode ? 'Mise à jour échouée' : 'Erreur au démarrage')
       setSubmitting(false)
     }
   }
@@ -137,7 +149,7 @@ export default function GoLiveModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal go-live-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Préparer le live</h2>
+          <h2>{isEditMode ? 'Infos du live' : 'Préparer le live'}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">×</button>
         </div>
 
@@ -193,6 +205,17 @@ export default function GoLiveModal({
                   Connectez Twitch dans Apps pour définir la catégorie sur Twitch.
                 </p>
               )}
+
+              {!isEditMode && (
+                <label className="go-live-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={recordAlso}
+                    onChange={(e) => setRecordAlso(e.target.checked)}
+                  />
+                  <span>Enregistrer aussi pendant le live</span>
+                </label>
+              )}
             </>
           )}
 
@@ -210,10 +233,12 @@ export default function GoLiveModal({
             disabled={submitting || loadingInfo}
           >
             {submitting
-              ? 'Démarrage…'
-              : recordAlso
-                ? 'Diffuser + enregistrer'
-                : 'Diffuser en direct'}
+              ? (isEditMode ? 'Mise à jour…' : 'Démarrage…')
+              : isEditMode
+                ? 'Mettre à jour sur Twitch'
+                : recordAlso
+                  ? 'Diffuser + enregistrer'
+                  : 'Diffuser en direct'}
           </button>
         </div>
       </div>

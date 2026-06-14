@@ -43,3 +43,21 @@ Site : **https://hazeyy5.github.io/nova-stream**
 2. Il lance Nova Stream sur son PC
 3. Sur le tableau de bord web, il clique **Lier à Nova Stream**
 4. L'app reçoit le token via `localhost:3847` et active chat + alertes
+
+## 6. Publier une release (installateur Windows)
+
+1. Mettez à jour la version dans `package.json` et `shared/platform.json`
+2. Exécutez `npm run sync-config` (met à jour le badge du site)
+3. Commitez, puis créez et poussez un tag :
+   ```bash
+   git tag v0.6.0
+   git push origin v0.6.0
+   ```
+4. GitHub Actions (`.github/workflows/release.yml`) compile **Nova-Stream-Setup-x.x.x.exe** et le publie sur [Releases](https://github.com/Hazeyy5/nova-stream/releases)
+5. Le site récupère automatiquement la dernière release via l'API GitHub — les boutons **Télécharger** pointent vers l'installateur
+
+Test local de l'installateur (sans publier) :
+```bash
+npm run dist:win
+```
+Le fichier apparaît dans le dossier `release/`.

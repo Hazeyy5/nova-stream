@@ -45,12 +45,13 @@
     const t = ALERT_TYPES.find((a) => a.id === typeId) || ALERT_TYPES[0]
     const el = document.getElementById('widget-preview')
     if (!el) return
+    const user = window.NovaTwitchLive?.alertUser(liveContext, t.user) ?? t.user
     el.className = `widget-preview-stage alert-preview alert-style-${cfg.style || 'classic'} alert-anim-${cfg.animation || 'pop'}`
     el.innerHTML = `
       <div class="alert-preview-inner">
         <span class="alert-preview-icon">${t.icon}</span>
         <div class="alert-preview-text">
-          <strong>${esc(t.user)}</strong>
+          <strong>${esc(user)}</strong>
           <span>${esc(t.msg)}</span>
         </div>
       </div>
@@ -61,14 +62,18 @@
     setTimeout(() => el.classList.remove('alert-playing'), 600)
   }
 
+  let liveContext = null
+
   function renderChatPreview(cfg) {
     const el = document.getElementById('widget-preview')
     if (!el) return
-    const lines = [
-      { user: 'ViewerOne', color: '#a78bfa', text: 'Salut le stream !' },
-      { user: 'ModTeam', color: '#f472b6', text: 'Bienvenue 🎉' },
-      { user: 'SubFan', color: '#34d399', text: 'GG pour le raid !' }
-    ].slice(0, Math.max(1, cfg.maxMessages || 6))
+    const lines = window.NovaTwitchLive
+      ? NovaTwitchLive.chatLines(cfg, liveContext)
+      : [
+          { user: 'ViewerOne', color: '#a78bfa', text: 'Salut le stream !' },
+          { user: 'ModTeam', color: '#f472b6', text: 'Bienvenue 🎉' },
+          { user: 'SubFan', color: '#34d399', text: 'GG pour le raid !' }
+        ].slice(0, Math.max(1, cfg.maxMessages || 6))
     el.className = `widget-preview-stage chat-preview chat-style-${cfg.style || 'classic'}`
     el.innerHTML = lines.map(
       (l) => `<div class="chat-line"><span class="chat-user" style="color:${l.color}">${l.user}</span><span class="chat-text">${l.text}</span></div>`
@@ -79,8 +84,9 @@
     const el = document.getElementById('widget-preview')
     if (!el) return
     const target = Math.max(1, cfg.target || 100)
-    const demoRatio = kind === 'followerGoal' ? 0.72 : 0.45
-    const current = Math.max(0, Math.min(target - 1, Math.round(target * demoRatio)))
+    const current = window.NovaTwitchLive
+      ? NovaTwitchLive.goalCurrent(cfg, kind, liveContext)
+      : Math.max(0, Math.min(target - 1, Math.round(target * (kind === 'followerGoal' ? 0.72 : 0.45))))
     const pct = Math.min(100, Math.round((current / target) * 100))
     const style = cfg.style || 'classic'
     const accent = kind === 'subGoal' ? 'accent-gold' : 'accent-purple'
@@ -89,7 +95,8 @@
     el.className = `widget-preview-stage w-preview-root goal-preview goal-style-${style} ${accent}`
 
     if (style === 'minimal') {
-      el.innerHTML = `<p class="w-preview-minimal-text">${label}: ${current} / ${target}</p>`
+      const fmt = window.NovaTwitchLive?.formatCount ?? ((n) => String(n))
+      el.innerHTML = `<p class="w-preview-minimal-text">${label}: ${fmt(current)} / ${fmt(target)}</p>`
       return
     }
 
@@ -99,7 +106,7 @@
         <div class="w-preview-bar-track">
           <div class="w-preview-bar-fill" style="width:${pct}%"></div>
         </div>
-        <span class="w-preview-stat">${current} / ${target}</span>
+        <span class="w-preview-stat">${window.NovaTwitchLive ? NovaTwitchLive.formatCount(current) : current} / ${window.NovaTwitchLive ? NovaTwitchLive.formatCount(target) : target}</span>
       </div>
     `
   }
@@ -109,7 +116,10 @@
     if (!el) return
     const style = cfg.style || 'neon'
     const label = esc(cfg.label || 'Spectateurs')
-    const count = '1 284'
+    const count = window.NovaTwitchLive
+      ? NovaTwitchLive.viewerCountValue(cfg, liveContext)
+      : '1 284'
+    const isLive = liveContext?.stats?.live
 
     el.className = `widget-preview-stage w-preview-root viewer-preview viewer-style-${style}`
 
@@ -127,7 +137,7 @@
       <div class="w-preview-box viewer-box">
         <span class="w-preview-label">👁 ${label.toUpperCase()}</span>
         <span class="w-preview-count">${count}</span>
-        ${style === 'neon' ? '<span class="w-preview-live">● LIVE</span>' : ''}
+        ${style === 'neon' && isLive ? '<span class="w-preview-live">● LIVE</span>' : ''}
       </div>
     `
   }
@@ -421,6 +431,14 @@
     updatePreview(widgetId, cfg, alertTypeRef.current)
     bindFormEvents(widgetId, cfg, alertTypeRef)
     bindModuleUrlUi(widgetId, alertTypeRef)
+
+    if (window.NovaTwitchLive) {
+      NovaTwitchLive.subscribe((ctx) => {
+        liveContext = ctx
+        updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
+      })
+      NovaTwitchLive.startPolling(15000)
+    }
 
     const saveMsg = document.getElementById('save-msg')
     document.getElementById('btn-save')?.addEventListener('click', async () => {

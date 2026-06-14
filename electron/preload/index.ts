@@ -33,6 +33,8 @@ const api = {
     sendVideoChunk: (chunk: Uint8Array) => ipcRenderer.send('media:video-chunk', chunk),
     getStatus: () => ipcRenderer.invoke('media:getStatus') as Promise<MediaState>,
     isActive: () => ipcRenderer.invoke('media:isActive') as Promise<boolean>,
+    updateAudioSettings: (settings: StreamSettings) =>
+      ipcRenderer.invoke('media:updateAudioSettings', settings) as Promise<{ success: boolean }>,
     onStatusChange: (callback: (state: MediaState) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, state: MediaState) => callback(state)
       ipcRenderer.on('media:status', handler)
@@ -247,6 +249,19 @@ const api = {
       }) => callback(level)
       ipcRenderer.on('audioMeter:desktop', handler)
       return () => ipcRenderer.removeListener('audioMeter:desktop', handler)
+    },
+    subscribeStream: () => ipcRenderer.invoke('audioMeter:subscribeStream'),
+    unsubscribeStream: () => ipcRenderer.invoke('audioMeter:unsubscribeStream'),
+    onStreamLevel: (callback: (levels: {
+      mic: { peak: number; rms: number; peakDb: number; displayDb: number }
+      desktop: { peak: number; rms: number; peakDb: number; displayDb: number }
+    }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, levels: {
+        mic: { peak: number; rms: number; peakDb: number; displayDb: number }
+        desktop: { peak: number; rms: number; peakDb: number; displayDb: number }
+      }) => callback(levels)
+      ipcRenderer.on('audioMeter:stream', handler)
+      return () => ipcRenderer.removeListener('audioMeter:stream', handler)
     }
   },
   capturePicker: {

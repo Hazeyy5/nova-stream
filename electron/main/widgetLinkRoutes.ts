@@ -39,6 +39,29 @@ export function handleWidgetLinkRequest(
     return true
   }
 
+  if (method === 'GET' && pathname === '/api/widget-stats') {
+    void (async () => {
+      try {
+        const stats = await integrations.getWidgetLiveDataFresh()
+        const chat = integrations.getRecentChatMessages(6)
+        const connection = integrations.getTwitchConnectionPublic()
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({
+          success: true,
+          stats,
+          chat,
+          displayName: connection?.displayName,
+          username: connection?.username
+        }))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur stats widget'
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ success: false, message }))
+      }
+    })()
+    return true
+  }
+
   const overlayWidget = method === 'GET' ? parseOverlayWidget(pathname) : null
   if (overlayWidget) {
     const token = query.get('t') ?? ''

@@ -88,7 +88,7 @@
 .level-meter-row {
   display: flex;
   gap: 1px;
-  height: 4px;
+  height: 5px;
   width: 100%;
 }
 
@@ -149,6 +149,27 @@
   background: #e8e8f0;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   margin-top: -3px;
+  cursor: pointer;
+}
+
+.mixer-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #34d399 0%,
+    #2dd4bf var(--vol, 50%),
+    rgba(255, 255, 255, 0.1) var(--vol, 50%)
+  );
+}
+
+.mixer-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: #e8e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   cursor: pointer;
 }
 

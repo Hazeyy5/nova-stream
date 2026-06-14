@@ -37,7 +37,7 @@ export function levelFromPcmBuffer(
 }
 
 /** Seuil en dessous duquel le signal est considéré comme silence. */
-export const PCM_NOISE_FLOOR = 0.003
+export const PCM_NOISE_FLOOR = 0.001
 
 export function applyNoiseFloor(level: number): number {
   return level < PCM_NOISE_FLOOR ? 0 : level
