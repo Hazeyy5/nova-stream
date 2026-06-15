@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { SceneTemplateId, UserMode } from '../types'
-import { SCENE_TEMPLATES } from '../lib/sceneTemplates'
+import type { UserMode } from '../types'
+import { SCENE_TEMPLATES, type SceneTemplateId } from '../lib/sceneTemplates'
 import logoUrl from '../assets/logo.png'
 import './WelcomeModal.css'
 

@@ -41,6 +41,7 @@ import { useSceneTransition } from './hooks/useSceneTransition'
 import { useAppBootstrap } from './hooks/useAppBootstrap'
 
 import LoadingScreen from './components/LoadingScreen'
+import WelcomeModal from './components/WelcomeModal'
 
 import type { AppView, MediaState, StreamSettings } from './types'
 
