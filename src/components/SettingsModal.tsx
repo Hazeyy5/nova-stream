@@ -481,37 +481,36 @@ export default function SettingsModal({
                 <input
                   type="checkbox"
                   checked={form.audioSyncAuto !== false}
-                  onChange={(e) => update({ audioSyncAuto: e.target.checked })}
+                  onChange={(e) => update({ audioSyncAuto: e.target.checked, audioSyncOffsetMs: 0 })}
                 />
-                Calibrer automatiquement au lancement du live
+                Synchronisation automatique (recommandé)
               </label>
-              <label className="settings-field">
-                Décalage audio / vidéo
-                <div className="settings-sync-row">
-                  <input
-                    type="range"
-                    min={-1000}
-                    max={5000}
-                    step={50}
-                    value={form.audioSyncOffsetMs ?? 700}
-                    onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value), audioSyncAuto: false })}
-                    disabled={form.audioSyncAuto !== false}
-                  />
-                  <span>{form.audioSyncOffsetMs ?? 700} ms</span>
-                </div>
-              </label>
+              {form.audioSyncAuto === false && (
+                <label className="settings-field">
+                  Ajustement fin (ms)
+                  <div className="settings-sync-row">
+                    <input
+                      type="range"
+                      min={-500}
+                      max={500}
+                      step={25}
+                      value={form.audioSyncOffsetMs ?? 0}
+                      onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value) })}
+                    />
+                    <span>{form.audioSyncOffsetMs ?? 0} ms</span>
+                  </div>
+                </label>
+              )}
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Nova Stream retarde légèrement le micro et le son du PC pour les aligner sur la vidéo
-                    (la vidéo passe par l&apos;encodeur, l&apos;audio non).
-                    {form.lastAutoAudioSyncMs != null && ` (dernière mesure : ${form.lastAutoAudioSyncMs} ms)`}.
-                    Décochez la case ci-dessus pour ajuster manuellement.
+                    Comme OBS : vidéo et audio partent au même instant, cadencés en temps réel.
+                    Aucun réglage manuel nécessaire dans la plupart des cas.
                   </>
                 ) : (
                   <>
-                    Si le son est en avance sur l&apos;image, augmentez la valeur. S&apos;il est en retard, diminuez-la.
-                    {isMediaActive && ' Le réglage s&apos;applique pendant le live (reconnexion brève du flux).'}
+                    Ajustement avancé uniquement si le son est légèrement en avance (+) ou en retard (−) sur Twitch.
+                    {isMediaActive && ' S&apos;applique au prochain redémarrage du flux audio.'}
                   </>
                 )}
               </p>

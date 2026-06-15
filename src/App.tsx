@@ -318,20 +318,7 @@ function AppContent() {
 
       await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 2 : 3, 5000)
 
-      const measuredSyncMs = sceneCapture.getVideoLatencyEstimateMs()
       let liveSettings = settings
-      if (settings.audioSyncAuto !== false) {
-        liveSettings = {
-          ...liveSettings,
-          audioSyncOffsetMs: measuredSyncMs,
-          lastAutoAudioSyncMs: measuredSyncMs
-        }
-        setSettings((s) => ({
-          ...s,
-          audioSyncOffsetMs: measuredSyncMs,
-          lastAutoAudioSyncMs: measuredSyncMs
-        }))
-      }
 
       if (stream && twitchConnected) {
         try {

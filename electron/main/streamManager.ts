@@ -7,6 +7,7 @@ import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from '
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
+import { VideoPaceQueue } from './videoPaceQueue'
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
@@ -45,6 +46,8 @@ export class StreamManager {
   private videoChunksReceived = 0
   private lastVideoChunkAt = 0
   private healthTimer: ReturnType<typeof setInterval> | null = null
+  private videoPaceQueue = new VideoPaceQueue()
+  private sessionFramerate = 30
   private state: MediaState = {
     stream: { status: 'idle' },
     recording: { status: 'idle' }
@@ -71,32 +74,21 @@ export class StreamManager {
   }
 
   private flushPendingChunks(): void {
-    if (this.pendingChunks.length > 0) {
-      this.startNativeDesktopCaptureIfNeeded()
-      this.startMicCaptureIfNeeded()
-    }
+    /* Les chunks vidéo passent par VideoPaceQueue — rien à vider ici. */
+  }
+
+  private writeVideoToStdin(chunk: Buffer): void {
     const stdin = this.process?.stdin
     if (!stdin || stdin.destroyed || !stdin.writable) return
-    for (const chunk of this.pendingChunks) stdin.write(chunk)
-    this.pendingChunks = []
+    stdin.write(chunk)
   }
 
   handleVideoChunk(chunk: Buffer): void {
-    if (chunk.length > 0) {
-      this.videoChunksReceived += 1
-      this.lastVideoChunkAt = Date.now()
-      this.startNativeDesktopCaptureIfNeeded()
-      this.startMicCaptureIfNeeded()
-    }
+    if (!this.process || chunk.length === 0) return
 
-    const stdin = this.process?.stdin
-    if (!stdin || stdin.destroyed || !stdin.writable) {
-      this.pendingChunks.push(chunk)
-      if (this.pendingChunks.length > 120) this.pendingChunks.shift()
-      return
-    }
-    this.flushPendingChunks()
-    stdin.write(chunk)
+    this.videoChunksReceived += 1
+    this.lastVideoChunkAt = Date.now()
+    this.videoPaceQueue.push(chunk)
   }
 
   private applyDesktopMix(chunk: Buffer, settings: StreamSettings): Buffer {
@@ -372,6 +364,16 @@ export class StreamManager {
       this.pendingChunks = []
       this.videoChunksReceived = 0
       this.lastVideoChunkAt = 0
+      this.sessionFramerate = resolved.framerate
+      this.videoPaceQueue.reset()
+      this.videoPaceQueue.configure(
+        resolved.framerate,
+        (buf) => this.writeVideoToStdin(buf),
+        () => {
+          this.startNativeDesktopCaptureIfNeeded()
+          this.startMicCaptureIfNeeded()
+        }
+      )
       this.sessionUsesNativeDesktop = usesNativeDesktop
       this.sessionUsesMicPipe = usesMicPipe
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
@@ -587,6 +589,7 @@ export class StreamManager {
 
   async stop(): Promise<void> {
     this.stopHealthWatchdog()
+    this.videoPaceQueue.reset()
     if (this.audioRefreshTimer) {
       clearTimeout(this.audioRefreshTimer)
       this.audioRefreshTimer = null

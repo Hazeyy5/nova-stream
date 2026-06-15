@@ -282,12 +282,10 @@ export interface StreamSettings {
   recordingPath: string
   transition: TransitionType
   transitionDuration: number
-  /** Décalage A/V en ms. Positif = retarder l'audio ; négatif = l'avancer. */
+  /** Décalage A/V en ms — utilisé seulement si audioSyncAuto est désactivé (ajustement fin ±500 ms). */
   audioSyncOffsetMs: number
-  /** Calibrer automatiquement le décalage au lancement du live. */
+  /** Synchro automatique par horloge commune (recommandé). */
   audioSyncAuto?: boolean
-  /** Dernière valeur mesurée automatiquement (info UI). */
-  lastAutoAudioSyncMs?: number
 }
 
 export type AudioChannelId = 'mic' | 'desktop'
@@ -464,6 +462,6 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   recordingPath: '',
   transition: 'fade',
   transitionDuration: 300,
-  audioSyncOffsetMs: 700,
+  audioSyncOffsetMs: 0,
   audioSyncAuto: true
 }

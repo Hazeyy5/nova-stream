@@ -73,9 +73,14 @@ export function migrateStreamSettings(raw: Record<string, unknown>): Record<stri
     next.settingsMigratedV068 = true
   }
   if (next.settingsMigratedV0611 !== true) {
-    const sync = typeof next.audioSyncOffsetMs === 'number' ? next.audioSyncOffsetMs : 700
-    if (sync > 2500) next.audioSyncOffsetMs = 700
+    next.audioSyncOffsetMs = 0
+    next.audioSyncAuto = true
     next.settingsMigratedV0611 = true
+  }
+  if (next.settingsMigratedV0613 !== true) {
+    next.audioSyncOffsetMs = 0
+    next.audioSyncAuto = true
+    next.settingsMigratedV0613 = true
   }
   return next
 }
