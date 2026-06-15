@@ -503,8 +503,9 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Nova Stream ajuste le décalage du micro au démarrage du live (le son du PC n&apos;est pas retardé).
-                    {form.lastAutoAudioSyncMs != null && ` (dernière mesure micro : ${form.lastAutoAudioSyncMs} ms)`}.
+                    Nova Stream retarde légèrement le micro et le son du PC pour les aligner sur la vidéo
+                    (la vidéo passe par l&apos;encodeur, l&apos;audio non).
+                    {form.lastAutoAudioSyncMs != null && ` (dernière mesure : ${form.lastAutoAudioSyncMs} ms)`}.
                     Décochez la case ci-dessus pour ajuster manuellement.
                   </>
                 ) : (

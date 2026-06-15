@@ -1,6 +1,6 @@
 {
   "name": "nova-stream",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "description": "Application de streaming — alternative légère à Streamlabs OBS",
   "main": "./out/main/index.js",
   "scripts": {
