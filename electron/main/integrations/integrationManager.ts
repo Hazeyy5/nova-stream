@@ -162,7 +162,6 @@ export class IntegrationManager {
       connectedAt: Date.now()
     }
     saveConnection('twitch', conn)
-    this.alerts.stopDemo()
     const pub = await this.activateTwitchConnection(conn)
     if (data.widgetSettings) {
       this.applyWebWidgetSettings(data.widgetSettings, data.widgetToken)
@@ -240,7 +239,6 @@ export class IntegrationManager {
     accessToken: string
     connectedAt: number
   }): Promise<PlatformConnectionPublic> {
-    this.alerts.stopDemo()
     await this.chat.connect(conn.username, conn.accessToken)
     this.chatAccessToken = conn.accessToken
     void this.eventSub.start(conn.accessToken, conn.userId, conn.userId).catch(() => {
@@ -277,15 +275,12 @@ export class IntegrationManager {
       this.broadcast('widget:stats', this.widgetLiveData)
     }
     removeConnection(platform)
-    const hasConnection = getPublicConnections().length > 0
-    if (!hasConnection) this.alerts.startDemo()
     this.broadcast('integrations:updated', this.getConnections())
   }
 
   async restoreSessions(): Promise<void> {
     const twitch = getToken('twitch')
     if (twitch) {
-      this.alerts.stopDemo()
       this.startWidgetStatsPolling()
       try {
         await Promise.race([
@@ -298,8 +293,6 @@ export class IntegrationManager {
         void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
       } catch { /* token expired or chat unavailable */ }
     }
-    const hasConnection = getPublicConnections().length > 0
-    if (!hasConnection) this.alerts.startDemo()
   }
 
   getMessages(): ChatMessage[] {

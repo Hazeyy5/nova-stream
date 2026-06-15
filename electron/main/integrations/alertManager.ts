@@ -3,7 +3,6 @@ import type { StreamAlert } from '../../../src/types'
 
 export class AlertManager {
   private onAlert?: (alert: StreamAlert) => void
-  private demoInterval: ReturnType<typeof setInterval> | null = null
 
   setOnAlert(callback: (alert: StreamAlert) => void): void {
     this.onAlert = callback
@@ -17,22 +16,6 @@ export class AlertManager {
       raid: { username: 'RaidLeader', message: 'raid avec 42 viewers !', amount: '42' }
     }
     this.emit({ id: randomUUID(), type, ...alerts[type] } as StreamAlert)
-  }
-
-  startDemo(): void {
-    this.stopDemo()
-    const types: StreamAlert['type'][] = ['follow', 'sub', 'donation', 'raid']
-    this.demoInterval = setInterval(() => {
-      const type = types[Math.floor(Math.random() * types.length)]
-      this.triggerTest(type)
-    }, 15000)
-  }
-
-  stopDemo(): void {
-    if (this.demoInterval) {
-      clearInterval(this.demoInterval)
-      this.demoInterval = null
-    }
   }
 
   private emit(alert: StreamAlert): void {

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
-import ffmpegPath from 'ffmpeg-static'
+import { resolveFfmpegPath } from './ffmpegPath'
 
 const MIC_SAMPLE_RATE = 44100
 const MIC_CHANNELS = 2
@@ -21,6 +21,7 @@ export class MicAudioCapture {
   }
 
   async start(device: string, onData: (chunk: Buffer) => void): Promise<void> {
+    const ffmpegPath = resolveFfmpegPath()
     if (this.proc || !ffmpegPath || !device) return
 
     const proc = spawn(

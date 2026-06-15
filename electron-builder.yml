@@ -9,6 +9,9 @@ files:
   - out/**/*
   - package.json
 
+asarUnpack:
+  - node_modules/ffmpeg-static/**/*
+
 extraResources:
   - from: shared/platform.json
     to: shared/platform.json

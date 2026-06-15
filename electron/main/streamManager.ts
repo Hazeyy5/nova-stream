@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams, type Writable } from 'child_process'
 import { mkdirSync } from 'fs'
 import { dirname } from 'path'
-import ffmpegPath from 'ffmpeg-static'
+import { resolveFfmpegPath } from './ffmpegPath'
 import { buildFfmpegScenePipeArgs, buildRtmpUrl, resolveRecordingFilePath, parseFfmpegError, isAudioStartupError, resolveStreamMicLinear, resolveStreamDesktopLinear } from './ffmpegBuilder'
 import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from './deviceManager'
 import { DesktopAudioCapture } from './desktopAudioCapture'
@@ -150,6 +150,7 @@ export class StreamManager {
 
   async start(options: StartMediaOptions): Promise<void> {
     if (this.process) throw new Error('Une session média est déjà active')
+    const ffmpegPath = resolveFfmpegPath()
     if (!ffmpegPath) throw new Error('FFmpeg introuvable')
 
     const { settings, stream = false, record = false, videoInputFormat = 'webm' } = options
@@ -316,6 +317,8 @@ export class StreamManager {
     quiet?: boolean
   }): Promise<void> {
     const { resolved, stream, record, videoInputFormat, includeAudio, quiet = false } = options
+    const ffmpegPath = resolveFfmpegPath()
+    if (!ffmpegPath) return Promise.reject(new Error('FFmpeg introuvable'))
 
     let recordPath: string | undefined
     if (record) {
@@ -354,7 +357,7 @@ export class StreamManager {
         stdio[fd] = extraPipeFds.includes(fd) ? 'pipe' : 'ignore'
       }
 
-      const proc = spawn(ffmpegPath!, args, {
+      const proc = spawn(ffmpegPath, args, {
         windowsHide: true,
         stdio
       })

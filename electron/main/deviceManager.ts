@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import type { BrowserWindow } from 'electron'
-import ffmpegPath from 'ffmpeg-static'
+import { resolveFfmpegPath } from './ffmpegPath'
 import { isNativeAudioAvailable, listNativeMediaDevices, listNativeVideoDevicesFromDshow } from './nativeAudioDevices'
 import type { MediaDevice, StreamSettings } from '../../src/types'
 
@@ -17,6 +17,7 @@ function classifyDshowAudio(name: string): MediaDevice['audioRole'] {
 }
 
 async function listDshowDevices(): Promise<MediaDevice[]> {
+  const ffmpegPath = resolveFfmpegPath()
   if (!ffmpegPath) return []
 
   return new Promise((resolve) => {

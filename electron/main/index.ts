@@ -71,10 +71,11 @@ let appMainWindow: BrowserWindow | null = null
 function createWindow(): BrowserWindow {
   const appIcon = getAppIcon()
   const mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 860,
-    minWidth: 1100,
-    minHeight: 700,
+    width: 1280,
+    height: 720,
+    minWidth: 960,
+    minHeight: 580,
+    show: false,
     title: 'Nova Stream',
     icon: appIcon,
     backgroundColor: '#161625',
@@ -89,6 +90,10 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.setMenuBarVisibility(false)
+  mainWindow.center()
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)

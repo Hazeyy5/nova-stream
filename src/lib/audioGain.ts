@@ -63,5 +63,10 @@ export function migrateStreamSettings(raw: Record<string, unknown>): Record<stri
   if (typeof next.desktopAudioGainDb !== 'number' && typeof next.desktopAudioVolume === 'number') {
     next.desktopAudioGainDb = percentVolumeToGainDb(next.desktopAudioVolume as number)
   }
+  if (next.settingsMigratedV064 !== true) {
+    next.audioEnabled = true
+    next.desktopAudioEnabled = true
+    next.settingsMigratedV064 = true
+  }
   return next
 }
