@@ -68,5 +68,9 @@ export function migrateStreamSettings(raw: Record<string, unknown>): Record<stri
     next.desktopAudioEnabled = true
     next.settingsMigratedV064 = true
   }
+  if (next.settingsMigratedV068 !== true) {
+    if (next.audioSyncAuto === undefined) next.audioSyncAuto = true
+    next.settingsMigratedV068 = true
+  }
   return next
 }

@@ -24,6 +24,25 @@ function pickWebmMimeType(): string {
   return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? 'video/webm'
 }
 
+function median(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid]
+}
+
+export function computeAutoAudioSyncOffsetMs(
+  measuredLatencyMs: number,
+  format: VideoInputFormat
+): number {
+  const ffmpegBuffer = format === 'h264' ? 180 : 520
+  const ipcOverhead = 60
+  const total = measuredLatencyMs + ffmpegBuffer + ipcOverhead
+  return Math.round(Math.min(5000, Math.max(150, total)))
+}
+
 export class VideoPipeEncoder {
   private format: VideoInputFormat = 'webm'
   private encoder: VideoEncoder | null = null
@@ -32,9 +51,22 @@ export class VideoPipeEncoder {
   private frameIndex = 0
   private chunksEmitted = 0
   private onChunk: VideoChunkHandler | null = null
+  private latencySamples: number[] = []
+  private lastEncodePerf = 0
+  private recorderStartedAt = 0
 
   getInputFormat(): VideoInputFormat {
     return this.format
+  }
+
+  getLatencyEstimateMs(): number {
+    if (this.latencySamples.length === 0) {
+      return this.format === 'h264' ? 700 : 2800
+    }
+    const sample = this.format === 'h264'
+      ? median(this.latencySamples)
+      : median(this.latencySamples.slice(1))
+    return computeAutoAudioSyncOffsetMs(sample, this.format)
   }
 
   async start(options: StartOptions): Promise<VideoInputFormat> {
@@ -42,6 +74,9 @@ export class VideoPipeEncoder {
     this.onChunk = options.onChunk
     this.frameIndex = 0
     this.chunksEmitted = 0
+    this.latencySamples = []
+    this.lastEncodePerf = 0
+    this.recorderStartedAt = 0
 
     const { canvas, bitrateKbps } = options
     const width = canvas.width
@@ -90,6 +125,7 @@ export class VideoPipeEncoder {
     if (this.format !== 'h264' || !this.encoder || canvas.width <= 0 || canvas.height <= 0) return
 
     try {
+      this.lastEncodePerf = performance.now()
       const timestamp = Math.round((this.frameIndex / this.framerate) * 1_000_000)
       const frame = new VideoFrame(canvas, { timestamp })
       this.encoder.encode(frame, { keyFrame: this.frameIndex % Math.max(1, this.framerate) === 0 })
@@ -112,6 +148,16 @@ export class VideoPipeEncoder {
     await this.stopEncoderOnly()
     this.onChunk = null
     this.chunksEmitted = 0
+    this.latencySamples = []
+  }
+
+  private recordLatency(): void {
+    if (this.format === 'h264' && this.lastEncodePerf > 0) {
+      this.latencySamples.push(performance.now() - this.lastEncodePerf)
+      this.lastEncodePerf = 0
+    } else if (this.format === 'webm' && this.recorderStartedAt > 0) {
+      this.latencySamples.push(performance.now() - this.recorderStartedAt)
+    }
   }
 
   private async stopMediaRecorder(): Promise<void> {
@@ -153,6 +199,7 @@ export class VideoPipeEncoder {
     const encoder = new VideoEncoder({
       output: (chunk) => {
         if (!this.onChunk || chunk.byteLength === 0) return
+        this.recordLatency()
         this.chunksEmitted += 1
         const copy = new Uint8Array(chunk.byteLength)
         chunk.copyTo(copy)
@@ -186,12 +233,14 @@ export class VideoPipeEncoder {
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0 && this.onChunk) {
         void event.data.arrayBuffer().then((buf) => {
+          this.recordLatency()
           this.chunksEmitted += 1
           this.onChunk?.(new Uint8Array(buf))
         })
       }
     }
 
+    this.recorderStartedAt = performance.now()
     recorder.start(250)
     this.mediaRecorder = recorder
   }

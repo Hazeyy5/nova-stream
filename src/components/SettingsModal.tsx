@@ -386,6 +386,14 @@ export default function SettingsModal({
                 </p>
               )}
               <hr className="settings-hr" />
+              <label className="settings-checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.audioSyncAuto !== false}
+                  onChange={(e) => update({ audioSyncAuto: e.target.checked })}
+                />
+                Calibrer automatiquement au lancement du live
+              </label>
               <label className="settings-field">
                 Décalage audio / vidéo
                 <div className="settings-sync-row">
@@ -394,15 +402,26 @@ export default function SettingsModal({
                     min={-1000}
                     max={5000}
                     step={50}
-                    value={form.audioSyncOffsetMs ?? 3000}
-                    onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value) })}
+                    value={form.audioSyncOffsetMs ?? 700}
+                    onChange={(e) => update({ audioSyncOffsetMs: Number(e.target.value), audioSyncAuto: false })}
+                    disabled={form.audioSyncAuto !== false}
                   />
-                  <span>{form.audioSyncOffsetMs ?? 3000} ms</span>
+                  <span>{form.audioSyncOffsetMs ?? 700} ms</span>
                 </div>
               </label>
               <p className="settings-hint">
-                Si le son est en avance sur l&apos;image, augmentez la valeur (ex. 3000 ms). S&apos;il est en retard, diminuez-la.
-                {isMediaActive && ' Le réglage s&apos;applique pendant le live (reconnexion brève du flux).'}
+                {form.audioSyncAuto !== false ? (
+                  <>
+                    Nova Stream mesure la latence vidéo de votre PC au démarrage du live et règle le décalage automatiquement
+                    {form.lastAutoAudioSyncMs != null && ` (dernière mesure : ${form.lastAutoAudioSyncMs} ms)`}.
+                    Décochez la case ci-dessus pour ajuster manuellement.
+                  </>
+                ) : (
+                  <>
+                    Si le son est en avance sur l&apos;image, augmentez la valeur. S&apos;il est en retard, diminuez-la.
+                    {isMediaActive && ' Le réglage s&apos;applique pendant le live (reconnexion brève du flux).'}
+                  </>
+                )}
               </p>
             </>
           )}

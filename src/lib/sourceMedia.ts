@@ -1,7 +1,7 @@
 import type { Source } from '../types'
 
-export function isAcquirableMediaSource(source: Source): boolean {
-  if (!source.visible) return false
+/** Source configurée pour capturer du média (indépendamment de la visibilité). */
+export function isMediaCapableSource(source: Source): boolean {
   if (source.type === 'screen' || source.type === 'window' || source.type === 'game') return !!source.captureId
   if (source.type === 'display' || source.type === 'webcam') return true
   if (source.type === 'image') return !!(source.imageUrl || source.imageLocalPath)
@@ -9,8 +9,13 @@ export function isAcquirableMediaSource(source: Source): boolean {
   return false
 }
 
+export function isAcquirableMediaSource(source: Source): boolean {
+  if (!source.visible) return false
+  return isMediaCapableSource(source)
+}
+
 export function mediaCaptureFingerprint(source: Source): string | null {
-  if (!isAcquirableMediaSource(source)) return null
+  if (!isMediaCapableSource(source)) return null
   return `${source.type}:${source.captureId ?? ''}:${source.browserUrl ?? ''}:${source.imageUrl ?? ''}:${source.imageLocalPath ?? ''}:${source.webcamDevice ?? ''}`
 }
 

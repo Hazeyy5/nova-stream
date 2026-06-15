@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { Source } from '../types'
-import { acquireSourceStream, releaseSourceStream, type StreamEntry } from '../lib/drawScene'
-import { isAcquirableMediaSource, mediaCaptureFingerprint, mediaSourceKey } from '../lib/sourceMedia'
+import { acquireSourceStream, releaseSourceStream, resumeStreamEntry, type StreamEntry } from '../lib/drawScene'
+import { isMediaCapableSource, mediaCaptureFingerprint, mediaSourceKey } from '../lib/sourceMedia'
 
 interface UseSceneMediaOptions {
   /** Pendant un live/enregistrement, garde les flux en cache entre les scènes. */
@@ -45,7 +45,6 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
     }
   }, [unmapSourceId])
 
-  /** Retire le mapping d'une source sans couper le flux si une autre source l'utilise encore. */
   const detachSourceId = useCallback((id: string) => {
     const fingerprint = sourceFingerprintRef.current.get(id)
     unmapSourceId(id)
@@ -69,7 +68,7 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
 
   useEffect(() => {
     const effectGen = ++effectGenRef.current
-    const mediaSources = sources.filter(isAcquirableMediaSource)
+    const mediaSources = sources.filter(isMediaCapableSource)
     const activeIds = new Set(mediaSources.map((s) => s.id))
     const activeFingerprints = new Set<string>()
 
@@ -85,6 +84,7 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
       }
 
       if (cached) {
+        resumeStreamEntry(cached)
         streamsRef.current.set(source.id, cached)
         sourceFingerprintRef.current.set(source.id, fingerprint)
         typeRef.current.set(source.id, source.type)
@@ -92,7 +92,11 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
       }
 
       const currentFp = sourceFingerprintRef.current.get(source.id)
-      if (currentFp === fingerprint && streamsRef.current.has(source.id)) continue
+      if (currentFp === fingerprint && streamsRef.current.has(source.id)) {
+        const entry = streamsRef.current.get(source.id)
+        if (entry) resumeStreamEntry(entry)
+        continue
+      }
 
       if (streamsRef.current.has(source.id)) {
         detachSourceId(source.id)
@@ -106,7 +110,7 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
           releaseSourceStream(sourceId, sourceType)
           return
         }
-        if (!isAcquirableMediaSource(source)) {
+        if (!isMediaCapableSource(source)) {
           entry.stream?.getTracks().forEach((t) => t.stop())
           releaseSourceStream(sourceId, sourceType)
           return
@@ -123,6 +127,7 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
           return
         }
 
+        resumeStreamEntry(entry)
         entry.sourceId = sourceId
         fingerprintRef.current.set(fingerprint, entry)
         streamsRef.current.set(sourceId, entry)

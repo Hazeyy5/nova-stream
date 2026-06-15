@@ -77,6 +77,10 @@ export function useSceneCapture(
     return videoInputFormatRef.current
   }, [])
 
+  const getVideoLatencyEstimateMs = useCallback((): number => {
+    return encoderRef.current?.getLatencyEstimateMs() ?? 700
+  }, [])
+
   const arm = useCallback(async () => {
     activeRef.current = true
     await waitForFrames()
@@ -104,5 +108,5 @@ export function useSceneCapture(
     }
   }, [])
 
-  return { arm, beginPipe, waitForVideoPipeReady, disarm, onFrameDrawn, getVideoInputFormat }
+  return { arm, beginPipe, waitForVideoPipeReady, disarm, onFrameDrawn, getVideoInputFormat, getVideoLatencyEstimateMs }
 }

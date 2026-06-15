@@ -42,6 +42,18 @@ export interface StreamEntry {
   image: HTMLImageElement | null
 }
 
+export function resumeStreamEntry(entry: StreamEntry): void {
+  const video = entry.video
+  if (!video) return
+  if (video.paused) {
+    void video.play().catch(() => {})
+  }
+  if (video.readyState < 2 && entry.stream) {
+    video.srcObject = entry.stream
+    void video.play().catch(() => {})
+  }
+}
+
 export interface DrawSceneOptions {
   selectedSourceId?: string | null
   chatMessages?: ChatMessage[]
@@ -247,8 +259,11 @@ export function drawScene(
     } else {
       const entry = streams.get(source.id)
 
-      if (entry?.video && entry.video.readyState >= 2) {
-        drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
+      if (entry?.video) {
+        resumeStreamEntry(entry)
+        if (entry.video.readyState >= 2) {
+          drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
+        }
       } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
         drawMedia(ctx, entry.image, dx, dy, dw, dh, source)
       } else if (source.type === 'text' && source.textContent) {

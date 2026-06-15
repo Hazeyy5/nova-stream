@@ -318,7 +318,17 @@ function AppContent() {
 
       await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 2 : 3, 5000)
 
+      const measuredSyncMs = sceneCapture.getVideoLatencyEstimateMs()
       let liveSettings = settings
+      if (settings.audioSyncAuto !== false) {
+        liveSettings = {
+          ...settings,
+          audioSyncOffsetMs: measuredSyncMs,
+          lastAutoAudioSyncMs: measuredSyncMs
+        }
+        setSettings(liveSettings)
+      }
+
       if (stream && twitchConnected) {
         try {
           const key = await integrations.fetchTwitchStreamKey()
@@ -433,13 +443,15 @@ function AppContent() {
       micMono: settings.micMono,
       audioDevice: settings.audioDevice,
       desktopAudioDevice: settings.desktopAudioDevice,
-      audioSyncOffsetMs: settings.audioSyncOffsetMs
+      audioSyncOffsetMs: settings.audioSyncOffsetMs,
+      audioSyncAuto: settings.audioSyncAuto
     }),
     [
       settings.micMono,
       settings.audioDevice,
       settings.desktopAudioDevice,
-      settings.audioSyncOffsetMs
+      settings.audioSyncOffsetMs,
+      settings.audioSyncAuto
     ]
   )
   const mixerSettingsKey = useMemo(
