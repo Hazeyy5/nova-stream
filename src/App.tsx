@@ -322,11 +322,15 @@ function AppContent() {
       let liveSettings = settings
       if (settings.audioSyncAuto !== false) {
         liveSettings = {
-          ...settings,
+          ...liveSettings,
           audioSyncOffsetMs: measuredSyncMs,
           lastAutoAudioSyncMs: measuredSyncMs
         }
-        setSettings(liveSettings)
+        setSettings((s) => ({
+          ...s,
+          audioSyncOffsetMs: measuredSyncMs,
+          lastAutoAudioSyncMs: measuredSyncMs
+        }))
       }
 
       if (stream && twitchConnected) {
@@ -334,11 +338,11 @@ function AppContent() {
           const key = await integrations.fetchTwitchStreamKey()
           if (key) {
             liveSettings = {
-              ...settings,
+              ...liveSettings,
               streamKey: key,
-              rtmpUrl: settings.rtmpUrl.trim() || 'rtmp://live.twitch.tv/app'
+              rtmpUrl: liveSettings.rtmpUrl.trim() || 'rtmp://live.twitch.tv/app'
             }
-            setSettings(liveSettings)
+            setSettings((s) => ({ ...s, streamKey: key, rtmpUrl: liveSettings.rtmpUrl }))
           }
         } catch {
           /* conserver la clé déjà saisie */

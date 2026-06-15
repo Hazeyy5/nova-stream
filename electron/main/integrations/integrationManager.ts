@@ -14,6 +14,8 @@ import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
+import { loadPersistedFeedEvents, savePersistedFeedEvents } from './feedStore'
+import { fetchRecentTwitchActivity } from './twitchFeedHistory'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
@@ -36,6 +38,8 @@ export class IntegrationManager {
   private widgetStatsRefreshDebounce: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
+    this.feedEvents = loadPersistedFeedEvents()
+
     this.chat.setOnMessage((msg) => {
       this.messages = [...this.messages.slice(-99), msg]
       this.broadcast('chat:message', msg)
@@ -83,9 +87,32 @@ export class IntegrationManager {
     }, 3000)
   }
 
-  private addFeedEvent(event: FeedEvent): void {
+  private addFeedEvent(event: FeedEvent, persist = true): void {
+    const exists = this.feedEvents.some((e) => e.id === event.id)
+    if (exists) return
     this.feedEvents = [event, ...this.feedEvents].slice(0, 50)
+    if (persist) savePersistedFeedEvents(this.feedEvents)
     this.broadcast('feed:event', event)
+  }
+
+  private mergeFeedEvents(events: FeedEvent[]): void {
+    if (events.length === 0) return
+    const known = new Set(this.feedEvents.map((e) => e.id))
+    const merged = [...events.filter((e) => !known.has(e.id)), ...this.feedEvents]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 50)
+    this.feedEvents = merged
+    savePersistedFeedEvents(this.feedEvents)
+    for (const event of events) {
+      if (!known.has(event.id)) {
+        this.broadcast('feed:event', event)
+      }
+    }
+  }
+
+  private async seedRecentTwitchActivity(): Promise<void> {
+    const recent = await fetchRecentTwitchActivity(20)
+    this.mergeFeedEvents(recent)
   }
 
   private broadcast(channel: string, data: unknown): void {
@@ -242,9 +269,10 @@ export class IntegrationManager {
   }): Promise<PlatformConnectionPublic> {
     await this.chat.connect(conn.username, conn.accessToken)
     this.chatAccessToken = conn.accessToken
-    void this.eventSub.start(conn.accessToken, conn.userId, conn.userId).catch(() => {
-      /* EventSub optionnel si scopes manquants */
+    void this.eventSub.start(conn.accessToken, conn.userId, conn.userId).catch((err) => {
+      console.warn('[EventSub] start failed:', err)
     })
+    void this.seedRecentTwitchActivity()
     this.addFeedEvent({
       id: `connect-${Date.now()}`,
       type: 'system',
@@ -280,7 +308,7 @@ export class IntegrationManager {
   }
 
   async restoreSessions(): Promise<void> {
-    const twitch = getToken('twitch')
+    const twitch = await ensureFreshTwitchToken()
     if (twitch) {
       this.startWidgetStatsPolling()
       try {
@@ -291,7 +319,10 @@ export class IntegrationManager {
           })
         ])
         this.chatAccessToken = twitch.accessToken
-        void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch(() => {})
+        void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch((err) => {
+          console.warn('[EventSub] restore failed:', err)
+        })
+        void this.seedRecentTwitchActivity()
       } catch { /* token expired or chat unavailable */ }
     }
   }
@@ -306,6 +337,7 @@ export class IntegrationManager {
 
   clearFeedEvents(): void {
     this.feedEvents = []
+    savePersistedFeedEvents([])
     this.broadcast('feed:cleared', null)
   }
 
@@ -322,13 +354,13 @@ export class IntegrationManager {
   }
 
   async getWidgetLiveDataFresh(): Promise<WidgetLiveData> {
-    const twitch = this.connections.find((c) => c.platform === 'twitch')
+    const twitch = getToken('twitch')
     if (twitch) await this.refreshWidgetStats()
     return this.getWidgetLiveData()
   }
 
   getTwitchConnectionPublic(): PlatformConnectionPublic | undefined {
-    const twitch = this.connections.find((c) => c.platform === 'twitch')
+    const twitch = getToken('twitch')
     if (!twitch) return undefined
     return {
       platform: twitch.platform,

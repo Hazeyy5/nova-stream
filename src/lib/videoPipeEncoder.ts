@@ -37,10 +37,10 @@ export function computeAutoAudioSyncOffsetMs(
   measuredLatencyMs: number,
   format: VideoInputFormat
 ): number {
-  const ffmpegBuffer = format === 'h264' ? 180 : 520
-  const ipcOverhead = 60
-  const total = measuredLatencyMs + ffmpegBuffer + ipcOverhead
-  return Math.round(Math.min(5000, Math.max(150, total)))
+  const pipeline = format === 'h264' ? 650 : 1500
+  if (measuredLatencyMs <= 0 || !Number.isFinite(measuredLatencyMs)) return pipeline
+  const adjusted = Math.round(measuredLatencyMs * 0.35 + pipeline * 0.65)
+  return Math.min(2500, Math.max(400, adjusted))
 }
 
 export class VideoPipeEncoder {
@@ -53,6 +53,7 @@ export class VideoPipeEncoder {
   private onChunk: VideoChunkHandler | null = null
   private latencySamples: number[] = []
   private lastEncodePerf = 0
+  private lastWebmChunkAt = 0
   private recorderStartedAt = 0
 
   getInputFormat(): VideoInputFormat {
@@ -76,6 +77,7 @@ export class VideoPipeEncoder {
     this.chunksEmitted = 0
     this.latencySamples = []
     this.lastEncodePerf = 0
+    this.lastWebmChunkAt = 0
     this.recorderStartedAt = 0
 
     const { canvas, bitrateKbps } = options
@@ -155,8 +157,12 @@ export class VideoPipeEncoder {
     if (this.format === 'h264' && this.lastEncodePerf > 0) {
       this.latencySamples.push(performance.now() - this.lastEncodePerf)
       this.lastEncodePerf = 0
-    } else if (this.format === 'webm' && this.recorderStartedAt > 0) {
-      this.latencySamples.push(performance.now() - this.recorderStartedAt)
+    } else if (this.format === 'webm') {
+      const now = performance.now()
+      if (this.lastWebmChunkAt > 0) {
+        this.latencySamples.push(now - this.lastWebmChunkAt)
+      }
+      this.lastWebmChunkAt = now
     }
   }
 

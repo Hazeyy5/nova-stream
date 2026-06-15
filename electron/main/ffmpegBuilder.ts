@@ -131,11 +131,14 @@ export function resolveRecordingFilePath(recordingPath = ''): string {
   return join(base, fileName)
 }
 
-function resolveAudioSyncOffsetMs(settings: StreamSettings, videoInputFormat: 'h264' | 'webm'): number {
-  if (typeof settings.audioSyncOffsetMs === 'number' && Number.isFinite(settings.audioSyncOffsetMs)) {
+function resolveMicAudioSyncOffsetMs(settings: StreamSettings, videoInputFormat: 'h264' | 'webm'): number {
+  if (settings.audioSyncAuto === false && typeof settings.audioSyncOffsetMs === 'number' && Number.isFinite(settings.audioSyncOffsetMs)) {
     return Math.max(-5000, Math.min(5000, settings.audioSyncOffsetMs))
   }
-  return videoInputFormat === 'h264' ? 800 : 3000
+  if (typeof settings.audioSyncOffsetMs === 'number' && Number.isFinite(settings.audioSyncOffsetMs) && settings.audioSyncAuto !== false) {
+    return Math.max(150, Math.min(2500, settings.audioSyncOffsetMs))
+  }
+  return videoInputFormat === 'h264' ? 650 : 1500
 }
 
 function buildAudioSyncSuffix(offsetMs: number, channels: number): string {
@@ -170,7 +173,15 @@ function micPreprocessFilter(
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
-  chain += buildAudioSyncSuffix(resolveAudioSyncOffsetMs(settings, videoInputFormat), channels)
+  chain += buildAudioSyncSuffix(resolveMicAudioSyncOffsetMs(settings, videoInputFormat), channels)
+  return `${chain}${outputLabel}`
+}
+
+function desktopPreprocessFilter(
+  desktopIndex: number,
+  outputLabel: string
+): string {
+  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:first_pts=0,aformat=sample_fmts=fltp`
   return `${chain}${outputLabel}`
 }
 
@@ -206,26 +217,15 @@ function micProcessingChain(
   return filters
 }
 
-function desktopPreprocessFilter(
-  desktopIndex: number,
-  settings: StreamSettings,
-  videoInputFormat: 'h264' | 'webm',
-  outputLabel: string
-): string {
-  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:first_pts=0,aformat=sample_fmts=fltp`
-  return `${chain}${buildAudioSyncSuffix(resolveAudioSyncOffsetMs(settings, videoInputFormat), 2)}${outputLabel}`
-}
-
 function desktopProcessingChain(
   desktopIndex: number,
   settings: StreamSettings,
-  videoInputFormat: 'h264' | 'webm',
   linear: number,
   outputLabel: string,
   enableMeters: boolean
 ): string[] {
   const filters = [
-    desktopPreprocessFilter(desktopIndex, settings, videoInputFormat, '[deskpre]'),
+    desktopPreprocessFilter(desktopIndex, '[deskpre]'),
     volumeFilter('[deskpre]', linear, '[deskpost]')
   ]
   if (enableMeters) {
@@ -296,6 +296,8 @@ export function buildFfmpegScenePipeArgs(
       micPipeFd = nextPipeFd++
       usesMicPipe = true
       pushAudioInput(args, [
+        '-thread_queue_size', '128',
+        '-fflags', 'nobuffer',
         '-f', MIC_AUDIO_PCM.format,
         '-ar', String(MIC_AUDIO_PCM.sampleRate),
         '-ac', String(MIC_AUDIO_PCM.channels),
@@ -313,6 +315,8 @@ export function buildFfmpegScenePipeArgs(
     if (backend === 'native') {
       desktopPipeFd = nextPipeFd++
       pushAudioInput(args, [
+        '-thread_queue_size', '128',
+        '-fflags', 'nobuffer',
         '-f', DESKTOP_AUDIO_PCM.format,
         '-ar', String(DESKTOP_AUDIO_PCM.sampleRate),
         '-ac', String(DESKTOP_AUDIO_PCM.channels),
@@ -341,14 +345,14 @@ export function buildFfmpegScenePipeArgs(
     audioOut = '[outa]'
   } else if (desktopIndex !== null && micIndex === null) {
     filters.push(
-      ...desktopProcessingChain(desktopIndex, settings, videoInputFormat, deskVol, '[amix]', enableMeters),
+      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[amix]', enableMeters),
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   } else if (micIndex !== null && desktopIndex !== null) {
     filters.push(
       ...micProcessingChain(micIndex, settings, videoInputFormat, micVol, '[a0]', enableMeters),
-      ...desktopProcessingChain(desktopIndex, settings, videoInputFormat, deskVol, '[a1]', enableMeters),
+      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[a1]', enableMeters),
       '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amix]',
       masterAudioFilter('[amix]', '[outa]')
     )

@@ -145,8 +145,11 @@ export class StreamManager {
     this.applyMixerLevels(this.sessionSettings)
     micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
     void this.micCapture.start(device, (pcmChunk) => {
-      if (micPipe && !micPipe.destroyed && micPipe.writable) {
-        micPipe.write(pcmChunk)
+      if (!micPipe || micPipe.destroyed || !micPipe.writable) return
+      const ok = micPipe.write(pcmChunk)
+      if (!ok && pcmChunk.length > 0) {
+        /* Évite l'accumulation de plusieurs secondes de micro en buffer */
+        micPipe.once('drain', () => { /* reprend */ })
       }
     }).catch(() => { /* capture micro optionnelle */ })
   }

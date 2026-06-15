@@ -133,7 +133,7 @@ export class TwitchEventSubService {
 
     for (const sub of subs) {
       try {
-        await fetch(HELIX, {
+        const res = await fetch(HELIX, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -147,8 +147,12 @@ export class TwitchEventSubService {
             transport: { method: 'websocket', session_id: sessionId }
           })
         })
-      } catch {
-        /* subscription may already exist or scope missing */
+        if (!res.ok) {
+          const body = await res.text().catch(() => '')
+          console.warn(`[EventSub] subscription ${sub.type} failed (${res.status}):`, body.slice(0, 300))
+        }
+      } catch (err) {
+        console.warn(`[EventSub] subscription ${sub.type} error:`, err)
       }
     }
   }
