@@ -474,3 +474,21 @@
 .speedtest-apply:hover {
   background: var(--accent-hover);
 }
+
+.encoder-panel {
+  margin-bottom: 12px;
+}
+
+.encoder-scan-result {
+  margin-top: 12px;
+}
+
+.encoder-scan-recommend {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.encoder-scan-hardware {
+  font-size: 11px;
+  opacity: 0.85;
+}

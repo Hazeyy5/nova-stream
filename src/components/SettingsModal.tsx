@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult } from '../types'
+import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult, EncoderRecommendation, VideoEncoder } from '../types'
 import { SCENE_TEMPLATES, type SceneTemplateId } from '../lib/sceneTemplates'
 import './SettingsModal.css'
 
@@ -38,6 +38,13 @@ const QUALITY_LABELS: Record<SpeedtestResult['quality'], string> = {
   poor: 'Insuffisante'
 }
 
+const ENCODER_SHORT: Record<VideoEncoder, string> = {
+  nvenc: 'NVENC',
+  amf: 'AMF',
+  qsv: 'QSV',
+  x264: 'x264'
+}
+
 export default function SettingsModal({
   settings,
   onSave,
@@ -63,6 +70,9 @@ export default function SettingsModal({
   const [speedtestProgress, setSpeedtestProgress] = useState(0)
   const [speedtestResult, setSpeedtestResult] = useState<SpeedtestResult | null>(null)
   const [speedtestError, setSpeedtestError] = useState<string | null>(null)
+  const [encoderScan, setEncoderScan] = useState<EncoderRecommendation | null>(null)
+  const [encoderScanning, setEncoderScanning] = useState(false)
+  const [encoderScanError, setEncoderScanError] = useState<string | null>(null)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
   const [updateReady, setUpdateReady] = useState(false)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
@@ -88,6 +98,30 @@ export default function SettingsModal({
     })
     return unsub
   }, [])
+
+  const runEncoderScan = async () => {
+    setEncoderScanning(true)
+    setEncoderScanError(null)
+    try {
+      const result = await window.novaStream.system.scanEncoders()
+      if (result.success && result.recommendation) {
+        setEncoderScan(result.recommendation)
+      } else {
+        setEncoderScanError(result.message ?? 'Analyse impossible')
+      }
+    } catch {
+      setEncoderScanError('Analyse matérielle impossible')
+    } finally {
+      setEncoderScanning(false)
+    }
+  }
+
+  useEffect(() => {
+    if (tab === 'Vidéo' && !encoderScan && !encoderScanning) {
+      void runEncoderScan()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- scan une fois à l'ouverture de l'onglet
+  }, [tab])
 
   const micDevices = devices.filter(
     (d) => d.type === 'audio' && d.audioRole === 'input'
@@ -248,10 +282,67 @@ export default function SettingsModal({
                 <label className="settings-field">
                   Encodeur
                   <select value={form.encoder} onChange={(e) => update({ encoder: e.target.value as StreamSettings['encoder'] })}>
-                    <option value="x264">CPU (x264)</option>
-                    <option value="nvenc">NVIDIA NVENC</option>
+                    {(encoderScan?.options ?? [
+                      { id: 'x264' as const, label: 'CPU (x264)', available: true },
+                      { id: 'nvenc' as const, label: 'NVIDIA NVENC', available: true },
+                      { id: 'amf' as const, label: 'AMD AMF', available: false },
+                      { id: 'qsv' as const, label: 'Intel Quick Sync', available: false }
+                    ]).map((opt) => (
+                      <option key={opt.id} value={opt.id} disabled={!opt.available}>
+                        {opt.label}{!opt.available ? ' (indisponible)' : ''}
+                        {encoderScan?.recommended === opt.id ? ' ★ recommandé' : ''}
+                      </option>
+                    ))}
                   </select>
                 </label>
+              </div>
+
+              <div className="speedtest-panel encoder-panel">
+                <div className="speedtest-header">
+                  <div>
+                    <strong>Analyse matérielle</strong>
+                    <p>Détecte votre GPU et processeur pour recommander le meilleur encodeur.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="speedtest-btn"
+                    onClick={() => void runEncoderScan()}
+                    disabled={encoderScanning}
+                  >
+                    {encoderScanning ? 'Analyse…' : 'Relancer l\'analyse'}
+                  </button>
+                </div>
+
+                {encoderScanError && (
+                  <p className="settings-hint warn">{encoderScanError}</p>
+                )}
+
+                {encoderScan && (
+                  <div className="encoder-scan-result">
+                    <p className="encoder-scan-recommend">
+                      Recommandé : <strong>{ENCODER_SHORT[encoderScan.recommended]}</strong>
+                    </p>
+                    <p className="settings-hint">{encoderScan.reason}</p>
+                    <p className="settings-hint encoder-scan-hardware">
+                      {encoderScan.cpuName} · {encoderScan.cpuCores} threads
+                      {encoderScan.gpus.length > 0 && (
+                        <> · {encoderScan.gpus.map((g) => g.name).join(', ')}</>
+                      )}
+                    </p>
+                    {form.encoder !== encoderScan.recommended && encoderScan.availableEncoders.includes(encoderScan.recommended) && (
+                      <button
+                        type="button"
+                        className="speedtest-apply"
+                        onClick={() => update({ encoder: encoderScan.recommended })}
+                      >
+                        Appliquer {ENCODER_SHORT[encoderScan.recommended]}
+                      </button>
+                    )}
+                    {form.encoder === encoderScan.recommended && (
+                      <p className="settings-hint">Encodeur recommandé déjà sélectionné.</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="speedtest-panel">

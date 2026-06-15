@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { MediaState, StreamSettings } from '../types'
+import type { MediaState, StreamSettings, VideoEncoder } from '../types'
 import { IconLive, IconRecord } from './Icons'
 import './BottomBar.css'
 
@@ -20,6 +20,13 @@ function formatDuration(startedAt?: number, now = Date.now()): string {
   const m = Math.floor((s % 3600) / 60)
   const sec = s % 60
   return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':')
+}
+
+const ENCODER_SHORT: Record<VideoEncoder, string> = {
+  nvenc: 'NVENC',
+  amf: 'AMF',
+  qsv: 'QSV',
+  x264: 'x264'
 }
 
 export default function BottomBar({
@@ -61,7 +68,7 @@ export default function BottomBar({
         </div>
         <div className="stat-chip">
           <span className="stat-label">Encodeur</span>
-          <span className="stat-value">{settings.encoder === 'nvenc' ? 'NVENC' : 'x264'}</span>
+          <span className="stat-value">{ENCODER_SHORT[settings.encoder] ?? settings.encoder}</span>
         </div>
         {isLive && (
           <div className="stat-chip live">

@@ -2,7 +2,32 @@ import { join } from 'path'
 import { existsSync, statSync } from 'fs'
 import { DESKTOP_AUDIO_PCM } from './desktopAudioCapture'
 import { MIC_AUDIO_PCM } from './micAudioCapture'
-import type { StreamSettings } from '../../src/types'
+import type { StreamSettings, VideoEncoder } from '../../src/types'
+
+const FFMPEG_VIDEO_CODEC: Record<VideoEncoder, string> = {
+  nvenc: 'h264_nvenc',
+  amf: 'h264_amf',
+  qsv: 'h264_qsv',
+  x264: 'libx264'
+}
+
+function appendVideoEncoderArgs(args: string[], encoder: VideoEncoder): void {
+  args.push('-c:v', FFMPEG_VIDEO_CODEC[encoder])
+  switch (encoder) {
+    case 'x264':
+      args.push('-preset', 'veryfast', '-tune', 'zerolatency', '-pix_fmt', 'yuv420p')
+      break
+    case 'nvenc':
+      args.push('-preset', 'p4', '-pix_fmt', 'yuv420p')
+      break
+    case 'amf':
+      args.push('-quality', 'speed', '-usage', 'transcoding', '-pix_fmt', 'yuv420p')
+      break
+    case 'qsv':
+      args.push('-preset', 'veryfast', '-look_ahead', '0', '-pix_fmt', 'nv12')
+      break
+  }
+}
 
 const RECORDING_MOVFLAGS = 'frag_keyframe+empty_moov+default_base_moof'
 
@@ -338,16 +363,11 @@ export function buildFfmpegScenePipeArgs(
     args.push('-map', '0:v')
   }
 
-  const videoCodec = settings.encoder === 'nvenc' ? 'h264_nvenc' : 'libx264'
   if (copyVideo) {
     args.push('-c:v', 'copy')
   } else {
-    args.push('-c:v', videoCodec)
-    if (settings.encoder === 'x264') {
-      args.push('-preset', 'veryfast', '-tune', 'zerolatency', '-pix_fmt', 'yuv420p')
-    } else {
-      args.push('-preset', 'p4', '-pix_fmt', 'yuv420p')
-    }
+    const encoder = settings.encoder in FFMPEG_VIDEO_CODEC ? settings.encoder : 'x264'
+    appendVideoEncoderArgs(args, encoder)
     args.push(
       '-b:v', `${settings.videoBitrate}k`,
       '-maxrate', `${settings.videoBitrate}k`,

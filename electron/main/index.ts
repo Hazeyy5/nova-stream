@@ -9,6 +9,7 @@ import { IntegrationManager } from './integrations/integrationManager'
 import { LinkServer } from './integrations/linkServer'
 import { getPlatformConfig } from './platformConfig'
 import { runSpeedtest } from './speedtest'
+import { scanEncoderRecommendation } from './encoderProbe'
 import {
   setMainWindow,
   openSourcePropertiesWindow,
@@ -208,6 +209,18 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('devices:listMedia', () => listMediaDevices(appMainWindow))
+
+  ipcMain.handle('system:scanEncoders', async () => {
+    try {
+      const recommendation = await scanEncoderRecommendation()
+      return { success: true, recommendation }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Analyse matérielle impossible'
+      }
+    }
+  })
 
   ipcMain.handle('dialog:selectRecordingFolder', async () => {
     const result = await dialog.showOpenDialog({

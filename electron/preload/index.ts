@@ -17,7 +17,8 @@ import type {
   WidgetLiveData,
   TwitchCategory,
   TwitchChannelInfo,
-  WebWidgetSettings
+  WebWidgetSettings,
+  EncoderRecommendation
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
 
@@ -54,6 +55,13 @@ const api = {
     getCaptureSources: (kind: CapturePickerKind | 'all') =>
       ipcRenderer.invoke('devices:getCaptureSources', kind) as Promise<CaptureSourceOption[]>,
     listMedia: () => ipcRenderer.invoke('devices:listMedia') as Promise<MediaDevice[]>
+  },
+  system: {
+    scanEncoders: () => ipcRenderer.invoke('system:scanEncoders') as Promise<{
+      success: boolean
+      recommendation?: EncoderRecommendation
+      message?: string
+    }>
   },
   dialog: {
     selectRecordingFolder: () => ipcRenderer.invoke('dialog:selectRecordingFolder') as Promise<string | null>,

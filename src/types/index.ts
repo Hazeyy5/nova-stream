@@ -1,4 +1,29 @@
-export type VideoEncoder = 'x264' | 'nvenc'
+export type VideoEncoder = 'x264' | 'nvenc' | 'amf' | 'qsv'
+
+export interface GpuInfo {
+  name: string
+  vendor: 'nvidia' | 'amd' | 'intel' | 'other'
+  vramBytes: number
+  discrete: boolean
+}
+
+export interface EncoderOptionInfo {
+  id: VideoEncoder
+  label: string
+  available: boolean
+  description: string
+}
+
+export interface EncoderRecommendation {
+  recommended: VideoEncoder
+  reason: string
+  gpus: GpuInfo[]
+  cpuName: string
+  cpuCores: number
+  availableEncoders: VideoEncoder[]
+  options: EncoderOptionInfo[]
+  scannedAt: number
+}
 export type TransitionType = 'cut' | 'fade'
 export type ScaleMode = 'stretch' | 'fit' | 'fill'
 export type BlendMode = 'normal' | 'multiply' | 'screen'
