@@ -25,7 +25,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
           generate_release_notes: true
           draft: false
         env:

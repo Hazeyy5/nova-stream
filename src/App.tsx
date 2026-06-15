@@ -42,6 +42,7 @@ import { useAppBootstrap } from './hooks/useAppBootstrap'
 
 import LoadingScreen from './components/LoadingScreen'
 import WelcomeModal from './components/WelcomeModal'
+import UpdateBanner from './components/UpdateBanner'
 
 import type { AppView, MediaState, StreamSettings } from './types'
 
@@ -562,9 +563,9 @@ function AppContent() {
 
       />
 
-
-
       <div className="workspace">
+
+        <UpdateBanner />
 
         {view === 'editor' ? (
 

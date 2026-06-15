@@ -63,6 +63,8 @@ export default function SettingsModal({
   const [speedtestProgress, setSpeedtestProgress] = useState(0)
   const [speedtestResult, setSpeedtestResult] = useState<SpeedtestResult | null>(null)
   const [speedtestError, setSpeedtestError] = useState<string | null>(null)
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(() => {
     const match = PLATFORMS.find((p) => p.url === settings.rtmpUrl)
     return match?.name ?? 'Personnalisé'
@@ -77,6 +79,12 @@ export default function SettingsModal({
 
   useEffect(() => {
     loadDevices()
+    const unsub = window.novaStream.updates.onState((state) => {
+      if (state.message && state.status !== 'checking' && state.status !== 'downloading') {
+        setUpdateMessage(state.message)
+      }
+    })
+    return unsub
   }, [])
 
   const micDevices = devices.filter(
@@ -481,6 +489,38 @@ export default function SettingsModal({
 
           {tab === 'Avancé' && (
             <>
+              <p className="settings-hint">
+                Nova Stream vérifie automatiquement les mises à jour au lancement (application installée uniquement).
+              </p>
+              <div className="settings-scenes-actions">
+                <button
+                  type="button"
+                  className="settings-scenes-btn"
+                  disabled={checkingUpdate}
+                  onClick={async () => {
+                    setCheckingUpdate(true)
+                    setUpdateMessage(null)
+                    try {
+                      await window.novaStream.updates.check()
+                    } finally {
+                      setCheckingUpdate(false)
+                    }
+                  }}
+                >
+                  {checkingUpdate ? 'Vérification…' : 'Vérifier les mises à jour'}
+                </button>
+                <button
+                  type="button"
+                  className="settings-scenes-btn primary"
+                  onClick={() => void window.novaStream.updates.install()}
+                >
+                  Redémarrer et installer la mise à jour
+                </button>
+              </div>
+              {updateMessage && <p className="settings-hint">{updateMessage}</p>}
+
+              <hr className="settings-hr" />
+
               <label className="settings-field">
                 Transition entre scènes
                 <select value={form.transition}

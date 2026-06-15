@@ -266,6 +266,25 @@ const api = {
       return () => ipcRenderer.removeListener('audioMeter:stream', handler)
     }
   },
+  updates: {
+    check: () => ipcRenderer.invoke('updates:check') as Promise<void>,
+    install: () => ipcRenderer.invoke('updates:install') as Promise<{ success: boolean }>,
+    onState: (callback: (state: {
+      status: string
+      version?: string
+      progress?: number
+      message?: string
+    }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, state: {
+        status: string
+        version?: string
+        progress?: number
+        message?: string
+      }) => callback(state)
+      ipcRenderer.on('updates:state', handler)
+      return () => ipcRenderer.removeListener('updates:state', handler)
+    }
+  },
   capturePicker: {
     open: (payload: CapturePickerOpenPayload) => ipcRenderer.invoke('capturePicker:open', payload),
     ready: () => ipcRenderer.send('capturePicker:ready'),

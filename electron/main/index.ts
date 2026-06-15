@@ -32,6 +32,7 @@ import {
 } from './capturePickerWindow'
 import { desktopAudioMeterService } from './audioMeterService'
 import { streamAudioMeterService } from './streamMeterParser'
+import { initAutoUpdater, checkForUpdatesManual, installUpdateNow } from './autoUpdater'
 import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
 
 const GAME_CAPTURE_EXCLUDED = [
@@ -441,7 +442,15 @@ app.whenReady().then(async () => {
     streamAudioMeterService.unsubscribe(event.sender)
   })
 
+  ipcMain.handle('updates:check', () => checkForUpdatesManual())
+  ipcMain.handle('updates:install', () => {
+    installUpdateNow()
+    return { success: true }
+  })
+
   createWindow()
+
+  initAutoUpdater()
 
   void integrations.restoreSessions()
 
