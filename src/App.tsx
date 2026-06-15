@@ -614,8 +614,6 @@ function AppContent() {
 
       <div className="workspace">
 
-        <UpdateBanner />
-
         {view === 'editor' ? (
 
           <div className="editor-layout">
@@ -895,6 +893,8 @@ function AppContent() {
         />
 
       )}
+
+      <UpdateBanner />
 
     </div>
 

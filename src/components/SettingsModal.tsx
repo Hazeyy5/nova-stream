@@ -64,6 +64,7 @@ export default function SettingsModal({
   const [speedtestResult, setSpeedtestResult] = useState<SpeedtestResult | null>(null)
   const [speedtestError, setSpeedtestError] = useState<string | null>(null)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
+  const [updateReady, setUpdateReady] = useState(false)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(() => {
     const match = PLATFORMS.find((p) => p.url === settings.rtmpUrl)
@@ -80,6 +81,7 @@ export default function SettingsModal({
   useEffect(() => {
     loadDevices()
     const unsub = window.novaStream.updates.onState((state) => {
+      setUpdateReady(state.status === 'downloaded')
       if (state.message && state.status !== 'checking' && state.status !== 'downloading') {
         setUpdateMessage(state.message)
       }
@@ -491,6 +493,7 @@ export default function SettingsModal({
             <>
               <p className="settings-hint">
                 Nova Stream vérifie automatiquement les mises à jour au lancement (application installée uniquement).
+                Une bannière s&apos;affiche en haut de l&apos;écran lorsqu&apos;une mise à jour est prête.
               </p>
               <div className="settings-scenes-actions">
                 <button
@@ -509,13 +512,15 @@ export default function SettingsModal({
                 >
                   {checkingUpdate ? 'Vérification…' : 'Vérifier les mises à jour'}
                 </button>
-                <button
-                  type="button"
-                  className="settings-scenes-btn primary"
-                  onClick={() => void window.novaStream.updates.install()}
-                >
-                  Redémarrer et installer la mise à jour
-                </button>
+                {updateReady && (
+                  <button
+                    type="button"
+                    className="settings-scenes-btn primary"
+                    onClick={() => void window.novaStream.updates.install()}
+                  >
+                    Redémarrer et installer la mise à jour
+                  </button>
+                )}
               </div>
               {updateMessage && <p className="settings-hint">{updateMessage}</p>}
 
