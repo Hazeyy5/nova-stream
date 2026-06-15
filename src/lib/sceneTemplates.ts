@@ -212,6 +212,10 @@ export function createCollectionFromTemplate(templateId: SceneTemplateId): Scene
   return buildCollection(freshId('col'), template.collectionName, TEMPLATE_SCENE_DEFS[templateId])
 }
 
+export function createBlankCollection(): SceneCollection {
+  return buildCollection(freshId('col'), 'Ma collection', [{ name: 'Scène 1', sources: [] }])
+}
+
 export function createDefaultCollection(): SceneCollection {
-  return createCollectionFromTemplate('gaming')
+  return createBlankCollection()
 }

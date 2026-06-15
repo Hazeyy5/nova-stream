@@ -832,7 +832,9 @@ function AppContent() {
 
             localStorage.setItem('nova-user-mode', result.userMode)
 
-            scenes.applyTemplate(result.templateId, 'replace')
+            if (result.templateId) {
+              scenes.applyTemplate(result.templateId, 'replace')
+            }
 
             setShowWelcome(false)
 

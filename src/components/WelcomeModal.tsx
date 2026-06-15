@@ -6,7 +6,7 @@ import './WelcomeModal.css'
 
 export interface WelcomeResult {
   userMode: UserMode
-  templateId: SceneTemplateId
+  templateId: SceneTemplateId | null
 }
 
 interface WelcomeModalProps {
@@ -29,9 +29,9 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
     setStep('template')
   }
 
-  const finish = () => {
+  const finish = (templateId: SceneTemplateId | null) => {
     if (!userMode) return
-    onComplete({ userMode, templateId: selectedTemplate })
+    onComplete({ userMode, templateId })
   }
 
   return (
@@ -43,7 +43,7 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
           <p>
             {step === 'account'
               ? 'Comment souhaitez-vous utiliser l\'application ?'
-              : 'Choisissez un modèle de scènes pour démarrer'}
+              : 'Choisissez un modèle de scènes, ou partez d\'une scène vide'}
           </p>
         </div>
 
@@ -93,7 +93,10 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
               <button type="button" className="welcome-btn ghost" onClick={() => setStep('account')}>
                 ← Retour
               </button>
-              <button type="button" className="welcome-btn primary" onClick={finish}>
+              <button type="button" className="welcome-btn ghost" onClick={() => finish(null)}>
+                Commencer sans modèle
+              </button>
+              <button type="button" className="welcome-btn primary" onClick={() => finish(selectedTemplate)}>
                 Appliquer le modèle →
               </button>
             </div>
