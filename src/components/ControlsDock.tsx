@@ -81,6 +81,12 @@ export default function ControlsDock({
           </p>
         )}
 
+        {isLive && mediaState.stream.message && (
+          <p className="controls-status-hint controls-status-warn">
+            {mediaState.stream.message}
+          </p>
+        )}
+
         {mediaState.stream.status === 'error' && (
           <p className="controls-error">{mediaState.stream.message}</p>
         )}

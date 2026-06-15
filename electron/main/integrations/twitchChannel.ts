@@ -98,6 +98,35 @@ export async function searchTwitchCategories(query: string): Promise<TwitchCateg
   }))
 }
 
+/** Catégories / jeux les plus regardés sur Twitch (Helix games/top). */
+export async function fetchTopTwitchCategories(limit = 20): Promise<TwitchCategoryResult[]> {
+  const { accessToken, clientId } = await requireTwitchAuth()
+
+  const url = new URL('https://api.twitch.tv/helix/games/top')
+  url.searchParams.set('first', String(Math.max(1, Math.min(100, limit))))
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Client-Id': clientId
+    }
+  })
+
+  if (!res.ok) {
+    throw new Error(`Impossible de charger les catégories populaires (${res.status}).`)
+  }
+
+  const data = (await res.json()) as {
+    data?: Array<{ id: string; name: string; box_art_url?: string }>
+  }
+
+  return (data.data ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    boxArtUrl: item.box_art_url
+  }))
+}
+
 export async function updateTwitchChannelInfo(title: string, categoryId: string): Promise<void> {
   const trimmedTitle = title.trim()
   if (!trimmedTitle) {

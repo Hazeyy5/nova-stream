@@ -32,6 +32,8 @@ export default function GoLiveModal({
   const [categoryName, setCategoryName] = useState(settings.streamCategoryName)
   const [categoryQuery, setCategoryQuery] = useState(settings.streamCategoryName)
   const [results, setResults] = useState<TwitchCategory[]>([])
+  const [topCategories, setTopCategories] = useState<TwitchCategory[]>([])
+  const [loadingTop, setLoadingTop] = useState(false)
   const [loadingInfo, setLoadingInfo] = useState(twitchConnected)
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -97,14 +99,51 @@ export default function GoLiveModal({
     }
   }, [twitchConnected])
 
+  const loadTopCategories = useCallback(async () => {
+    if (!twitchConnected) return
+
+    setLoadingTop(true)
+    try {
+      const result = await window.novaStream.integrations.fetchTopTwitchCategories(20)
+      if (result.success && result.categories) {
+        setTopCategories(result.categories)
+      }
+    } catch {
+      /* liste optionnelle */
+    } finally {
+      setLoadingTop(false)
+    }
+  }, [twitchConnected])
+
+  useEffect(() => {
+    if (twitchConnected && !loadingInfo) {
+      void loadTopCategories()
+    }
+  }, [twitchConnected, loadingInfo, loadTopCategories])
+
   const handleCategoryInput = (value: string) => {
     setCategoryQuery(value)
     setError(null)
     if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (!value.trim()) {
+      setResults([])
+      setShowResults(true)
+      return
+    }
     searchTimer.current = setTimeout(() => {
       void runSearch(value)
     }, 300)
   }
+
+  const handleCategoryFocus = () => {
+    setShowResults(true)
+    if (!categoryQuery.trim() && topCategories.length === 0 && !loadingTop) {
+      void loadTopCategories()
+    }
+  }
+
+  const displayCategories = categoryQuery.trim() ? results : topCategories
+  const resultsHeading = categoryQuery.trim() ? 'Résultats' : 'Les plus regardées'
 
   const selectCategory = (cat: TwitchCategory) => {
     setCategoryId(cat.id)
@@ -177,15 +216,18 @@ export default function GoLiveModal({
                     <input
                       value={categoryQuery}
                       onChange={(e) => handleCategoryInput(e.target.value)}
-                      onFocus={() => categoryQuery && setShowResults(true)}
+                      onFocus={handleCategoryFocus}
                       placeholder="Rechercher une catégorie (jeu, IRL, musique…)"
                     />
                     {categoryName && categoryId && (
                       <span className="go-live-category-selected">✓ {categoryName}</span>
                     )}
-                    {showResults && results.length > 0 && (
+                    {showResults && displayCategories.length > 0 && (
                       <ul className="go-live-category-results">
-                        {results.map((cat) => (
+                        {!categoryQuery.trim() && (
+                          <li className="go-live-category-heading">{resultsHeading}</li>
+                        )}
+                        {displayCategories.map((cat) => (
                           <li key={cat.id}>
                             <button type="button" onClick={() => selectCategory(cat)}>
                               {cat.boxArtUrl && (
@@ -197,7 +239,11 @@ export default function GoLiveModal({
                         ))}
                       </ul>
                     )}
-                    {searching && <span className="go-live-searching">Recherche…</span>}
+                    {(searching || loadingTop) && (
+                      <span className="go-live-searching">
+                        {searching ? 'Recherche…' : 'Chargement…'}
+                      </span>
+                    )}
                   </div>
                 </label>
               ) : (

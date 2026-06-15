@@ -43,6 +43,8 @@ export class StreamManager {
     stream: boolean
   } | null = null
   private videoChunksReceived = 0
+  private lastVideoChunkAt = 0
+  private healthTimer: ReturnType<typeof setInterval> | null = null
   private state: MediaState = {
     stream: { status: 'idle' },
     recording: { status: 'idle' }
@@ -82,6 +84,7 @@ export class StreamManager {
   handleVideoChunk(chunk: Buffer): void {
     if (chunk.length > 0) {
       this.videoChunksReceived += 1
+      this.lastVideoChunkAt = Date.now()
       this.startNativeDesktopCaptureIfNeeded()
       this.startMicCaptureIfNeeded()
     }
@@ -212,6 +215,7 @@ export class StreamManager {
           startedAt: this.state.stream.startedAt ?? Date.now()
         }
       })
+      this.startHealthWatchdog()
     }
   }
 
@@ -364,6 +368,7 @@ export class StreamManager {
       this.process = proc
       this.pendingChunks = []
       this.videoChunksReceived = 0
+      this.lastVideoChunkAt = 0
       this.sessionUsesNativeDesktop = usesNativeDesktop
       this.sessionUsesMicPipe = usesMicPipe
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
@@ -436,6 +441,7 @@ export class StreamManager {
           this.setState({
             stream: { status: 'live', message: 'En direct', startedAt: Date.now() }
           })
+          this.startHealthWatchdog()
         }
         resolve()
       }
@@ -552,6 +558,7 @@ export class StreamManager {
             recording: { status: 'idle' }
           })
         } else if (!rejected) {
+          this.stopHealthWatchdog()
           this.setState({
             stream: { status: 'idle', message: undefined, startedAt: undefined },
             recording: { status: 'idle', filePath: undefined, startedAt: undefined }
@@ -576,6 +583,7 @@ export class StreamManager {
   }
 
   async stop(): Promise<void> {
+    this.stopHealthWatchdog()
     if (this.audioRefreshTimer) {
       clearTimeout(this.audioRefreshTimer)
       this.audioRefreshTimer = null
@@ -688,5 +696,55 @@ export class StreamManager {
 
   isActive(): boolean {
     return this.process !== null
+  }
+
+  getHealth(): {
+    ffmpegRunning: boolean
+    videoFlowing: boolean
+    lastVideoChunkAgeMs: number
+    videoChunksTotal: number
+  } {
+    const age = this.lastVideoChunkAt > 0 ? Date.now() - this.lastVideoChunkAt : Number.MAX_SAFE_INTEGER
+    return {
+      ffmpegRunning: this.process !== null,
+      videoFlowing: age < 5000,
+      lastVideoChunkAgeMs: this.lastVideoChunkAt > 0 ? age : -1,
+      videoChunksTotal: this.videoChunksReceived
+    }
+  }
+
+  private startHealthWatchdog(): void {
+    this.stopHealthWatchdog()
+    this.healthTimer = setInterval(() => {
+      if (this.state.stream.status !== 'live') return
+      if (!this.process) {
+        this.setState({
+          stream: {
+            status: 'error',
+            message: 'Le flux s\'est arrêté — relancez le live.',
+            startedAt: undefined
+          }
+        })
+        return
+      }
+      const age = this.lastVideoChunkAt > 0 ? Date.now() - this.lastVideoChunkAt : Number.MAX_SAFE_INTEGER
+      if (age > 12000) {
+        this.setState({
+          stream: {
+            ...this.state.stream,
+            status: 'error',
+            message: 'Plus de vidéo envoyée — vérifiez l\'aperçu ou relancez le live.',
+            startedAt: undefined
+          }
+        })
+      }
+    }, 4000)
+  }
+
+  private stopHealthWatchdog(): void {
+    if (this.healthTimer) {
+      clearInterval(this.healthTimer)
+      this.healthTimer = null
+    }
   }
 }

@@ -288,6 +288,14 @@ export interface MediaState {
   recording: RecordingState
 }
 
+export interface StreamHealth {
+  ffmpegRunning: boolean
+  videoFlowing: boolean
+  lastVideoChunkAgeMs: number
+  videoChunksTotal: number
+  twitchLive?: boolean
+}
+
 export interface DisplaySource {
   id: string
   name: string

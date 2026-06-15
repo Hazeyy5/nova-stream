@@ -137,6 +137,14 @@ export function useIntegrations() {
     return result.categories ?? []
   }, [])
 
+  const fetchTopTwitchCategories = useCallback(async (limit = 20): Promise<TwitchCategory[]> => {
+    const result = await window.novaStream.integrations.fetchTopTwitchCategories(limit)
+    if (!result.success) {
+      throw new Error(result.message ?? 'Impossible de charger les catégories populaires')
+    }
+    return result.categories ?? []
+  }, [])
+
   const updateTwitchChannelInfo = useCallback(async (title: string, categoryId: string): Promise<void> => {
     const result = await window.novaStream.integrations.updateTwitchChannelInfo({ title, categoryId })
     if (!result.success) {
@@ -166,6 +174,7 @@ export function useIntegrations() {
     fetchTwitchStreamKey,
     getTwitchChannelInfo,
     searchTwitchCategories,
+    fetchTopTwitchCategories,
     updateTwitchChannelInfo
   }
 }

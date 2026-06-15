@@ -9,7 +9,13 @@ export function isAcquirableMediaSource(source: Source): boolean {
   return false
 }
 
-export function mediaSourceKey(source: Source): string | null {
+export function mediaCaptureFingerprint(source: Source): string | null {
   if (!isAcquirableMediaSource(source)) return null
-  return `${source.id}:${source.type}:${source.captureId ?? ''}:${source.browserUrl ?? ''}:${source.imageUrl ?? ''}:${source.imageLocalPath ?? ''}:${source.webcamDevice ?? ''}`
+  return `${source.type}:${source.captureId ?? ''}:${source.browserUrl ?? ''}:${source.imageUrl ?? ''}:${source.imageLocalPath ?? ''}:${source.webcamDevice ?? ''}`
+}
+
+export function mediaSourceKey(source: Source): string | null {
+  const fp = mediaCaptureFingerprint(source)
+  if (!fp) return null
+  return `${source.id}:${fp}`
 }

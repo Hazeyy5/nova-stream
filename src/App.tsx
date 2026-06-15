@@ -91,14 +91,19 @@ function AppContent() {
   const twitchConnected = integrations.connections.some((c) => c.platform === 'twitch')
   const streamKeyFetchRef = useRef(false)
 
-  const { streamsRef } = useSceneMedia(scenes.activeScene?.sources ?? [])
+  const [mediaState, setMediaState] = useState<MediaState>(DEFAULT_MEDIA_STATE)
+
+  const keepStreamsWarm =
+    mediaState.stream.status === 'live' ||
+    mediaState.stream.status === 'starting' ||
+    mediaState.recording.status === 'recording'
+
+  const { streamsRef } = useSceneMedia(scenes.activeScene?.sources ?? [], { keepStreamsWarm })
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sceneCapture = useSceneCapture(streamsRef, previewCanvasRef)
 
   const [view, setView] = useState<AppView>('editor')
-
-  const [mediaState, setMediaState] = useState<MediaState>(DEFAULT_MEDIA_STATE)
 
   const [settings, setSettings] = useState<StreamSettings>(() => {
 
@@ -171,6 +176,50 @@ function AppContent() {
     return window.novaStream.media.onStatusChange(setMediaState)
 
   }, [])
+
+  useEffect(() => {
+    if (mediaState.stream.status !== 'live') return
+
+    const check = async () => {
+      const health = await window.novaStream.media.getHealth()
+      if (!health.ffmpegRunning || !health.videoFlowing) {
+        setMediaState((prev) => {
+          if (prev.stream.status !== 'live') return prev
+          return {
+            ...prev,
+            stream: {
+              status: 'error',
+              message: prev.stream.message?.includes('arrêté')
+                ? prev.stream.message
+                : 'Connexion live interrompue — relancez le live si nécessaire.',
+              startedAt: undefined
+            }
+          }
+        })
+        return
+      }
+
+      if (twitchConnected) {
+        const stats = await window.novaStream.integrations.getWidgetLiveData()
+        if (stats && !stats.live && health.videoFlowing) {
+          setMediaState((prev) => {
+            if (prev.stream.status !== 'live') return prev
+            return {
+              ...prev,
+              stream: {
+                ...prev.stream,
+                message: 'Flux actif localement — Twitch ne signale pas encore le live.'
+              }
+            }
+          })
+        }
+      }
+    }
+
+    const id = setInterval(() => { void check() }, 15000)
+    void check()
+    return () => clearInterval(id)
+  }, [mediaState.stream.status, twitchConnected])
 
 
 

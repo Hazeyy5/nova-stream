@@ -164,6 +164,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('media:getStatus', () => streamManager.getState())
   ipcMain.handle('media:isActive', () => streamManager.isActive())
+  ipcMain.handle('media:getHealth', () => streamManager.getHealth())
 
   ipcMain.handle('media:updateAudioSettings', (_event, settings: StreamSettings) => {
     streamManager.updateAudioSettings(settings)
@@ -346,6 +347,18 @@ app.whenReady().then(async () => {
   ipcMain.handle('integrations:searchTwitchCategories', async (_e, query: string) => {
     try {
       const categories = await integrations.searchTwitchCategories(query)
+      return { success: true, categories }
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Erreur'
+      }
+    }
+  })
+
+  ipcMain.handle('integrations:fetchTopTwitchCategories', async (_e, limit?: number) => {
+    try {
+      const categories = await integrations.fetchTopTwitchCategories(limit)
       return { success: true, categories }
     } catch (err) {
       return {

@@ -49,6 +49,10 @@
   line-height: 1.4;
 }
 
+.controls-status-warn {
+  color: #f0a020;
+}
+
 .controls-btn {
   width: 100%;
   padding: 11px 12px;

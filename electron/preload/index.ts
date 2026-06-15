@@ -33,6 +33,12 @@ const api = {
     sendVideoChunk: (chunk: Uint8Array) => ipcRenderer.send('media:video-chunk', chunk),
     getStatus: () => ipcRenderer.invoke('media:getStatus') as Promise<MediaState>,
     isActive: () => ipcRenderer.invoke('media:isActive') as Promise<boolean>,
+    getHealth: () => ipcRenderer.invoke('media:getHealth') as Promise<{
+      ffmpegRunning: boolean
+      videoFlowing: boolean
+      lastVideoChunkAgeMs: number
+      videoChunksTotal: number
+    }>,
     updateAudioSettings: (settings: StreamSettings) =>
       ipcRenderer.invoke('media:updateAudioSettings', settings) as Promise<{ success: boolean }>,
     updateMixerSettings: (settings: StreamSettings) =>
@@ -116,6 +122,12 @@ const api = {
       }>,
     searchTwitchCategories: (query: string) =>
       ipcRenderer.invoke('integrations:searchTwitchCategories', query) as Promise<{
+        success: boolean
+        categories?: TwitchCategory[]
+        message?: string
+      }>,
+    fetchTopTwitchCategories: (limit?: number) =>
+      ipcRenderer.invoke('integrations:fetchTopTwitchCategories', limit) as Promise<{
         success: boolean
         categories?: TwitchCategory[]
         message?: string

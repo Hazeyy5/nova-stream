@@ -7,6 +7,7 @@ import { fetchTwitchStreamKey } from './twitchStreamKey'
 import {
   getTwitchChannelInfo,
   searchTwitchCategories,
+  fetchTopTwitchCategories,
   updateTwitchChannelInfo
 } from './twitchChannel'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
@@ -378,6 +379,10 @@ export class IntegrationManager {
 
   async searchTwitchCategories(query: string) {
     return searchTwitchCategories(query)
+  }
+
+  async fetchTopTwitchCategories(limit?: number) {
+    return fetchTopTwitchCategories(limit)
   }
 
   async updateTwitchChannelInfo(title: string, categoryId: string) {
