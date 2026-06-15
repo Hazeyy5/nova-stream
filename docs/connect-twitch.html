@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion Twitch — Nova Stream</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #0f0f18;
+      color: #e8e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .connect-box {
+      text-align: center;
+      padding: 32px;
+      max-width: 420px;
+    }
+    .connect-box h1 {
+      font-size: 20px;
+      margin: 0 0 8px;
+    }
+    .connect-box p {
+      color: #9b8fb8;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .connect-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(145, 70, 255, 0.25);
+      border-top-color: #9146ff;
+      border-radius: 50%;
+      margin: 24px auto 0;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="connect-box">
+    <h1>Connexion Twitch</h1>
+    <p id="status">Redirection vers Twitch…</p>
+    <div class="connect-spinner" aria-hidden="true"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (function () {
+      const status = document.getElementById('status')
+      if (NovaAuth.getSession()) {
+        status.textContent = 'Session trouvée — ouverture du tableau de bord…'
+        location.replace(NovaAuth.asset('/dashboard.html'))
+        return
+      }
+      if (!NovaAuth.isConfigured()) {
+        status.textContent = 'Twitch n\'est pas configuré sur ce site.'
+        document.querySelector('.connect-spinner')?.remove()
+        return
+      }
+      NovaAuth.startTwitchLogin()
+    })()
+  </script>
+</body>
+</html>

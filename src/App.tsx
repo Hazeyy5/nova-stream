@@ -358,7 +358,7 @@ function AppContent() {
 
   const openTwitchConnectWebsite = useCallback(async () => {
     const base = websiteUrl.replace(/\/$/, '')
-    const result = await window.novaStream.platform.openExternal(`${base}/dashboard.html`)
+    const result = await window.novaStream.platform.openExternal(`${base}/connect-twitch.html`)
     if (!result.success) {
       alert(result.message ?? 'Impossible d\'ouvrir le navigateur')
     }

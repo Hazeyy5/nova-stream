@@ -23,13 +23,15 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
 
   const chooseAccount = (mode: UserMode) => {
     setUserMode(mode)
+    if (mode === 'twitch') {
+      onConnectTwitch()
+    }
     setStep('template')
   }
 
   const finish = () => {
     if (!userMode) return
     onComplete({ userMode, templateId: selectedTemplate })
-    if (userMode === 'twitch') onConnectTwitch()
   }
 
   return (
