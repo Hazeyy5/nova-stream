@@ -5,7 +5,8 @@
     ]},
     { section: "L'essentiel du streaming", items: [
       { id: 'alert', label: "Fenêtre d'alerte", href: '/widget-config.html?w=alert', icon: '🔔' },
-      { id: 'chat', label: 'Fenêtre de chat', href: '/widget-config.html?w=chat', icon: '💬' }
+      { id: 'chat', label: 'Fenêtre de chat', href: '/widget-config.html?w=chat', icon: '💬' },
+      { id: 'donations', label: 'Dons', href: '/donations.html', icon: '💰' }
     ]},
     { section: 'Widgets canvas', items: [
       { id: 'followerGoal', label: 'Objectif followers', href: '/widget-config.html?w=followerGoal', icon: '🎯' },

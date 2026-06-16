@@ -6,8 +6,9 @@ window.NOVA_CONFIG = {
   WEBSITE_URL: 'https://hazeyy5.github.io/nova-stream',
   GITHUB_URL: 'https://github.com/Hazeyy5/nova-stream',
   GITHUB_REPO: 'Hazeyy5/nova-stream',
-  APP_VERSION: '0.6.0',
+  APP_VERSION: '0.8.0',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
+  DONATIONS_API_URL: '',
   SCOPES: [
     'user:read:email',
     'chat:read',

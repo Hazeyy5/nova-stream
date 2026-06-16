@@ -1,0 +1,233 @@
+/* Page de dons — style Streamlabs */
+
+.tip-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(145, 70, 255, 0.22), transparent),
+    linear-gradient(180deg, #0c0c12 0%, #12121c 100%);
+}
+
+.tip-card {
+  width: 100%;
+  max-width: 440px;
+  background: rgba(22, 22, 32, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.tip-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.tip-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid #9146ff;
+  margin-bottom: 12px;
+  object-fit: cover;
+}
+
+.tip-header h1 {
+  font-size: 1.35rem;
+  margin: 0 0 6px;
+  color: #fff;
+}
+
+.tip-header p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.tip-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tip-amount-btn {
+  flex: 1 1 calc(33% - 8px);
+  min-width: 72px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tip-amount-btn:hover,
+.tip-amount-btn.active {
+  border-color: #9146ff;
+  background: rgba(145, 70, 255, 0.18);
+  color: #fff;
+}
+
+.tip-field {
+  margin-bottom: 14px;
+}
+
+.tip-field label {
+  display: block;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tip-field input,
+.tip-field textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.25);
+  color: #f1f5f9;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.tip-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.tip-submit {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #9146ff, #6d28d9);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.tip-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tip-success {
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.tip-success h2 {
+  color: #4ade80;
+  margin: 0 0 12px;
+}
+
+.tip-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.tip-powered {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.tip-powered a {
+  color: #a78bfa;
+  text-decoration: none;
+}
+
+/* Dashboard dons */
+.donations-panel .field-row {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.donations-panel label {
+  display: block;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.donations-panel input[type="text"],
+.donations-panel input[type="number"],
+.donations-panel textarea,
+.donations-panel select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: #f1f5f9;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.donations-url-box {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.donations-url-box input {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.donations-url-box button {
+  white-space: nowrap;
+}
+
+.donations-hint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.donations-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.donations-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.amount-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.amount-tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(145, 70, 255, 0.15);
+  border: 1px solid rgba(145, 70, 255, 0.35);
+  font-size: 0.85rem;
+  color: #e9d5ff;
+}

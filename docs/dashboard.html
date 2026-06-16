@@ -62,6 +62,7 @@
 
     const WIDGET_CARDS = [
       { id: 'alert', icon: '🔔', title: "Fenêtre d'alerte", desc: 'Styles, animations et types d\'alertes Twitch.' },
+      { id: 'donations', icon: '💰', title: 'Dons', desc: 'Page de tip publique et alertes en direct.', href: '/donations.html' },
       { id: 'chat', icon: '💬', title: 'Fenêtre de chat', desc: 'Design et nombre de messages visibles.' },
       { id: 'followerGoal', icon: '🎯', title: 'Objectif followers', desc: 'Barre de progression followers.' },
       { id: 'subGoal', icon: '⭐', title: 'Objectif abonnés', desc: 'Suivi des abonnements en direct.' },
@@ -70,7 +71,7 @@
     ]
 
     document.getElementById('widget-cards').innerHTML = WIDGET_CARDS.map((w) => `
-      <a href="${NovaAuth.asset('/widget-config.html?w=' + w.id)}" class="dash-widget-card">
+      <a href="${NovaAuth.asset(w.href || '/widget-config.html?w=' + w.id)}" class="dash-widget-card">
         <span class="dash-widget-card-icon">${w.icon}</span>
         <h3>${w.title}</h3>
         <p>${w.desc}</p>

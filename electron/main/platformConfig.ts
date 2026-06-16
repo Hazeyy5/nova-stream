@@ -6,6 +6,7 @@ export interface PlatformConfig {
   websiteUrl: string
   githubUrl: string
   twitchClientId: string
+  donationsApiUrl?: string
   supportEmail: string
 }
 
@@ -32,4 +33,11 @@ export function getPublicTwitchClientId(): string | null {
 
 export function isTwitchAvailable(): boolean {
   return !!getPublicTwitchClientId()
+}
+
+export function getDonationsApiUrl(): string | null {
+  const fromEnv = process.env.DONATIONS_API_URL?.trim()
+  if (fromEnv) return fromEnv
+  const fromConfig = getPlatformConfig().donationsApiUrl?.trim()
+  return fromConfig || null
 }

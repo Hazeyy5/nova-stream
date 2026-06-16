@@ -18,13 +18,15 @@ import { fetchTwitchWidgetStats } from './twitchWidgetStats'
 import { loadPersistedFeedEvents, savePersistedFeedEvents } from './feedStore'
 import { fetchRecentTwitchActivity, fetchRecentTwitchFollows } from './twitchFeedHistory'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
-import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
+import { DonationPoller, type PendingDonation } from '../donationPoller'
+import type { ChatMessage, DonationSettings, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
   private eventSub = new TwitchEventSubService()
   private alerts = new AlertManager()
   private widgetModules = new WidgetModuleStore()
+  private donationPoller = new DonationPoller((donation) => this.ingestDonation(donation))
   private messages: ChatMessage[] = []
   private feedEvents: FeedEvent[] = []
   private activeAlerts: StreamAlert[] = []
@@ -69,6 +71,9 @@ export class IntegrationManager {
   }
 
   private showAlert(alert: StreamAlert, dedupeKey?: string): void {
+    const alertSettings = this.widgetModules.getSettings().alert
+    if (alert.type === 'donation' && alertSettings?.types?.donation === false) return
+
     const key = dedupeKey ?? `${alert.type}:${alert.username.toLowerCase()}`
     if (this.recentAlertKeys.has(key)) return
     this.recentAlertKeys.add(key)
@@ -100,6 +105,27 @@ export class IntegrationManager {
       this.activeAlerts = this.activeAlerts.filter((a) => a.id !== stamped.id)
       this.broadcast('alert:dismiss', stamped.id)
     }, 5000)
+  }
+
+  ingestDonation(donation: PendingDonation): void {
+    const symbol = donation.currency === 'USD' ? '$' : '€'
+    const amountLabel = `${donation.amount}${symbol}`
+    const message = donation.message
+      ? `${amountLabel} — ${donation.message}`
+      : `${amountLabel} — Merci pour le stream !`
+
+    this.showAlert({
+      id: donation.id,
+      type: 'donation',
+      platform: 'twitch',
+      username: donation.donorName,
+      message,
+      amount: amountLabel
+    }, `donation:${donation.id}`)
+  }
+
+  getDonationSettings(): DonationSettings | undefined {
+    return this.widgetModules.getSettings().donations
   }
 
   private scheduleWidgetStatsRefresh(): void {
@@ -298,6 +324,16 @@ export class IntegrationManager {
     this.widgetModules.setSettings(settings)
     if (token?.trim()) this.widgetModules.setToken(token)
     this.broadcast('widgets:settings', settings)
+    this.syncDonationPolling()
+  }
+
+  private syncDonationPolling(): void {
+    const donations = this.getDonationSettings()
+    if (getToken('twitch') && donations?.enabled && donations.donationKey) {
+      this.donationPoller.start(() => this.getDonationSettings())
+    } else {
+      this.donationPoller.stop()
+    }
   }
 
   registerWebWidgetSession(payload: { settings?: WebWidgetSettings; widgetToken?: string }): void {
@@ -386,6 +422,7 @@ export class IntegrationManager {
     this.broadcast('integrations:updated', this.getConnections())
     this.startWidgetStatsPolling()
     this.startActivityPolling()
+    this.syncDonationPolling()
     return pub
   }
 
@@ -397,6 +434,7 @@ export class IntegrationManager {
       this.lastTwitchAccessToken = null
       this.stopWidgetStatsPolling()
       this.stopActivityPolling()
+      this.donationPoller.stop()
       this.activityBaselineReady = false
       this.knownFollowIds.clear()
       this.widgetLiveData = { viewerCount: 0, followerCount: 0, subCount: 0, live: false }
@@ -427,6 +465,7 @@ export class IntegrationManager {
     }
 
     void this.seedRecentTwitchActivity()
+    this.syncDonationPolling()
   }
 
   getMessages(): ChatMessage[] {

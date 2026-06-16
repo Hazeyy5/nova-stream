@@ -1,0 +1,7 @@
+name = "nova-stream-donations"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "DONATIONS_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

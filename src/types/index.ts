@@ -246,6 +246,22 @@ export interface WebWidgetSettings {
     question?: string
     options?: string[]
   }
+  donations?: DonationSettings
+}
+
+/** Paramètres de la page de dons (synchronisés site ↔ app). */
+export interface DonationSettings {
+  enabled?: boolean
+  currency?: 'EUR' | 'USD'
+  minAmount?: number
+  suggestedAmounts?: number[]
+  pageTitle?: string
+  pageMessage?: string
+  thankYouMessage?: string
+  /** Clé secrète pour récupérer les dons dans l'app desktop. */
+  donationKey?: string
+  /** Nom PayPal.me (optionnel) — redirection après envoi du don. */
+  paypalUsername?: string
 }
 
 export interface StreamSettings {

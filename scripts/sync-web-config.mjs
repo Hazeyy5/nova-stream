@@ -18,6 +18,7 @@ window.NOVA_CONFIG = {
   GITHUB_REPO: '${githubRepo}',
   APP_VERSION: '${platform.version || '0.0.0'}',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
+  DONATIONS_API_URL: '${(platform.donationsApiUrl || '').replace(/'/g, "\\'")}',
   SCOPES: [
     'user:read:email',
     'chat:read',

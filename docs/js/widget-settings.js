@@ -39,6 +39,16 @@
       style: 'bars',
       question: 'Quel est votre jeu préféré ?',
       options: ['RPG', 'FPS', 'Stratégie']
+    },
+    donations: {
+      enabled: false,
+      currency: 'EUR',
+      minAmount: 1,
+      suggestedAmounts: [1, 3, 5, 10, 20],
+      pageMessage: 'Soutenez le stream et laissez un message !',
+      thankYouMessage: 'Merci pour votre générosité !',
+      donationKey: '',
+      paypalUsername: ''
     }
   }
 

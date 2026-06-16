@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Envoyer un don — Nova Stream</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/donations.css" />
+</head>
+<body>
+  <div class="tip-page">
+    <div class="tip-card" id="tip-root">
+      <p style="text-align:center;color:#94a3b8">Chargement...</p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/donations.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search)
+    const username = (params.get('u') || params.get('user') || '').trim().toLowerCase()
+    const root = document.getElementById('tip-root')
+
+    if (!username) {
+      root.innerHTML = '<p class="tip-error">Chaîne non spécifiée. Utilisez ?u=votre_pseudo</p>'
+    } else if (!NovaDonations.apiUrl()) {
+      root.innerHTML = '<p class="tip-error">Les dons ne sont pas encore activés sur cette instance Nova Stream.</p>'
+    } else {
+      void loadTipPage(username)
+    }
+
+    async function loadTipPage(user) {
+      try {
+        const streamer = await NovaDonations.fetchStreamer(user)
+        renderForm(streamer)
+      } catch (err) {
+        root.innerHTML = `<p class="tip-error">${err.message}</p>`
+      }
+    }
+
+    function renderForm(s) {
+      const sym = s.currency === 'USD' ? '$' : '€'
+      const title = s.pageTitle || `Soutenir ${s.displayName}`
+      const amounts = s.suggestedAmounts?.length ? s.suggestedAmounts : [1, 3, 5, 10, 20]
+      let selected = amounts[Math.min(2, amounts.length - 1)] ?? 5
+
+      root.innerHTML = `
+        <div id="tip-form-view">
+          <div class="tip-header">
+            ${s.avatarUrl ? `<img class="tip-avatar" src="${s.avatarUrl}" alt="" />` : ''}
+            <h1>${escapeHtml(title)}</h1>
+            <p>${escapeHtml(s.pageMessage || `Envoyez un don à ${s.displayName}`)}</p>
+          </div>
+          <div id="tip-error" class="tip-error" style="display:none"></div>
+          <div class="tip-amounts" id="tip-amounts">
+            ${amounts.map((a) => `
+              <button type="button" class="tip-amount-btn${a === selected ? ' active' : ''}" data-amount="${a}">
+                ${a}${sym}
+              </button>
+            `).join('')}
+          </div>
+          <div class="tip-field">
+            <label for="tip-custom">Montant personnalisé (${sym})</label>
+            <input type="number" id="tip-custom" min="${s.minAmount}" step="1" placeholder="Min. ${s.minAmount}${sym}" />
+          </div>
+          <div class="tip-field">
+            <label for="tip-name">Votre pseudo</label>
+            <input type="text" id="tip-name" maxlength="40" placeholder="Anonyme" />
+          </div>
+          <div class="tip-field">
+            <label for="tip-msg">Message (optionnel)</label>
+            <textarea id="tip-msg" maxlength="280" placeholder="Merci pour le stream !"></textarea>
+          </div>
+          <button type="button" class="tip-submit" id="tip-submit">Envoyer ${selected}${sym}</button>
+          <p class="tip-powered">Propulsé par <a href="${window.NOVA_CONFIG.WEBSITE_URL}">Nova Stream</a></p>
+        </div>
+      `
+
+      const amountBtns = root.querySelectorAll('.tip-amount-btn')
+      const customInput = document.getElementById('tip-custom')
+      const submitBtn = document.getElementById('tip-submit')
+
+      function currentAmount() {
+        const custom = parseFloat(customInput.value)
+        if (Number.isFinite(custom) && custom >= s.minAmount) return custom
+        return selected
+      }
+
+      function updateSubmitLabel() {
+        submitBtn.textContent = `Envoyer ${currentAmount()}${sym}`
+      }
+
+      amountBtns.forEach((btn) => {
+        btn.onclick = () => {
+          selected = parseFloat(btn.dataset.amount)
+          amountBtns.forEach((b) => b.classList.toggle('active', b === btn))
+          customInput.value = ''
+          updateSubmitLabel()
+        }
+      })
+
+      customInput.oninput = updateSubmitLabel
+
+      submitBtn.onclick = async () => {
+        const errEl = document.getElementById('tip-error')
+        errEl.style.display = 'none'
+        submitBtn.disabled = true
+
+        const amount = currentAmount()
+        if (amount < s.minAmount) {
+          errEl.textContent = `Montant minimum : ${s.minAmount}${sym}`
+          errEl.style.display = 'block'
+          submitBtn.disabled = false
+          return
+        }
+
+        try {
+          const result = await NovaDonations.submitTip({
+            streamerId: s.streamerId,
+            donorName: document.getElementById('tip-name').value.trim() || 'Anonyme',
+            message: document.getElementById('tip-msg').value.trim(),
+            amount,
+            currency: s.currency
+          })
+
+          root.innerHTML = `
+            <div class="tip-success">
+              <h2>✓ Don envoyé !</h2>
+              <p>${escapeHtml(result.thankYouMessage || s.thankYouMessage || 'Merci !')}</p>
+              <p style="color:#94a3b8;margin-top:12px">${escapeHtml(result.paymentHint || '')}</p>
+              ${result.paymentUrl ? `<a class="btn btn-primary" style="display:inline-block;margin-top:16px" href="${escapeHtml(result.paymentUrl)}" target="_blank" rel="noopener">Payer via PayPal</a>` : ''}
+            </div>
+          `
+        } catch (err) {
+          errEl.textContent = err.message
+          errEl.style.display = 'block'
+          submitBtn.disabled = false
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+  </script>
+</body>
+</html>

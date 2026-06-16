@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dons — Nova Stream</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/donations.css" />
+</head>
+<body>
+  <div data-dash-main class="dash-main">
+    <header class="dash-hub-header">
+      <h1>💰 Dons</h1>
+      <p>Comme Streamlabs : partagez votre page de dons, recevez des alertes en direct dans Nova Stream.</p>
+    </header>
+
+    <section class="dashboard-panel donations-panel" style="max-width:720px">
+      <div class="donations-toggle">
+        <input type="checkbox" id="don-enabled" />
+        <label for="don-enabled"><strong>Activer les dons</strong></label>
+      </div>
+
+      <p class="donations-hint" id="api-hint"></p>
+
+      <div class="field-row">
+        <label for="don-url">Lien public à partager (chat, panneau Twitch, bio)</label>
+        <div class="donations-url-box">
+          <input type="text" id="don-url" readonly />
+          <button type="button" class="btn btn-outline" id="btn-copy-url">Copier</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <label for="don-currency">Devise</label>
+        <select id="don-currency">
+          <option value="EUR">Euro (€)</option>
+          <option value="USD">Dollar ($)</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label for="don-min">Montant minimum</label>
+        <input type="number" id="don-min" min="1" step="1" />
+      </div>
+
+      <div class="field-row">
+        <label>Montants suggérés (séparés par des virgules)</label>
+        <input type="text" id="don-amounts" placeholder="1, 3, 5, 10, 20" />
+        <div class="amount-tags" id="amount-preview"></div>
+      </div>
+
+      <div class="field-row">
+        <label for="don-paypal">PayPal.me (optionnel)</label>
+        <input type="text" id="don-paypal" placeholder="votre_nom_paypal" />
+        <p class="donations-hint">Après le don, les viewers sont redirigés vers PayPal pour payer. Sans PayPal, l'alerte s'affiche quand même sur votre stream.</p>
+      </div>
+
+      <div class="field-row">
+        <label for="don-title">Titre de la page</label>
+        <input type="text" id="don-title" placeholder="Soutenez mon stream !" />
+      </div>
+
+      <div class="field-row">
+        <label for="don-message">Message d'accueil</label>
+        <textarea id="don-message" rows="3"></textarea>
+      </div>
+
+      <div class="field-row">
+        <label for="don-thanks">Message de remerciement</label>
+        <input type="text" id="don-thanks" />
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="btn btn-primary" id="btn-save">Enregistrer et synchroniser</button>
+        <button type="button" class="btn btn-outline" id="btn-test">Tester l'alerte don</button>
+        <a class="btn btn-outline" id="btn-preview" target="_blank" rel="noopener">Aperçu page dons</a>
+      </div>
+
+      <div id="save-msg" class="status-msg" style="display:none;margin-top:16px"></div>
+    </section>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/link.js"></script>
+  <script src="js/widget-settings.js"></script>
+  <script src="js/donations.js"></script>
+  <script src="js/dashboard-shell.js"></script>
+  <script>
+    NovaDash.mountLayout({ activeId: 'donations' })
+
+    const session = NovaAuth.getSession()
+    const symbol = () => (document.getElementById('don-currency').value === 'USD' ? '$' : '€')
+
+    function renderPreview() {
+      const raw = document.getElementById('don-amounts').value
+      const amounts = raw.split(',').map((s) => parseFloat(s.trim())).filter((n) => n > 0)
+      document.getElementById('amount-preview').innerHTML = amounts
+        .map((n) => `<span class="amount-tag">${n}${symbol()}</span>`)
+        .join('')
+    }
+
+    function fillForm(d) {
+      document.getElementById('don-enabled').checked = !!d.enabled
+      document.getElementById('don-currency').value = d.currency || 'EUR'
+      document.getElementById('don-min').value = d.minAmount ?? 1
+      document.getElementById('don-amounts').value = (d.suggestedAmounts || []).join(', ')
+      document.getElementById('don-paypal').value = d.paypalUsername || ''
+      document.getElementById('don-title').value = d.pageTitle || ''
+      document.getElementById('don-message').value = d.pageMessage || ''
+      document.getElementById('don-thanks').value = d.thankYouMessage || ''
+      document.getElementById('don-url').value = NovaDonations.getTipUrl(session.username)
+      document.getElementById('btn-preview').href = NovaDonations.getTipUrl(session.username)
+      renderPreview()
+    }
+
+    function readForm() {
+      const amounts = document.getElementById('don-amounts').value
+        .split(',')
+        .map((s) => parseFloat(s.trim()))
+        .filter((n) => n > 0)
+      return NovaDonations.save({
+        enabled: document.getElementById('don-enabled').checked,
+        currency: document.getElementById('don-currency').value,
+        minAmount: Math.max(1, parseFloat(document.getElementById('don-min').value) || 1),
+        suggestedAmounts: amounts.length ? amounts : [1, 3, 5, 10, 20],
+        paypalUsername: document.getElementById('don-paypal').value.trim().replace(/^@/, ''),
+        pageTitle: document.getElementById('don-title').value.trim(),
+        pageMessage: document.getElementById('don-message').value.trim(),
+        thankYouMessage: document.getElementById('don-thanks').value.trim()
+      })
+    }
+
+    const apiHint = document.getElementById('api-hint')
+    if (!NovaDonations.apiUrl()) {
+      apiHint.textContent = '⚠️ API de dons non configurée — le mainteneur doit déployer workers/donations et renseigner donationsApiUrl dans platform.json. Vous pouvez quand même tester les alertes depuis l\'app.'
+      apiHint.style.color = '#fbbf24'
+    } else {
+      apiHint.textContent = '✓ Service de dons actif — les viewers pourront envoyer des dons depuis votre lien public.'
+      apiHint.style.color = '#4ade80'
+    }
+
+    fillForm(NovaDonations.load())
+
+    document.getElementById('don-currency').onchange = renderPreview
+    document.getElementById('don-amounts').oninput = renderPreview
+
+    document.getElementById('btn-copy-url').onclick = async () => {
+      const url = document.getElementById('don-url').value
+      try {
+        await navigator.clipboard.writeText(url)
+        document.getElementById('btn-copy-url').textContent = 'Copié !'
+        setTimeout(() => { document.getElementById('btn-copy-url').textContent = 'Copier' }, 2000)
+      } catch {
+        prompt('Copiez ce lien :', url)
+      }
+    }
+
+    document.getElementById('btn-save').onclick = async () => {
+      const msg = document.getElementById('save-msg')
+      msg.style.display = 'none'
+      readForm()
+      try {
+        await NovaDonations.syncAll()
+        msg.className = 'status-msg success'
+        msg.textContent = '✓ Paramètres enregistrés et synchronisés avec Nova Stream.'
+        msg.style.display = 'block'
+      } catch (err) {
+        msg.className = 'status-msg error'
+        msg.textContent = err.message
+        msg.style.display = 'block'
+      }
+    }
+
+    document.getElementById('btn-test').onclick = async () => {
+      try {
+        await NovaLink.testWidget({ widget: 'alert', alertType: 'donation' })
+        alert('Alerte don envoyée à Nova Stream !')
+      } catch (err) {
+        alert(err.message)
+      }
+    }
+  </script>
+</body>
+</html>
