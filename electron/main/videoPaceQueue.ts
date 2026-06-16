@@ -1,20 +1,16 @@
 /** Durée d'un chunk MediaRecorder WebM — doit correspondre à videoPipeEncoder.ts */
 export const WEBM_CHUNK_DURATION_MS = 100
 
-/** Pré-démarrage audio avant le 1er frame vidéo (latence dshow / WASAPI). */
-export const AUDIO_CAPTURE_LEAD_MS = 100
-
 export type VideoPaceMode = 'frame' | 'timed'
 
 export interface VideoPaceOptions {
   paceMode?: VideoPaceMode
   chunkDurationMs?: number
-  audioLeadMs?: number
 }
 
 /**
- * Cadence les chunks vidéo en temps réel pour que FFmpeg assigne des PTS cohérents
- * avec l'audio PCM (comme OBS — horloge commune, pas de adelay fixe).
+ * Limite la vidéo pour qu'elle ne parte pas en avance sur l'horloge temps réel (style OBS).
+ * Si des frames arrivent en retard ou en rafale, elles sont envoyées immédiatement au muxer.
  */
 export class VideoPaceQueue {
   private queue: Array<{ buffer: Buffer; sendAtMs: number }> = []
@@ -22,24 +18,22 @@ export class VideoPaceQueue {
   private fps = 30
   private paceMode: VideoPaceMode = 'frame'
   private chunkDurationMs = WEBM_CHUNK_DURATION_MS
-  private audioLeadMs = AUDIO_CAPTURE_LEAD_MS
   private sessionStartMono: number | null = null
   private frameIndex = 0
   private writeFn: (buf: Buffer) => void = () => {}
-  private onSessionStart: () => void = () => {}
+  private onFirstMuxFrame: () => void = () => {}
 
   configure(
     fps: number,
     writeFn: (buf: Buffer) => void,
-    onSessionStart: () => void,
+    onFirstMuxFrame: () => void,
     options: VideoPaceOptions = {}
   ): void {
     this.fps = Math.max(1, fps)
     this.writeFn = writeFn
-    this.onSessionStart = onSessionStart
+    this.onFirstMuxFrame = onFirstMuxFrame
     this.paceMode = options.paceMode ?? 'frame'
     this.chunkDurationMs = Math.max(1, options.chunkDurationMs ?? WEBM_CHUNK_DURATION_MS)
-    this.audioLeadMs = Math.max(0, options.audioLeadMs ?? AUDIO_CAPTURE_LEAD_MS)
   }
 
   reset(): void {
@@ -54,24 +48,23 @@ export class VideoPaceQueue {
 
     const now = monotonicMs()
     if (this.sessionStartMono === null) {
-      this.onSessionStart()
-      this.sessionStartMono = this.audioLeadMs > 0 ? now + this.audioLeadMs : now
-      if (this.audioLeadMs > 0) {
-        setTimeout(() => {
-          this.writeFn(chunk)
-          this.advanceFrameIndex()
-        }, this.audioLeadMs)
-      } else {
-        this.writeFn(chunk)
-        this.advanceFrameIndex()
-      }
+      this.sessionStartMono = now
+      this.onFirstMuxFrame()
+      this.writeFn(chunk)
+      this.advanceFrameIndex()
       return
     }
 
     const frameDurationMs = 1000 / this.fps
-    const sendAtMs = this.sessionStartMono + this.frameIndex * frameDurationMs
+    const scheduledTime = this.sessionStartMono + this.frameIndex * frameDurationMs
     this.advanceFrameIndex()
-    this.queue.push({ buffer: chunk, sendAtMs: Math.max(now, sendAtMs) })
+
+    if (scheduledTime <= now) {
+      this.writeFn(chunk)
+      return
+    }
+
+    this.queue.push({ buffer: chunk, sendAtMs: scheduledTime })
     this.scheduleDrain()
   }
 

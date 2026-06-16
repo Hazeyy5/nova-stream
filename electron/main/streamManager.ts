@@ -7,7 +7,7 @@ import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from '
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
-import { VideoPaceQueue, WEBM_CHUNK_DURATION_MS, AUDIO_CAPTURE_LEAD_MS } from './videoPaceQueue'
+import { VideoPaceQueue, WEBM_CHUNK_DURATION_MS } from './videoPaceQueue'
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
@@ -19,7 +19,6 @@ export interface StartMediaOptions {
 
 export class StreamManager {
   private process: ChildProcessWithoutNullStreams | null = null
-  private pendingChunks: Buffer[] = []
   private desktopCapture = new DesktopAudioCapture()
   private micCapture = new MicAudioCapture()
   private sessionSettings: StreamSettings | null = null
@@ -84,11 +83,7 @@ export class StreamManager {
   }
 
   handleVideoChunk(chunk: Buffer): void {
-    if (chunk.length === 0) return
-    if (!this.process) {
-      this.pendingChunks.push(chunk)
-      return
-    }
+    if (chunk.length === 0 || !this.process) return
 
     this.videoChunksReceived += 1
     this.lastVideoChunkAt = Date.now()
@@ -364,9 +359,7 @@ export class StreamManager {
         windowsHide: true,
         stdio
       })
-      const preBufferedVideo = this.pendingChunks
       this.process = proc
-      this.pendingChunks = []
       this.videoChunksReceived = 0
       this.lastVideoChunkAt = 0
       this.sessionFramerate = resolved.framerate
@@ -380,8 +373,7 @@ export class StreamManager {
         },
         {
           paceMode: videoInputFormat === 'webm' ? 'timed' : 'frame',
-          chunkDurationMs: WEBM_CHUNK_DURATION_MS,
-          audioLeadMs: includeAudio ? AUDIO_CAPTURE_LEAD_MS : 0
+          chunkDurationMs: WEBM_CHUNK_DURATION_MS
         }
       )
       this.sessionUsesNativeDesktop = usesNativeDesktop
@@ -484,11 +476,6 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
-        for (const chunk of preBufferedVideo) {
-          this.videoChunksReceived += 1
-          this.lastVideoChunkAt = Date.now()
-          this.videoPaceQueue.push(chunk)
-        }
         if (record && !stream) markStarted()
       })
 
@@ -551,7 +538,6 @@ export class StreamManager {
         clearStartTimeout()
         this.activeLaunch = null
         this.process = null
-        this.pendingChunks = []
         const stopping = this.state.stream.status === 'stopping' || this.startCancelled
 
         if (stopping) {

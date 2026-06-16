@@ -44,6 +44,18 @@ export class VideoPipeEncoder {
     return this.format === 'h264' ? 0 : 0
   }
 
+  setOnChunk(handler: VideoChunkHandler | null): void {
+    this.onChunk = handler
+  }
+
+  /** Démarre l'envoi des chunks (après que le muxer FFmpeg soit prêt). */
+  beginCapture(onChunk: VideoChunkHandler, canvas: HTMLCanvasElement, bitrateKbps: number): void {
+    this.onChunk = onChunk
+    if (this.format === 'webm' && !this.mediaRecorder) {
+      this.startMediaRecorder(canvas, bitrateKbps)
+    }
+  }
+
   async start(options: StartOptions): Promise<VideoInputFormat> {
     this.framerate = options.framerate
     this.onChunk = options.onChunk
@@ -80,7 +92,6 @@ export class VideoPipeEncoder {
       }
     }
 
-    this.startMediaRecorder(canvas, bitrateKbps)
     this.format = 'webm'
     return this.format
   }

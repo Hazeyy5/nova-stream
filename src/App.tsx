@@ -314,9 +314,7 @@ function AppContent() {
 
       await sceneCapture.arm()
 
-      const videoInputFormat = await sceneCapture.beginPipe(settings.videoBitrate, settings.framerate)
-
-      await sceneCapture.waitForVideoPipeReady(videoInputFormat === 'h264' ? 2 : 3, 5000)
+      const videoInputFormat = await sceneCapture.prepareEncoder(settings.videoBitrate, settings.framerate)
 
       let liveSettings = settings
 
@@ -352,6 +350,8 @@ function AppContent() {
         return
 
       }
+
+      sceneCapture.connectPipe()
 
     } catch (err) {
 

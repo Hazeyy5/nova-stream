@@ -506,7 +506,7 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Comme OBS : vidéo et audio partent au même instant, cadencés en temps réel.
+                    Comme OBS : FFmpeg démarre d&apos;abord, puis vidéo et micro partent sur la même timeline.
                     Aucun réglage manuel nécessaire dans la plupart des cas.
                   </>
                 ) : (
