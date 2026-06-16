@@ -611,8 +611,8 @@ export default function SettingsModal({
               <hr className="settings-hr" />
 
               <p className="settings-hint">
-                Nova Stream vérifie automatiquement les mises à jour au lancement (application installée uniquement).
-                Une bannière s&apos;affiche en haut de l&apos;écran lorsqu&apos;une mise à jour est prête.
+                Nova Stream vérifie automatiquement les mises à jour à l&apos;ouverture (application installée uniquement).
+                Une bannière s&apos;affiche en haut de l&apos;écran dès qu&apos;une nouvelle version est détectée.
               </p>
               <div className="settings-scenes-actions">
                 <button

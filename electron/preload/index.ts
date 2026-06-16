@@ -288,6 +288,12 @@ const api = {
     }
   },
   updates: {
+    getState: () => ipcRenderer.invoke('updates:getState') as Promise<{
+      status: string
+      version?: string
+      progress?: number
+      message?: string
+    }>,
     check: () => ipcRenderer.invoke('updates:check') as Promise<void>,
     install: () => ipcRenderer.invoke('updates:install') as Promise<{ success: boolean }>,
     onState: (callback: (state: {

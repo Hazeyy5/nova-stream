@@ -18,15 +18,26 @@ export interface AppUpdateState {
 }
 
 let initialized = false
+let lastUpdateState: AppUpdateState = { status: 'idle' }
+let startupCheckDone = false
 
 function broadcast(state: AppUpdateState): void {
+  lastUpdateState = state
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send('updates:state', state)
+    if (!win.isDestroyed()) {
+      win.webContents.send('updates:state', state)
+    }
   }
 }
 
 export function getUpdateState(): AppUpdateState {
-  return { status: 'idle' }
+  return lastUpdateState
+}
+
+/** Renvoie l'état courant au renderer (ex. à l'ouverture de la fenêtre). */
+export function syncUpdateStateToRenderer(): void {
+  if (lastUpdateState.status === 'idle') return
+  broadcast(lastUpdateState)
 }
 
 export function initAutoUpdater(): void {
@@ -56,6 +67,7 @@ export function initAutoUpdater(): void {
   autoUpdater.on('download-progress', (progress) => {
     broadcast({
       status: 'downloading',
+      version: lastUpdateState.version,
       progress: Math.round(progress.percent),
       message: `Téléchargement… ${Math.round(progress.percent)} %`
     })
@@ -75,12 +87,17 @@ export function initAutoUpdater(): void {
       message: err.message || 'Erreur de mise à jour'
     })
   })
+}
+
+export function scheduleStartupUpdateCheck(): void {
+  if (!app.isPackaged || startupCheckDone) return
+  startupCheckDone = true
 
   setTimeout(() => {
     void autoUpdater.checkForUpdates().catch(() => {
       /* réseau indisponible, ignoré */
     })
-  }, 8000)
+  }, 1500)
 }
 
 export async function checkForUpdatesManual(): Promise<AppUpdateState> {
@@ -101,7 +118,7 @@ export async function checkForUpdatesManual(): Promise<AppUpdateState> {
       broadcast(state)
       return state
     }
-    return { status: 'checking' }
+    return lastUpdateState
   } catch (err) {
     const state: AppUpdateState = {
       status: 'error',

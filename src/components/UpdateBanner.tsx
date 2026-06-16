@@ -8,57 +8,69 @@ interface UpdateState {
   message?: string
 }
 
+const VISIBLE_STATUSES = new Set(['available', 'downloading', 'downloaded'])
+
+function shouldShow(state: UpdateState | null, dismissed: boolean): boolean {
+  if (!state || dismissed) return false
+  return VISIBLE_STATUSES.has(state.status)
+}
+
 export default function UpdateBanner() {
   const [state, setState] = useState<UpdateState | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    void window.novaStream.updates.getState().then((current) => {
+      if (VISIBLE_STATUSES.has(current.status)) {
+        setState(current)
+        setDismissed(false)
+      }
+    })
+
     return window.novaStream.updates.onState((next) => {
       setState(next)
-      if (next.status === 'downloaded' || next.status === 'available' || next.status === 'downloading') {
+      if (VISIBLE_STATUSES.has(next.status)) {
         setDismissed(false)
       }
     })
   }, [])
 
-  if (!state || dismissed) return null
-  if (state.status === 'idle' || state.status === 'checking') return null
-  if (state.status === 'not-available' || state.status === 'error') return null
+  if (!shouldShow(state, dismissed)) return null
 
   const install = () => {
     void window.novaStream.updates.install()
   }
 
   return (
-    <div className={`update-banner update-banner--${state.status}`}>
+    <div className={`update-banner update-banner--${state!.status}`}>
       <div className="update-banner-text">
-        {state.status === 'downloaded' ? (
+        {state!.status === 'downloaded' ? (
           <>
-            <strong>Mise à jour {state.version ?? ''} prête</strong>
+            <strong>Mise à jour {state!.version ?? ''} prête</strong>
             <span>Redémarrez l&apos;application pour l&apos;installer.</span>
           </>
-        ) : state.status === 'downloading' ? (
+        ) : state!.status === 'downloading' ? (
           <>
-            <strong>Téléchargement de la mise à jour…</strong>
-            <span>{state.progress ?? 0} %</span>
+            <strong>Téléchargement de la mise à jour {state!.version ? `v${state!.version}` : ''}…</strong>
+            <span>{state!.progress ?? 0} %</span>
             <div className="update-banner-progress">
-              <div className="update-banner-progress-fill" style={{ width: `${state.progress ?? 0}%` }} />
+              <div className="update-banner-progress-fill" style={{ width: `${state!.progress ?? 0}%` }} />
             </div>
           </>
         ) : (
           <>
-            <strong>Mise à jour disponible</strong>
-            <span>{state.message ?? `Version ${state.version ?? ''} en cours de téléchargement…`}</span>
+            <strong>Nouvelle version disponible — v{state!.version ?? '?'}</strong>
+            <span>{state!.message ?? 'Téléchargement en cours…'}</span>
           </>
         )}
       </div>
       <div className="update-banner-actions">
-        {state.status === 'downloaded' && (
+        {state!.status === 'downloaded' && (
           <button type="button" className="update-banner-btn primary" onClick={install}>
             Redémarrer et installer
           </button>
         )}
-        {state.status !== 'downloading' && (
+        {state!.status !== 'downloading' && (
           <button type="button" className="update-banner-btn ghost" onClick={() => setDismissed(true)}>
             Plus tard
           </button>

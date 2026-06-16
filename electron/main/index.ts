@@ -33,7 +33,7 @@ import {
 } from './capturePickerWindow'
 import { desktopAudioMeterService } from './audioMeterService'
 import { streamAudioMeterService } from './streamMeterParser'
-import { initAutoUpdater, checkForUpdatesManual, installUpdateNow } from './autoUpdater'
+import { initAutoUpdater, checkForUpdatesManual, installUpdateNow, getUpdateState, syncUpdateStateToRenderer, scheduleStartupUpdateCheck } from './autoUpdater'
 import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
 
 const GAME_CAPTURE_EXCLUDED = [
@@ -101,6 +101,11 @@ function createWindow(): BrowserWindow {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    syncUpdateStateToRenderer()
+    scheduleStartupUpdateCheck()
+  })
 
   setMainWindow(mainWindow)
   setAudioPropsMainWindow(mainWindow)
@@ -476,6 +481,7 @@ app.whenReady().then(async () => {
     streamAudioMeterService.unsubscribe(event.sender)
   })
 
+  ipcMain.handle('updates:getState', () => getUpdateState())
   ipcMain.handle('updates:check', () => checkForUpdatesManual())
   ipcMain.handle('updates:install', () => {
     installUpdateNow()
