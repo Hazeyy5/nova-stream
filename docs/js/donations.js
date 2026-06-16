@@ -116,6 +116,27 @@
     return data.streamer
   }
 
+  async function fetchHistory(limit = 30) {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+
+    const session = window.NovaAuth.getSession()
+    if (!session) throw new Error('Connectez-vous avec Twitch')
+
+    const d = load()
+    const url = new URL(`${base}/v1/history`)
+    url.searchParams.set('streamerId', session.userId)
+    url.searchParams.set('key', d.donationKey)
+    url.searchParams.set('limit', String(limit))
+
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Impossible de charger l\'historique')
+    }
+    return data
+  }
+
   window.NovaDonations = {
     DEFAULTS,
     load,
@@ -125,6 +146,7 @@
     registerOnApi,
     syncAll,
     submitTip,
-    fetchStreamer
+    fetchStreamer,
+    fetchHistory
   }
 })()

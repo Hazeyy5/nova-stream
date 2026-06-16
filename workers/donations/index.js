@@ -1,7 +1,6 @@
 /**
- * API relais des dons Nova Stream (Cloudflare Worker + KV).
- * Déploiement : cd workers/donations && npx wrangler deploy
- * Puis renseignez donationsApiUrl dans shared/platform.json et npm run sync-config
+ * API relais des dons Nova Stream (Cloudflare Worker + D1).
+ * Déploiement : voir README.md
  */
 
 const CORS = {
@@ -17,26 +16,75 @@ function json(data, status = 200) {
   })
 }
 
-function streamerKey(id) {
-  return `streamer:${id}`
+function parseSuggested(raw, fallback = [1, 3, 5, 10, 20]) {
+  if (Array.isArray(raw)) {
+    return raw.map(Number).filter((n) => n > 0).slice(0, 8)
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parseSuggested(parsed)
+    } catch {
+      /* legacy csv */
+    }
+  }
+  return fallback
 }
 
-function donationsKey(id) {
-  return `donations:${id}`
-}
-
-async function readJson(kv, key, fallback) {
-  const raw = await kv.get(key)
-  if (!raw) return fallback
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return fallback
+function rowToStreamer(row) {
+  if (!row) return null
+  return {
+    streamerId: row.streamer_id,
+    username: row.username,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    donationKey: row.donation_key,
+    enabled: row.enabled === 1,
+    currency: row.currency,
+    minAmount: row.min_amount,
+    suggestedAmounts: parseSuggested(row.suggested_amounts),
+    pageTitle: row.page_title,
+    pageMessage: row.page_message,
+    thankYouMessage: row.thank_you_message,
+    paypalUsername: row.paypal_username,
+    updatedAt: row.updated_at
   }
 }
 
-async function writeJson(kv, key, value) {
-  await kv.put(key, JSON.stringify(value))
+function rowToDonation(row) {
+  return {
+    id: row.id,
+    streamerId: row.streamer_id,
+    donorName: row.donor_name,
+    message: row.message,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status,
+    paymentProvider: row.payment_provider,
+    createdAt: row.created_at
+  }
+}
+
+async function getStreamerById(db, streamerId) {
+  const row = await db
+    .prepare('SELECT * FROM streamers WHERE streamer_id = ?')
+    .bind(streamerId)
+    .first()
+  return rowToStreamer(row)
+}
+
+async function getStreamerByUsername(db, username) {
+  const row = await db
+    .prepare('SELECT * FROM streamers WHERE username = ? COLLATE NOCASE')
+    .bind(String(username).toLowerCase())
+    .first()
+  return rowToStreamer(row)
+}
+
+async function verifyStreamerKey(db, streamerId, key) {
+  const s = await getStreamerById(db, streamerId)
+  if (!s || s.donationKey !== key) return null
+  return s
 }
 
 export default {
@@ -45,48 +93,54 @@ export default {
       return new Response(null, { headers: CORS })
     }
 
+    const db = env.DB
+    if (!db) {
+      return json({ success: false, message: 'Base D1 non configurée' }, 500)
+    }
+
     const url = new URL(request.url)
     const path = url.pathname.replace(/\/+$/, '') || '/'
 
     if (path === '/v1/health') {
-      return json({ ok: true, service: 'nova-donations' })
+      try {
+        await db.prepare('SELECT 1 AS ok').first()
+        return json({ ok: true, service: 'nova-donations', storage: 'd1' })
+      } catch {
+        return json({ ok: false, service: 'nova-donations', storage: 'd1' }, 503)
+      }
     }
 
     if (path === '/v1/streamer' && request.method === 'GET') {
       const streamerId = url.searchParams.get('id')
-      const username = url.searchParams.get('username')?.toLowerCase()
-      if (!streamerId && !username) {
-        return json({ success: false, message: 'id ou username requis' }, 400)
-      }
+      const username = url.searchParams.get('username')?.trim()
 
-      let id = streamerId
-      if (!id && username) {
-        const index = await readJson(env.DONATIONS_KV, `user:${username}`, null)
-        id = index?.streamerId
-      }
-      if (!id) {
+      const settings = streamerId
+        ? await getStreamerById(db, streamerId)
+        : username
+          ? await getStreamerByUsername(db, username)
+          : null
+
+      if (!settings) {
         return json({ success: false, message: 'Chaîne introuvable' }, 404)
       }
-
-      const settings = await readJson(env.DONATIONS_KV, streamerKey(id), null)
-      if (!settings?.enabled) {
+      if (!settings.enabled) {
         return json({ success: false, message: 'Les dons ne sont pas activés pour cette chaîne' }, 404)
       }
 
       return json({
         success: true,
         streamer: {
-          streamerId: id,
+          streamerId: settings.streamerId,
           username: settings.username,
           displayName: settings.displayName,
           avatarUrl: settings.avatarUrl,
-          currency: settings.currency ?? 'EUR',
-          minAmount: settings.minAmount ?? 1,
-          suggestedAmounts: settings.suggestedAmounts ?? [1, 3, 5, 10, 20],
+          currency: settings.currency,
+          minAmount: settings.minAmount,
+          suggestedAmounts: settings.suggestedAmounts,
           pageTitle: settings.pageTitle,
           pageMessage: settings.pageMessage,
           thankYouMessage: settings.thankYouMessage,
-          paypalUsername: settings.paypalUsername ?? ''
+          paypalUsername: settings.paypalUsername
         }
       })
     }
@@ -119,27 +173,64 @@ export default {
         return json({ success: false, message: 'Champs requis manquants' }, 400)
       }
 
+      const now = Date.now()
       const record = {
-        streamerId: String(streamerId),
+        streamer_id: String(streamerId),
         username: String(username).toLowerCase(),
-        displayName: String(displayName ?? username),
-        avatarUrl: avatarUrl ?? '',
-        donationKey: String(donationKey),
-        enabled: enabled !== false,
+        display_name: String(displayName ?? username),
+        avatar_url: avatarUrl ?? '',
+        donation_key: String(donationKey),
+        enabled: enabled !== false ? 1 : 0,
         currency: currency === 'USD' ? 'USD' : 'EUR',
-        minAmount: Math.max(1, Number(minAmount) || 1),
-        suggestedAmounts: Array.isArray(suggestedAmounts)
-          ? suggestedAmounts.map(Number).filter((n) => n > 0).slice(0, 8)
-          : [1, 3, 5, 10, 20],
-        pageTitle: pageTitle ?? '',
-        pageMessage: pageMessage ?? '',
-        thankYouMessage: thankYouMessage ?? 'Merci pour votre soutien !',
-        paypalUsername: String(paypalUsername ?? '').replace(/^@/, ''),
-        updatedAt: Date.now()
+        min_amount: Math.max(1, Number(minAmount) || 1),
+        suggested_amounts: JSON.stringify(parseSuggested(suggestedAmounts)),
+        page_title: pageTitle ?? '',
+        page_message: pageMessage ?? '',
+        thank_you_message: thankYouMessage ?? 'Merci pour votre soutien !',
+        paypal_username: String(paypalUsername ?? '').replace(/^@/, ''),
+        updated_at: now
       }
 
-      await writeJson(env.DONATIONS_KV, streamerKey(record.streamerId), record)
-      await writeJson(env.DONATIONS_KV, `user:${record.username}`, { streamerId: record.streamerId })
+      await db
+        .prepare(`
+          INSERT INTO streamers (
+            streamer_id, username, display_name, avatar_url, donation_key, enabled,
+            currency, min_amount, suggested_amounts, page_title, page_message,
+            thank_you_message, paypal_username, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(streamer_id) DO UPDATE SET
+            username = excluded.username,
+            display_name = excluded.display_name,
+            avatar_url = excluded.avatar_url,
+            donation_key = excluded.donation_key,
+            enabled = excluded.enabled,
+            currency = excluded.currency,
+            min_amount = excluded.min_amount,
+            suggested_amounts = excluded.suggested_amounts,
+            page_title = excluded.page_title,
+            page_message = excluded.page_message,
+            thank_you_message = excluded.thank_you_message,
+            paypal_username = excluded.paypal_username,
+            updated_at = excluded.updated_at
+        `)
+        .bind(
+          record.streamer_id,
+          record.username,
+          record.display_name,
+          record.avatar_url,
+          record.donation_key,
+          record.enabled,
+          record.currency,
+          record.min_amount,
+          record.suggested_amounts,
+          record.page_title,
+          record.page_message,
+          record.thank_you_message,
+          record.paypal_username,
+          record.updated_at
+        )
+        .run()
+
       return json({ success: true })
     }
 
@@ -161,30 +252,27 @@ export default {
         return json({ success: false, message: 'Données invalides' }, 400)
       }
 
-      const settings = await readJson(env.DONATIONS_KV, streamerKey(streamerId), null)
+      const settings = await getStreamerById(db, streamerId)
       if (!settings?.enabled) {
         return json({ success: false, message: 'Dons désactivés' }, 403)
       }
 
-      const min = settings.minAmount ?? 1
-      if (amount < min) {
-        return json({ success: false, message: `Montant minimum : ${min} ${currency}` }, 400)
+      if (amount < settings.minAmount) {
+        return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
       }
 
-      const donation = {
-        id: crypto.randomUUID(),
-        streamerId,
-        donorName: donorName || 'Anonyme',
-        message,
-        amount,
-        currency,
-        createdAt: Date.now()
-      }
+      const donationId = crypto.randomUUID()
+      const createdAt = Date.now()
 
-      const queue = await readJson(env.DONATIONS_KV, donationsKey(streamerId), [])
-      queue.push(donation)
-      while (queue.length > 80) queue.shift()
-      await writeJson(env.DONATIONS_KV, donationsKey(streamerId), queue)
+      await db
+        .prepare(`
+          INSERT INTO donations (
+            id, streamer_id, donor_name, message, amount, currency,
+            status, payment_provider, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_alert', 'manual', ?)
+        `)
+        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt)
+        .run()
 
       const symbol = currency === 'USD' ? '$' : '€'
       let paymentUrl = ''
@@ -195,8 +283,8 @@ export default {
 
       return json({
         success: true,
-        donationId: donation.id,
-        thankYouMessage: settings.thankYouMessage ?? 'Merci pour votre soutien !',
+        donationId,
+        thankYouMessage: settings.thankYouMessage,
         paymentUrl,
         paymentHint: paymentUrl
           ? `Finalisez votre don de ${amount}${symbol} via PayPal pour soutenir ${settings.displayName}.`
@@ -213,17 +301,77 @@ export default {
         return json({ success: false, message: 'Paramètres manquants' }, 400)
       }
 
-      const settings = await readJson(env.DONATIONS_KV, streamerKey(streamerId), null)
-      if (!settings || settings.donationKey !== key) {
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
         return json({ success: false, message: 'Non autorisé' }, 403)
       }
 
-      const queue = await readJson(env.DONATIONS_KV, donationsKey(streamerId), [])
-      const pending = queue.filter((d) => d.createdAt > since)
-      const kept = queue.filter((d) => !pending.some((p) => p.id === d.id))
-      await writeJson(env.DONATIONS_KV, donationsKey(streamerId), kept)
+      const { results } = await db
+        .prepare(`
+          SELECT * FROM donations
+          WHERE streamer_id = ? AND status = 'pending_alert' AND created_at > ?
+          ORDER BY created_at ASC
+          LIMIT 50
+        `)
+        .bind(streamerId, since)
+        .all()
+
+      const pending = (results ?? []).map(rowToDonation)
+      if (pending.length > 0) {
+        const now = Date.now()
+        for (const d of pending) {
+          await db
+            .prepare(`UPDATE donations SET status = 'alerted', alerted_at = ? WHERE id = ?`)
+            .bind(now, d.id)
+            .run()
+        }
+      }
 
       return json({ success: true, donations: pending })
+    }
+
+    if (path === '/v1/history' && request.method === 'GET') {
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 30)))
+
+      if (!streamerId || !key) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const { results } = await db
+        .prepare(`
+          SELECT * FROM donations
+          WHERE streamer_id = ?
+          ORDER BY created_at DESC
+          LIMIT ?
+        `)
+        .bind(streamerId, limit)
+        .all()
+
+      const donations = (results ?? []).map(rowToDonation)
+      const totalRow = await db
+        .prepare(`
+          SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+          FROM donations WHERE streamer_id = ? AND status IN ('alerted', 'paid')
+        `)
+        .bind(streamerId)
+        .first()
+
+      return json({
+        success: true,
+        donations,
+        stats: {
+          count: totalRow?.count ?? 0,
+          totalAmount: totalRow?.total ?? 0,
+          currency: settings.currency
+        }
+      })
     }
 
     return json({ success: false, message: 'Route introuvable' }, 404)

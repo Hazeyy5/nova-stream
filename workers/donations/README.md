@@ -1,18 +1,33 @@
-# API Dons Nova Stream (Cloudflare Worker)
+# API Dons Nova Stream (Cloudflare Worker + D1)
 
-Relais central pour les pages de dons (comme Streamlabs) : les viewers envoient un don sur le site, l'app desktop récupère les alertes en temps réel.
+Relais central multi-streamers : page de tip, alertes live, **historique persistant** (comme Streamlabs).
 
-## Déploiement (mainteneur)
+## 1. Créer la base D1
 
 ```bash
 cd workers/donations
-npx wrangler kv namespace create DONATIONS_KV
-# Copiez l'id dans wrangler.toml (binding DONATIONS_KV)
+npx wrangler d1 create nova-donations
+```
 
+Copiez le `database_id` dans `wrangler.toml` (`REPLACE_WITH_D1_DATABASE_ID`).
+
+## 2. Appliquer le schéma SQL
+
+```bash
+npx wrangler d1 migrations apply nova-donations --remote
+# Dev local :
+npx wrangler d1 migrations apply nova-donations --local
+```
+
+## 3. Déployer le worker
+
+```bash
 npx wrangler deploy
 ```
 
-Notez l'URL du worker (ex. `https://nova-stream-donations.votre-compte.workers.dev`).
+Notez l’URL (ex. `https://nova-stream-donations.votre-compte.workers.dev`).
+
+## 4. Configurer Nova Stream
 
 Dans `shared/platform.json` :
 
@@ -26,23 +41,36 @@ Puis :
 npm run sync-config
 ```
 
-## Flux
+## Schéma D1
 
-1. Le streamer active les dons sur **Tableau de bord → Dons** et synchronise avec Nova Stream.
-2. Il partage son lien `tip.html?u=pseudo`.
-3. Un viewer envoie un don → le worker met le don en file.
-4. Nova Stream interroge `/v1/poll` toutes les 2,5 s → alerte sur la scène + événement dans le panneau.
-
-## PayPal (optionnel)
-
-Le streamer peut renseigner son identifiant **PayPal.me** : après l'envoi du don, le viewer est invité à payer via PayPal.
+| Table | Rôle |
+|-------|------|
+| `streamers` | 1 ligne par streamer Twitch (réglages, clé secrète) |
+| `donations` | Chaque don (montant, message, statut, horodatage) |
+| `paypal_accounts` | Réservé PayPal OAuth (prochaine étape) |
 
 ## Endpoints
 
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/v1/health` | Santé |
-| GET | `/v1/streamer?username=` | Infos publiques page de don |
-| POST | `/v1/register` | Enregistrement streamer (dashboard) |
-| POST | `/v1/donate` | Envoi d'un don (viewer) |
-| GET | `/v1/poll?streamerId=&key=&since=` | Récupération alertes (app desktop) |
+| Route | Description |
+|-------|-------------|
+| `GET /v1/health` | Santé + `storage: d1` |
+| `GET /v1/streamer?username=` | Infos publiques page tip |
+| `POST /v1/register` | Enregistrement / MAJ streamer (dashboard) |
+| `POST /v1/donate` | Envoi d’un don (viewer) |
+| `GET /v1/poll?streamerId=&key=&since=` | Alertes en attente (app desktop) |
+| `GET /v1/history?streamerId=&key=&limit=` | Historique + stats (dashboard) |
+
+## Flux
+
+1. Streamer → **Dons** sur le site → synchronise avec Nova Stream.
+2. Viewer → `tip.html?u=pseudo` → don enregistré en D1.
+3. App desktop poll `/v1/poll` → alerte sur la scène.
+4. Dashboard → **Historique des pourboires** via `/v1/history`.
+
+## Migration depuis KV
+
+Si vous aviez l’ancienne version KV : les streamers doivent **ré-enregistrer** leurs réglages (bouton Enregistrer sur la page Dons). Les anciens dons KV ne sont pas migrés automatiquement.
+
+## Prochaine étape : PayPal Connect
+
+La table `paypal_accounts` est prête pour OAuth PayPal (Standard / Business) — alertes déclenchées après webhook `payment completed`.

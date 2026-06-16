@@ -16,7 +16,13 @@
       <p>Comme Streamlabs : partagez votre page de dons, recevez des alertes en direct dans Nova Stream.</p>
     </header>
 
-    <section class="dashboard-panel donations-panel" style="max-width:720px">
+    <section class="dashboard-panel donations-panel" style="max-width:820px">
+      <div class="donations-tabs" role="tablist">
+        <button type="button" class="donations-tab active" data-tab="settings">Paramètres</button>
+        <button type="button" class="donations-tab" data-tab="history">Historique des pourboires</button>
+      </div>
+
+      <div id="panel-settings" class="donations-tab-panel active">
       <div class="donations-toggle">
         <input type="checkbox" id="don-enabled" />
         <label for="don-enabled"><strong>Activer les dons</strong></label>
@@ -79,6 +85,16 @@
       </div>
 
       <div id="save-msg" class="status-msg" style="display:none;margin-top:16px"></div>
+      </div>
+
+      <div id="panel-history" class="donations-tab-panel">
+        <p class="donations-hint">Historique stocké sur la base D1 (persistant, par streamer).</p>
+        <div class="donations-history-stats" id="history-stats"></div>
+        <div id="history-content">
+          <p class="donations-history-empty">Chargement...</p>
+        </div>
+        <button type="button" class="btn btn-outline donations-history-msg" id="btn-refresh-history">Actualiser</button>
+      </div>
     </section>
   </div>
 
@@ -135,12 +151,76 @@
 
     const apiHint = document.getElementById('api-hint')
     if (!NovaDonations.apiUrl()) {
-      apiHint.textContent = '⚠️ API de dons non configurée — le mainteneur doit déployer workers/donations et renseigner donationsApiUrl dans platform.json. Vous pouvez quand même tester les alertes depuis l\'app.'
+      apiHint.textContent = '⚠️ API de dons non configurée — déployez workers/donations (D1) et renseignez donationsApiUrl. Vous pouvez tester les alertes depuis l\'app.'
       apiHint.style.color = '#fbbf24'
     } else {
-      apiHint.textContent = '✓ Service de dons actif — les viewers pourront envoyer des dons depuis votre lien public.'
+      apiHint.textContent = '✓ Service de dons actif (D1) — page tip + historique par streamer.'
       apiHint.style.color = '#4ade80'
     }
+
+    document.querySelectorAll('.donations-tab').forEach((tab) => {
+      tab.onclick = () => {
+        document.querySelectorAll('.donations-tab').forEach((t) => t.classList.remove('active'))
+        document.querySelectorAll('.donations-tab-panel').forEach((p) => p.classList.remove('active'))
+        tab.classList.add('active')
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active')
+        if (tab.dataset.tab === 'history') void loadHistory()
+      }
+    })
+
+    function formatDate(ts) {
+      return new Date(ts).toLocaleString('fr-FR', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      })
+    }
+
+    async function loadHistory() {
+      const box = document.getElementById('history-content')
+      const statsEl = document.getElementById('history-stats')
+      if (!NovaDonations.apiUrl()) {
+        box.innerHTML = '<p class="donations-history-empty">API non configurée.</p>'
+        statsEl.innerHTML = ''
+        return
+      }
+      box.innerHTML = '<p class="donations-history-empty">Chargement...</p>'
+      try {
+        const data = await NovaDonations.fetchHistory(40)
+        const sym = data.stats?.currency === 'USD' ? '$' : '€'
+        statsEl.innerHTML = `
+          <div class="donations-stat-card"><strong>${data.stats?.count ?? 0}</strong><span>dons reçus</span></div>
+          <div class="donations-stat-card"><strong>${(data.stats?.totalAmount ?? 0).toFixed(2)}${sym}</strong><span>total</span></div>
+        `
+        if (!data.donations?.length) {
+          box.innerHTML = '<p class="donations-history-empty">Aucun pourboire pour le moment.</p>'
+          return
+        }
+        box.innerHTML = `
+          <table class="donations-history-table">
+            <thead><tr><th>Date</th><th>Donateur</th><th>Montant</th><th>Message</th><th>Statut</th></tr></thead>
+            <tbody>
+              ${data.donations.map((d) => `
+                <tr>
+                  <td>${formatDate(d.createdAt)}</td>
+                  <td>${escapeHtml(d.donorName)}</td>
+                  <td>${d.amount}${d.currency === 'USD' ? '$' : '€'}</td>
+                  <td>${escapeHtml(d.message || '—')}</td>
+                  <td>${d.status === 'pending_alert' ? 'En attente' : d.status === 'alerted' ? 'Alerté' : d.status}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `
+      } catch (err) {
+        box.innerHTML = `<p class="donations-history-empty">${escapeHtml(err.message)}</p>`
+        statsEl.innerHTML = ''
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    document.getElementById('btn-refresh-history').onclick = () => void loadHistory()
 
     fillForm(NovaDonations.load())
 
