@@ -76,6 +76,7 @@ export default function SettingsModal({
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
   const [updateReady, setUpdateReady] = useState(false)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState(() => {
     const match = PLATFORMS.find((p) => p.url === settings.rtmpUrl)
     return match?.name ?? 'Personnalisé'
@@ -90,6 +91,7 @@ export default function SettingsModal({
 
   useEffect(() => {
     loadDevices()
+    void window.novaStream.platform.getConfig().then((config) => setAppVersion(config.version))
     const unsub = window.novaStream.updates.onState((state) => {
       setUpdateReady(state.status === 'downloaded')
       if (state.message && state.status !== 'checking' && state.status !== 'downloading') {
@@ -601,6 +603,13 @@ export default function SettingsModal({
 
           {tab === 'Avancé' && (
             <>
+              <div className="settings-version-row">
+                <span className="settings-version-label">Version installée</span>
+                <span className="settings-version-value">{appVersion ? `v${appVersion}` : '…'}</span>
+              </div>
+
+              <hr className="settings-hr" />
+
               <p className="settings-hint">
                 Nova Stream vérifie automatiquement les mises à jour au lancement (application installée uniquement).
                 Une bannière s&apos;affiche en haut de l&apos;écran lorsqu&apos;une mise à jour est prête.

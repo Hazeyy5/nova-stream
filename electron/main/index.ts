@@ -130,7 +130,10 @@ app.whenReady().then(async () => {
 
   linkServer.start()
   ipcMain.handle('link:getPort', () => linkServer.getPort())
-  ipcMain.handle('platform:getConfig', () => getPlatformConfig())
+  ipcMain.handle('platform:getConfig', () => ({
+    ...getPlatformConfig(),
+    version: app.getVersion()
+  }))
   ipcMain.handle('platform:openExternal', async (_e, url: unknown) => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
       return { success: false, message: 'URL invalide' }

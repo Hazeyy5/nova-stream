@@ -87,6 +87,7 @@ const api = {
   platform: {
     getConfig: () => ipcRenderer.invoke('platform:getConfig') as Promise<{
       appName: string
+      version: string
       websiteUrl: string
       githubUrl: string
     }>,

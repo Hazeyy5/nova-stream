@@ -14,6 +14,8 @@ const H264_CODEC_CANDIDATES = [
   'avc1.640028'
 ]
 
+export const WEBM_CHUNK_DURATION_MS = 100
+
 function pickWebmMimeType(): string {
   const types = [
     'video/webm;codecs=vp8',
@@ -201,7 +203,7 @@ export class VideoPipeEncoder {
       }
     }
 
-    recorder.start(250)
+    recorder.start(WEBM_CHUNK_DURATION_MS)
     this.mediaRecorder = recorder
   }
 }

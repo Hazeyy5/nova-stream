@@ -7,7 +7,7 @@ import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from '
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
-import { VideoPaceQueue } from './videoPaceQueue'
+import { VideoPaceQueue, WEBM_CHUNK_DURATION_MS, AUDIO_CAPTURE_LEAD_MS } from './videoPaceQueue'
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
@@ -84,7 +84,11 @@ export class StreamManager {
   }
 
   handleVideoChunk(chunk: Buffer): void {
-    if (!this.process || chunk.length === 0) return
+    if (chunk.length === 0) return
+    if (!this.process) {
+      this.pendingChunks.push(chunk)
+      return
+    }
 
     this.videoChunksReceived += 1
     this.lastVideoChunkAt = Date.now()
@@ -360,6 +364,7 @@ export class StreamManager {
         windowsHide: true,
         stdio
       })
+      const preBufferedVideo = this.pendingChunks
       this.process = proc
       this.pendingChunks = []
       this.videoChunksReceived = 0
@@ -372,6 +377,11 @@ export class StreamManager {
         () => {
           this.startNativeDesktopCaptureIfNeeded()
           this.startMicCaptureIfNeeded()
+        },
+        {
+          paceMode: videoInputFormat === 'webm' ? 'timed' : 'frame',
+          chunkDurationMs: WEBM_CHUNK_DURATION_MS,
+          audioLeadMs: includeAudio ? AUDIO_CAPTURE_LEAD_MS : 0
         }
       )
       this.sessionUsesNativeDesktop = usesNativeDesktop
@@ -474,7 +484,11 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
-        this.flushPendingChunks()
+        for (const chunk of preBufferedVideo) {
+          this.videoChunksReceived += 1
+          this.lastVideoChunkAt = Date.now()
+          this.videoPaceQueue.push(chunk)
+        }
         if (record && !stream) markStarted()
       })
 
