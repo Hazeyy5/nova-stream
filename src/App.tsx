@@ -180,9 +180,15 @@ function AppContent() {
   useEffect(() => {
     if (mediaState.stream.status !== 'live') return
 
+    const startedAt = mediaState.stream.startedAt ?? 0
+
     const check = async () => {
+      if (startedAt > 0 && Date.now() - startedAt < 10000) return
+
       const health = await window.novaStream.media.getHealth()
       if (!health.ffmpegRunning || !health.videoFlowing) {
+        await sceneCapture.disarm()
+        await window.novaStream.media.stop()
         setMediaState((prev) => {
           if (prev.stream.status !== 'live') return prev
           return {
@@ -219,7 +225,7 @@ function AppContent() {
     const id = setInterval(() => { void check() }, 15000)
     void check()
     return () => clearInterval(id)
-  }, [mediaState.stream.status, twitchConnected])
+  }, [mediaState.stream.status, mediaState.stream.startedAt, twitchConnected, sceneCapture])
 
 
 

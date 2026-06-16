@@ -87,7 +87,28 @@ export class StreamManager {
 
     this.videoChunksReceived += 1
     this.lastVideoChunkAt = Date.now()
+
+    if (
+      this.sessionOptions?.stream &&
+      this.state.stream.status === 'starting' &&
+      this.videoChunksReceived === 1
+    ) {
+      this.markStreamLive()
+    }
+
     this.videoPaceQueue.push(chunk)
+  }
+
+  private markStreamLive(message = 'En direct'): void {
+    if (this.state.stream.status === 'live') return
+    this.setState({
+      stream: {
+        status: 'live',
+        message,
+        startedAt: Date.now()
+      }
+    })
+    this.startHealthWatchdog()
   }
 
   private applyDesktopMix(chunk: Buffer, settings: StreamSettings): Buffer {
@@ -439,18 +460,19 @@ export class StreamManager {
         reject(new Error(message))
       }
 
-      const markStarted = () => {
+      const resolveLaunch = () => {
         if (started || rejected) return
         started = true
         clearStartTimeout()
         this.activeLaunch = null
-        if (stream) {
-          this.setState({
-            stream: { status: 'live', message: 'En direct', startedAt: Date.now() }
-          })
-          this.startHealthWatchdog()
-        }
         resolve()
+      }
+
+      const markStarted = () => {
+        resolveLaunch()
+        if (stream) {
+          this.markStreamLive()
+        }
       }
 
       const isRtmpOutputError = (text: string): boolean => (
@@ -476,18 +498,23 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
-        if (stream || record) markStarted()
+        if (stream || record) resolveLaunch()
       })
 
       if (stream) {
         videoWatchdog = setTimeout(() => {
-          if (!started && !rejected && this.videoChunksReceived < 3) {
+          if (rejected) return
+          if (this.state.stream.status === 'starting' && this.videoChunksReceived < 1) {
             fail('Aucune vidéo reçue par FFmpeg — vérifiez l\'aperçu et les sources de la scène.')
           }
-        }, 6000)
+        }, 10000)
 
         readyCheck = setInterval(() => {
-          if (started || rejected || !spawnedAt) return
+          if (rejected || !spawnedAt) return
+          if (this.state.stream.status === 'starting' && this.videoChunksReceived >= 1) {
+            this.markStreamLive()
+            return
+          }
           const elapsed = Date.now() - spawnedAt
           if (elapsed < 2000 || this.videoChunksReceived < 4) return
           if (isRtmpOutputError(stderr)) return
@@ -497,7 +524,9 @@ export class StreamManager {
           ) {
             return
           }
-          markStarted()
+          if (this.state.stream.status === 'starting') {
+            this.markStreamLive()
+          }
         }, 400)
       }
 
@@ -523,8 +552,8 @@ export class StreamManager {
           return
         }
 
-        if (!started && isStreamEncoding(stderr)) {
-          markStarted()
+        if (stream && this.state.stream.status === 'starting' && isStreamEncoding(stderr)) {
+          this.markStreamLive()
         }
       })
 
@@ -572,18 +601,19 @@ export class StreamManager {
       })
 
       startTimeout = setTimeout(() => {
-        if (!started && this.process === proc && !rejected) {
-          if (stream) {
-            const hint = this.videoChunksReceived < 3
+        if (rejected || this.process !== proc) return
+        if (stream) {
+          if (this.state.stream.status === 'starting' || this.videoChunksReceived < 1) {
+            const hint = this.videoChunksReceived < 1
               ? 'Aucune vidéo reçue par FFmpeg — vérifiez l\'aperçu.'
               : 'FFmpeg n\'a pas pu envoyer le flux à Twitch — vérifiez la clé de stream.'
             console.error('[stream] timeout', { videoChunks: this.videoChunksReceived, stderr: stderr.slice(-2000) })
             fail(hint)
-          } else {
-            markStarted()
           }
+        } else if (!started) {
+          markStarted()
         }
-      }, stream ? 12000 : 8000)
+      }, stream ? 15000 : 8000)
     })
   }
 
