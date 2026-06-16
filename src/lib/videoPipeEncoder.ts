@@ -30,8 +30,10 @@ export class VideoPipeEncoder {
   private format: VideoInputFormat = 'webm'
   private encoder: VideoEncoder | null = null
   private mediaRecorder: MediaRecorder | null = null
+  private captureTrack: CanvasCaptureMediaStreamTrack | null = null
   private framerate = 30
   private frameIndex = 0
+  private sessionStartUs: number | null = null
   private chunksEmitted = 0
   private onChunk: VideoChunkHandler | null = null
   private priming = false
@@ -51,8 +53,19 @@ export class VideoPipeEncoder {
   /** Démarre l'envoi des chunks (après que le muxer FFmpeg soit prêt). */
   beginCapture(onChunk: VideoChunkHandler, canvas: HTMLCanvasElement, bitrateKbps: number): void {
     this.onChunk = onChunk
+    this.sessionStartUs = null
+    this.frameIndex = 0
     if (this.format === 'webm' && !this.mediaRecorder) {
       this.startMediaRecorder(canvas, bitrateKbps)
+    }
+  }
+
+  /** WebM : pousse une frame canvas vers MediaRecorder (aligné sur la boucle de dessin). */
+  requestFrame(): void {
+    try {
+      this.captureTrack?.requestFrame()
+    } catch {
+      /* frame ignorée */
     }
   }
 
@@ -62,6 +75,7 @@ export class VideoPipeEncoder {
     this.frameIndex = 0
     this.chunksEmitted = 0
     this.priming = false
+    this.sessionStartUs = null
 
     const { canvas, bitrateKbps } = options
     const width = canvas.width
@@ -109,7 +123,11 @@ export class VideoPipeEncoder {
     if (this.format !== 'h264' || !this.encoder || canvas.width <= 0 || canvas.height <= 0) return
 
     try {
-      const timestamp = Math.round((this.frameIndex / this.framerate) * 1_000_000)
+      const nowUs = Math.round(performance.now() * 1000)
+      if (this.sessionStartUs === null) {
+        this.sessionStartUs = nowUs
+      }
+      const timestamp = nowUs - this.sessionStartUs
       const frame = new VideoFrame(canvas, { timestamp })
       this.encoder.encode(frame, { keyFrame: this.frameIndex % Math.max(1, this.framerate) === 0 })
       frame.close()
@@ -139,6 +157,7 @@ export class VideoPipeEncoder {
   private async stopMediaRecorder(): Promise<void> {
     const recorder = this.mediaRecorder
     this.mediaRecorder = null
+    this.captureTrack = null
 
     if (recorder && recorder.state !== 'inactive') {
       await new Promise<void>((resolve) => {
@@ -199,7 +218,8 @@ export class VideoPipeEncoder {
 
   private startMediaRecorder(canvas: HTMLCanvasElement, bitrateKbps: number): void {
     const mimeType = pickWebmMimeType()
-    const stream = canvas.captureStream(this.framerate)
+    const stream = canvas.captureStream(0)
+    this.captureTrack = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack
     const recorder = new MediaRecorder(stream, {
       mimeType,
       videoBitsPerSecond: bitrateKbps * 1000

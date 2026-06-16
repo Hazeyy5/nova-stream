@@ -7,7 +7,6 @@ import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from '
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
-import { VideoPaceQueue, WEBM_CHUNK_DURATION_MS } from './videoPaceQueue'
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
@@ -45,7 +44,7 @@ export class StreamManager {
   private videoChunksReceived = 0
   private lastVideoChunkAt = 0
   private healthTimer: ReturnType<typeof setInterval> | null = null
-  private videoPaceQueue = new VideoPaceQueue()
+  private audioMuxStarted = false
   private sessionFramerate = 30
   private state: MediaState = {
     stream: { status: 'idle' },
@@ -73,7 +72,7 @@ export class StreamManager {
   }
 
   private flushPendingChunks(): void {
-    /* Les chunks vidéo passent par VideoPaceQueue — rien à vider ici. */
+    /* Pas de buffer vidéo — écriture directe vers FFmpeg. */
   }
 
   private writeVideoToStdin(chunk: Buffer): void {
@@ -96,7 +95,13 @@ export class StreamManager {
       this.markStreamLive()
     }
 
-    this.videoPaceQueue.push(chunk)
+    if (!this.audioMuxStarted) {
+      this.audioMuxStarted = true
+      this.startNativeDesktopCaptureIfNeeded()
+      this.startMicCaptureIfNeeded()
+    }
+
+    this.writeVideoToStdin(chunk)
   }
 
   private markStreamLive(message = 'En direct'): void {
@@ -388,19 +393,7 @@ export class StreamManager {
       this.videoChunksReceived = 0
       this.lastVideoChunkAt = 0
       this.sessionFramerate = resolved.framerate
-      this.videoPaceQueue.reset()
-      this.videoPaceQueue.configure(
-        resolved.framerate,
-        (buf) => this.writeVideoToStdin(buf),
-        () => {
-          this.startNativeDesktopCaptureIfNeeded()
-          this.startMicCaptureIfNeeded()
-        },
-        {
-          paceMode: videoInputFormat === 'webm' ? 'timed' : 'frame',
-          chunkDurationMs: WEBM_CHUNK_DURATION_MS
-        }
-      )
+      this.audioMuxStarted = false
       this.sessionUsesNativeDesktop = usesNativeDesktop
       this.sessionUsesMicPipe = usesMicPipe
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
@@ -623,7 +616,7 @@ export class StreamManager {
 
   async stop(): Promise<void> {
     this.stopHealthWatchdog()
-    this.videoPaceQueue.reset()
+    this.audioMuxStarted = false
     if (this.audioRefreshTimer) {
       clearTimeout(this.audioRefreshTimer)
       this.audioRefreshTimer = null

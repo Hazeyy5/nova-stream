@@ -83,6 +83,7 @@ export function usePreviewLoop(
 
     let raf = 0
     let lastDraw = 0
+    let nextCaptureFrameAt = 0
     let frameCount = 0
     let fpsReportAt = performance.now()
 
@@ -99,10 +100,22 @@ export function usePreviewLoop(
         state.activeAlerts
       )
       const frameInterval = 1000 / fps
+      const capturing = captureActiveRef.current
 
-      if (now - lastDraw < frameInterval) return
-
-      lastDraw = now
+      if (capturing) {
+        if (nextCaptureFrameAt === 0) nextCaptureFrameAt = now
+        if (now < nextCaptureFrameAt) return
+        // Resync sans rafale si on a pris du retard (onglet masqué, charge CPU…)
+        if (now - nextCaptureFrameAt > frameInterval * 4) {
+          nextCaptureFrameAt = now
+        } else {
+          nextCaptureFrameAt += frameInterval
+        }
+      } else {
+        if (now - lastDraw < frameInterval) return
+        lastDraw = now
+        nextCaptureFrameAt = 0
+      }
       drawScene(ctx, canvas, state.layers, streamsRef.current!, {
         chatMessages: state.chatSlice,
         activeAlerts: state.activeAlerts,

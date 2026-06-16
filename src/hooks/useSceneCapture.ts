@@ -54,7 +54,9 @@ export function useSceneCapture(
         if (c) encoder.encodeFrame(c)
       }
     } else {
-      encodeFrameRef.current = null
+      encodeFrameRef.current = () => {
+        encoder.requestFrame()
+      }
     }
 
     encoderRef.current = encoder
