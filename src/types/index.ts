@@ -410,7 +410,7 @@ export function createSource(type: SourceType, name?: string): Source {
     transform: { ...DEFAULT_SOURCE_TRANSFORM[type] },
     volume: 100,
     muted: false,
-    scaleMode: 'stretch',
+    scaleMode: type === 'webcam' ? 'fit' : 'stretch',
     blendMode: 'normal',
     flipH: false,
     flipV: false,

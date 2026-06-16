@@ -16,7 +16,11 @@ interface SettingsModalProps {
   onExportScenes?: () => void
   onExportAllCollections?: () => void
   onImportScenes?: () => void
-  onApplyTemplate?: (templateId: SceneTemplateId, mode: 'replace' | 'new') => void
+  onApplyTemplate?: (
+    templateId: SceneTemplateId,
+    mode: 'replace' | 'new',
+    layout: { webcamDevice: string; streamResolution: string }
+  ) => void | Promise<void>
 }
 
 const PLATFORMS = [
@@ -583,14 +587,20 @@ export default function SettingsModal({
                 <button
                   type="button"
                   className="settings-scenes-btn"
-                  onClick={() => onApplyTemplate?.(selectedTemplate, 'replace')}
+                  onClick={() => void onApplyTemplate?.(selectedTemplate, 'replace', {
+                    webcamDevice: form.webcamDevice,
+                    streamResolution: form.resolution
+                  })}
                 >
                   Remplacer la collection active
                 </button>
                 <button
                   type="button"
                   className="settings-scenes-btn"
-                  onClick={() => onApplyTemplate?.(selectedTemplate, 'new')}
+                  onClick={() => void onApplyTemplate?.(selectedTemplate, 'new', {
+                    webcamDevice: form.webcamDevice,
+                    streamResolution: form.resolution
+                  })}
                 >
                   Créer une nouvelle collection
                 </button>

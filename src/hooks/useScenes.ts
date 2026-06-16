@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react'
 import type { Scene, SceneCollection, SceneCollectionsStore, Source, SourceType, WebWidgetSettings } from '../types'
 import { createSource } from '../types'
 import { applyWebWidgetSettingsToScenes } from '../lib/applyWebWidgetSettings'
-import { createCollectionFromTemplate, createDefaultCollection, type SceneTemplateId } from '../lib/sceneTemplates'
+import { createCollectionFromTemplate, createDefaultCollection, type SceneTemplateId, type TemplateLayoutOptions } from '../lib/sceneTemplates'
+import { probeWebcamResolution } from '../lib/webcamLayout'
 
 const LEGACY_SCENES_KEY = 'nova-stream-scenes'
 const COLLECTIONS_KEY = 'nova-stream-collections'
@@ -213,8 +214,17 @@ export function useScenes() {
     setSelectedSourceId(null)
   }, [persistStore, store.collections])
 
-  const applyTemplate = useCallback((templateId: SceneTemplateId, mode: 'replace' | 'new' = 'replace') => {
-    const fromTemplate = createCollectionFromTemplate(templateId)
+  const applyTemplate = useCallback(async (
+    templateId: SceneTemplateId,
+    mode: 'replace' | 'new' = 'replace',
+    layout?: Pick<TemplateLayoutOptions, 'webcamDevice' | 'streamResolution'>
+  ) => {
+    const webcamSize = await probeWebcamResolution(layout?.webcamDevice)
+    const fromTemplate = createCollectionFromTemplate(templateId, {
+      webcamDevice: layout?.webcamDevice,
+      streamResolution: layout?.streamResolution,
+      webcamSize: webcamSize ?? undefined
+    })
     if (mode === 'new') {
       persistStore({
         collections: [...store.collections, fromTemplate],

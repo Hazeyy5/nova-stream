@@ -839,7 +839,10 @@ function AppContent() {
             localStorage.setItem('nova-user-mode', result.userMode)
 
             if (result.templateId) {
-              scenes.applyTemplate(result.templateId, 'replace')
+              void scenes.applyTemplate(result.templateId, 'replace', {
+                webcamDevice: settings.webcamDevice,
+                streamResolution: settings.resolution
+              })
             }
 
             setShowWelcome(false)
