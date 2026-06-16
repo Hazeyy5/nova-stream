@@ -1,6 +1,9 @@
 /** Durée d'un chunk MediaRecorder WebM — doit correspondre à videoPipeEncoder.ts */
 export const WEBM_CHUNK_DURATION_MS = 66
 
+/** Si la timeline vidéo accuse plus de retard que ça, on resynchronise sur l'horloge murale. */
+const DRIFT_RESYNC_THRESHOLD_MS = 180
+
 export type VideoPaceMode = 'frame' | 'timed'
 
 export interface VideoPaceOptions {
@@ -9,8 +12,8 @@ export interface VideoPaceOptions {
 }
 
 /**
- * Limite la vidéo pour qu'elle ne parte pas en avance sur l'horloge temps réel (style OBS).
- * Si des frames arrivent en retard ou en rafale, elles sont envoyées immédiatement au muxer.
+ * Cadence la vidéo en temps réel et resynchronise si le débit encodeur
+ * prend du retard (évite que l'audio prenne de l'avance au fil du live).
  */
 export class VideoPaceQueue {
   private queue: Array<{ buffer: Buffer; sendAtMs: number }> = []
@@ -47,17 +50,20 @@ export class VideoPaceQueue {
     if (chunk.length === 0) return
 
     const now = monotonicMs()
+    const frameDurationMs = 1000 / this.fps
+
     if (this.sessionStartMono === null) {
       this.sessionStartMono = now
       this.onFirstMuxFrame()
       this.writeFn(chunk)
-      this.advanceFrameIndex()
+      this.advanceFrameIndex(frameDurationMs)
       return
     }
 
-    const frameDurationMs = 1000 / this.fps
+    this.correctDrift(now, frameDurationMs)
+
     const scheduledTime = this.sessionStartMono + this.frameIndex * frameDurationMs
-    this.advanceFrameIndex()
+    this.advanceFrameIndex(frameDurationMs)
 
     if (scheduledTime <= now) {
       this.writeFn(chunk)
@@ -68,8 +74,25 @@ export class VideoPaceQueue {
     this.scheduleDrain()
   }
 
-  private advanceFrameIndex(): void {
-    const frameDurationMs = 1000 / this.fps
+  private correctDrift(now: number, frameDurationMs: number): void {
+    const wallElapsed = now - this.sessionStartMono!
+    const contentElapsed = this.frameIndex * frameDurationMs
+    const drift = wallElapsed - contentElapsed
+
+    if (drift > DRIFT_RESYNC_THRESHOLD_MS) {
+      this.frameIndex = Math.floor(wallElapsed / frameDurationMs)
+      const cutoff = now - frameDurationMs * 3
+      this.queue = this.queue.filter((item) => item.sendAtMs >= cutoff)
+    } else if (drift < -frameDurationMs * 4 && this.queue.length > 0) {
+      // Vidéo en avance : on vide les frames trop anciennes en file
+      const cutoff = now + frameDurationMs
+      while (this.queue.length > 0 && this.queue[0].sendAtMs < cutoff) {
+        this.writeFn(this.queue.shift()!.buffer)
+      }
+    }
+  }
+
+  private advanceFrameIndex(frameDurationMs: number): void {
     const advance = this.paceMode === 'timed'
       ? this.chunkDurationMs / frameDurationMs
       : 1
@@ -92,6 +115,8 @@ export class VideoPaceQueue {
 
   private drain(): void {
     const now = monotonicMs()
+    const frameDurationMs = 1000 / this.fps
+    this.correctDrift(now, frameDurationMs)
     while (this.queue.length > 0 && this.queue[0].sendAtMs <= now) {
       this.writeFn(this.queue.shift()!.buffer)
     }

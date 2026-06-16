@@ -144,7 +144,11 @@ export class StreamManager {
     void this.desktopCapture.start((pcmChunk) => {
       const settings = this.sessionSettings
       if (!settings || !desktopPipe || desktopPipe.destroyed || !desktopPipe.writable) return
-      desktopPipe.write(this.applyDesktopMix(pcmChunk, settings))
+      const mixed = this.applyDesktopMix(pcmChunk, settings)
+      const ok = desktopPipe.write(mixed)
+      if (!ok) {
+        desktopPipe.once('drain', () => { /* reprend */ })
+      }
     }).catch(() => { /* capture bureau optionnelle */ })
   }
 
@@ -159,8 +163,8 @@ export class StreamManager {
     void this.micCapture.start(device, (pcmChunk) => {
       if (!micPipe || micPipe.destroyed || !micPipe.writable) return
       const ok = micPipe.write(pcmChunk)
-      if (!ok && pcmChunk.length > 0) {
-        /* Évite l'accumulation de plusieurs secondes de micro en buffer */
+      if (!ok) {
+        /* Pipe saturé — on saute ce chunk pour éviter que l'audio prenne de l'avance sur la vidéo */
         micPipe.once('drain', () => { /* reprend */ })
       }
     }).catch(() => { /* capture micro optionnelle */ })

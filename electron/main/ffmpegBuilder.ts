@@ -147,7 +147,7 @@ function micPreprocessFilter(
   videoInputFormat: 'h264' | 'webm'
 ): string {
   const channels = settings.micMono ? 1 : 2
-  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.050:first_pts=0,aformat=sample_fmts=fltp`
+  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1000:min_hard_comp=0.100:comp_duration=0.100:first_pts=0,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
@@ -161,7 +161,7 @@ function desktopPreprocessFilter(
   outputLabel: string,
   videoInputFormat: 'h264' | 'webm'
 ): string {
-  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.050:first_pts=0,aformat=sample_fmts=fltp`
+  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1000:min_hard_comp=0.100:comp_duration=0.100:first_pts=0,aformat=sample_fmts=fltp`
   return `${chain}${buildAudioTrimSuffix(resolveStreamAudioTrimMs(settings, videoInputFormat), 2)}${outputLabel}`
 }
 
@@ -363,7 +363,7 @@ export function buildFfmpegScenePipeArgs(
 
   if (audioOut) {
     const monoMicOnly = settings.micMono && micIndex !== null && desktopIndex === null
-    args.push('-c:a', 'aac', '-b:a', `${settings.audioBitrate}k`, '-ar', '44100', '-async', '0')
+    args.push('-c:a', 'aac', '-b:a', `${settings.audioBitrate}k`, '-ar', '44100', '-async', '1')
     if (monoMicOnly) args.push('-ac', '1')
   } else {
     args.push('-an')
@@ -375,7 +375,7 @@ export function buildFfmpegScenePipeArgs(
     args.push(
       '-muxdelay', '0',
       '-muxpreload', '0',
-      '-max_interleave_delta', '100M',
+      '-max_interleave_delta', '2000000',
       '-flush_packets', '1',
       '-flvflags', 'no_duration_filesize',
       '-f', 'flv',

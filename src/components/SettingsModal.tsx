@@ -510,8 +510,7 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Comme OBS : compensation automatique de la latence vidéo (~65 ms H.264, ~95 ms WebM).
-                    Décochez pour ajuster manuellement si besoin.
+                    Comme OBS : compensation au démarrage + correction continue de la dérive A/V pendant le live.
                   </>
                 ) : (
                   <>
