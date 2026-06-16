@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
 import { connectTwitch, isTwitchConfigured } from './twitchAuth'
 import { getPublicConnections, getToken, removeConnection, saveConnection } from './authStore'
@@ -15,7 +16,7 @@ import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
 import { loadPersistedFeedEvents, savePersistedFeedEvents } from './feedStore'
-import { fetchRecentTwitchActivity } from './twitchFeedHistory'
+import { fetchRecentTwitchActivity, fetchRecentTwitchFollows } from './twitchFeedHistory'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import type { ChatMessage, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
@@ -36,6 +37,11 @@ export class IntegrationManager {
   }
   private widgetStatsTimer: ReturnType<typeof setInterval> | null = null
   private widgetStatsRefreshDebounce: ReturnType<typeof setTimeout> | null = null
+  private activityPollTimer: ReturnType<typeof setInterval> | null = null
+  private recentAlertKeys = new Set<string>()
+  private knownFollowIds = new Set<string>()
+  private activityBaselineReady = false
+  private lastTwitchAccessToken: string | null = null
 
   constructor() {
     this.feedEvents = loadPersistedFeedEvents()
@@ -47,10 +53,27 @@ export class IntegrationManager {
 
     this.chat.setOnAlert((alert) => this.showAlert(alert))
     this.eventSub.setOnAlert((alert) => this.showAlert(alert))
+    this.eventSub.setOnStatus((status) => {
+      if (status.error) {
+        this.addFeedEvent({
+          id: `eventsub-warn-${Date.now()}`,
+          type: 'system',
+          platform: 'system',
+          icon: '⚠️',
+          text: status.error,
+          timestamp: Date.now()
+        }, false)
+      }
+    })
     this.alerts.setOnAlert((alert) => this.showAlert(alert))
   }
 
-  private showAlert(alert: StreamAlert): void {
+  private showAlert(alert: StreamAlert, dedupeKey?: string): void {
+    const key = dedupeKey ?? `${alert.type}:${alert.username.toLowerCase()}`
+    if (this.recentAlertKeys.has(key)) return
+    this.recentAlertKeys.add(key)
+    setTimeout(() => this.recentAlertKeys.delete(key), 20_000)
+
     const stamped = { ...alert, shownAt: alert.shownAt ?? Date.now() }
     this.activeAlerts = [...this.activeAlerts, stamped]
     const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
@@ -112,7 +135,79 @@ export class IntegrationManager {
 
   private async seedRecentTwitchActivity(): Promise<void> {
     const recent = await fetchRecentTwitchActivity(20)
+    for (const row of await fetchRecentTwitchFollows(30)) {
+      this.knownFollowIds.add(row.feedId)
+    }
+    this.activityBaselineReady = true
     this.mergeFeedEvents(recent)
+  }
+
+  private async pollTwitchActivity(): Promise<void> {
+    const twitch = await ensureFreshTwitchToken()
+    if (!twitch) return
+
+    if (this.lastTwitchAccessToken && this.lastTwitchAccessToken !== twitch.accessToken) {
+      this.lastTwitchAccessToken = twitch.accessToken
+      void this.restartEventSub(twitch)
+    }
+
+    if (!this.eventSub.isConnected()) {
+      void this.restartEventSub(twitch)
+    }
+
+    const [follows, feed] = await Promise.all([
+      fetchRecentTwitchFollows(25),
+      fetchRecentTwitchActivity(25)
+    ])
+    this.mergeFeedEvents(feed)
+
+    if (!this.activityBaselineReady) {
+      for (const row of follows) this.knownFollowIds.add(row.feedId)
+      this.activityBaselineReady = true
+      return
+    }
+
+    const recentCutoff = Date.now() - 5 * 60_000
+    for (const row of follows) {
+      if (this.knownFollowIds.has(row.feedId)) continue
+
+      const dedupeKey = `follow:${row.username.toLowerCase()}`
+      if (this.recentAlertKeys.has(dedupeKey)) {
+        this.knownFollowIds.add(row.feedId)
+        continue
+      }
+
+      this.knownFollowIds.add(row.feedId)
+      if (row.followedAt < recentCutoff) continue
+
+      this.showAlert({
+        id: randomUUID(),
+        type: 'follow',
+        platform: 'twitch',
+        username: row.username,
+        message: 'vient de suivre la chaîne !'
+      }, dedupeKey)
+    }
+  }
+
+  private async restartEventSub(twitch: {
+    accessToken: string
+    userId: string
+  }): Promise<void> {
+    try {
+      await this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId)
+    } catch (err) {
+      console.warn('[EventSub] restart failed:', err)
+    }
+  }
+
+  private async ensureEventSub(twitch: {
+    accessToken: string
+    userId: string
+  }): Promise<void> {
+    this.lastTwitchAccessToken = twitch.accessToken
+    if (this.eventSub.isConnected()) return
+    await this.restartEventSub(twitch)
   }
 
   private broadcast(channel: string, data: unknown): void {
@@ -269,9 +364,8 @@ export class IntegrationManager {
   }): Promise<PlatformConnectionPublic> {
     await this.chat.connect(conn.username, conn.accessToken)
     this.chatAccessToken = conn.accessToken
-    void this.eventSub.start(conn.accessToken, conn.userId, conn.userId).catch((err) => {
-      console.warn('[EventSub] start failed:', err)
-    })
+    this.lastTwitchAccessToken = conn.accessToken
+    void this.ensureEventSub(conn)
     void this.seedRecentTwitchActivity()
     this.addFeedEvent({
       id: `connect-${Date.now()}`,
@@ -291,6 +385,7 @@ export class IntegrationManager {
     }
     this.broadcast('integrations:updated', this.getConnections())
     this.startWidgetStatsPolling()
+    this.startActivityPolling()
     return pub
   }
 
@@ -299,7 +394,11 @@ export class IntegrationManager {
       await this.chat.disconnect()
       await this.eventSub.stop()
       this.chatAccessToken = null
+      this.lastTwitchAccessToken = null
       this.stopWidgetStatsPolling()
+      this.stopActivityPolling()
+      this.activityBaselineReady = false
+      this.knownFollowIds.clear()
       this.widgetLiveData = { viewerCount: 0, followerCount: 0, subCount: 0, live: false }
       this.broadcast('widget:stats', this.widgetLiveData)
     }
@@ -309,22 +408,25 @@ export class IntegrationManager {
 
   async restoreSessions(): Promise<void> {
     const twitch = await ensureFreshTwitchToken()
-    if (twitch) {
-      this.startWidgetStatsPolling()
-      try {
-        await Promise.race([
-          this.chat.connect(twitch.username, twitch.accessToken),
-          new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('chat connect timeout')), 8000)
-          })
-        ])
-        this.chatAccessToken = twitch.accessToken
-        void this.eventSub.start(twitch.accessToken, twitch.userId, twitch.userId).catch((err) => {
-          console.warn('[EventSub] restore failed:', err)
+    if (!twitch) return
+
+    this.startWidgetStatsPolling()
+    this.startActivityPolling()
+    void this.ensureEventSub(twitch)
+
+    try {
+      await Promise.race([
+        this.chat.connect(twitch.username, twitch.accessToken),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('chat connect timeout')), 8000)
         })
-        void this.seedRecentTwitchActivity()
-      } catch { /* token expired or chat unavailable */ }
+      ])
+      this.chatAccessToken = twitch.accessToken
+    } catch {
+      /* chat optionnel — les alertes passent par EventSub + Helix */
     }
+
+    void this.seedRecentTwitchActivity()
   }
 
   getMessages(): ChatMessage[] {
@@ -377,9 +479,25 @@ export class IntegrationManager {
       clearTimeout(this.widgetStatsRefreshDebounce)
       this.widgetStatsRefreshDebounce = null
     }
+    this.stopActivityPolling()
     if (this.widgetStatsTimer) {
       clearInterval(this.widgetStatsTimer)
       this.widgetStatsTimer = null
+    }
+  }
+
+  private startActivityPolling(): void {
+    this.stopActivityPolling()
+    void this.pollTwitchActivity()
+    this.activityPollTimer = setInterval(() => {
+      void this.pollTwitchActivity()
+    }, 20_000)
+  }
+
+  private stopActivityPolling(): void {
+    if (this.activityPollTimer) {
+      clearInterval(this.activityPollTimer)
+      this.activityPollTimer = null
     }
   }
 

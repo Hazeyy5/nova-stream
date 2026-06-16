@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getPublicTwitchClientId } from '../platformConfig'
+import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import type { StreamAlert } from '../../../src/types'
 
 const WS_URL = 'wss://eventsub.wss.twitch.tv/ws'
@@ -13,31 +14,55 @@ interface EventSubMessage {
   }
   payload: {
     session?: { id: string; reconnect_url?: string }
-    subscription?: { type: string }
+    subscription?: { type: string; id?: string }
     event?: Record<string, unknown>
   }
 }
 
+type WsLike = {
+  close: () => void
+  onmessage: ((ev: { data: string | ArrayBuffer }) => void) | null
+  onclose: (() => void) | null
+  onerror: (() => void) | null
+}
+
+function createWebSocket(url: string): WsLike {
+  if (typeof WebSocket !== 'undefined') {
+    return new WebSocket(url) as unknown as WsLike
+  }
+  throw new Error('WebSocket indisponible dans le processus principal')
+}
+
 export class TwitchEventSubService {
-  private ws: WebSocket | null = null
+  private ws: WsLike | null = null
   private sessionId: string | null = null
-  private accessToken = ''
   private broadcasterId = ''
   private moderatorId = ''
   private onAlert?: (alert: StreamAlert) => void
+  private onStatus?: (status: { connected: boolean; subscribed: boolean; error?: string }) => void
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private stopped = true
+  private subscribedTypes = new Set<string>()
 
   setOnAlert(callback: (alert: StreamAlert) => void): void {
     this.onAlert = callback
   }
 
+  setOnStatus(callback: (status: { connected: boolean; subscribed: boolean; error?: string }) => void): void {
+    this.onStatus = callback
+  }
+
+  isConnected(): boolean {
+    return this.ws !== null && this.sessionId !== null
+  }
+
   async start(accessToken: string, broadcasterId: string, moderatorId: string): Promise<void> {
     await this.stop()
     this.stopped = false
-    this.accessToken = accessToken
     this.broadcasterId = broadcasterId
     this.moderatorId = moderatorId
+    this.subscribedTypes.clear()
+    void accessToken
     this.connect(WS_URL)
   }
 
@@ -52,12 +77,24 @@ export class TwitchEventSubService {
       this.ws = null
     }
     this.sessionId = null
+    this.subscribedTypes.clear()
+    this.onStatus?.({ connected: false, subscribed: false })
   }
 
   private connect(url: string): void {
     if (this.stopped) return
 
-    this.ws = new WebSocket(url)
+    try {
+      this.ws = createWebSocket(url)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'WebSocket indisponible'
+      console.error('[EventSub]', message)
+      this.onStatus?.({ connected: false, subscribed: false, error: message })
+      if (!this.stopped) {
+        this.reconnectTimer = setTimeout(() => this.connect(WS_URL), 8000)
+      }
+      return
+    }
 
     this.ws.onmessage = (ev) => {
       try {
@@ -71,6 +108,8 @@ export class TwitchEventSubService {
     this.ws.onclose = () => {
       this.ws = null
       this.sessionId = null
+      this.subscribedTypes.clear()
+      this.onStatus?.({ connected: false, subscribed: false })
       if (!this.stopped) {
         this.reconnectTimer = setTimeout(() => this.connect(WS_URL), 5000)
       }
@@ -87,6 +126,7 @@ export class TwitchEventSubService {
     if (type === 'session_welcome') {
       this.sessionId = msg.payload.session?.id ?? null
       if (this.sessionId) {
+        this.onStatus?.({ connected: true, subscribed: false })
         await this.subscribeAll(this.sessionId)
       }
       return
@@ -101,14 +141,68 @@ export class TwitchEventSubService {
       return
     }
 
+    if (type === 'session_keepalive') {
+      return
+    }
+
+    if (type === 'revocation') {
+      const subType = msg.payload.subscription?.type
+      if (subType) this.subscribedTypes.delete(subType)
+      this.onStatus?.({ connected: true, subscribed: this.subscribedTypes.size > 0 })
+      return
+    }
+
     if (type === 'notification') {
       this.handleNotification(msg)
     }
   }
 
+  private async clearWebSocketSubscriptions(accessToken: string, clientId: string): Promise<void> {
+    let cursor: string | undefined
+
+    try {
+      do {
+        const url = new URL(HELIX)
+        url.searchParams.set('status', 'enabled')
+        if (cursor) url.searchParams.set('after', cursor)
+
+        const res = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Client-Id': clientId
+          }
+        })
+        if (!res.ok) break
+
+        const json = (await res.json()) as {
+          data?: Array<{ id: string; transport?: { method?: string } }>
+          pagination?: { cursor?: string }
+        }
+
+        for (const sub of json.data ?? []) {
+          if (sub.transport?.method !== 'websocket') continue
+          await fetch(`${HELIX}/${sub.id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Client-Id': clientId
+            }
+          }).catch(() => { /* ignore */ })
+        }
+
+        cursor = json.pagination?.cursor
+      } while (cursor)
+    } catch (err) {
+      console.warn('[EventSub] cleanup subscriptions:', err)
+    }
+  }
+
   private async subscribeAll(sessionId: string): Promise<void> {
     const clientId = getPublicTwitchClientId()
-    if (!clientId) return
+    const twitch = await ensureFreshTwitchToken()
+    if (!clientId || !twitch) return
+
+    await this.clearWebSocketSubscriptions(twitch.accessToken, clientId)
 
     const subs = [
       {
@@ -131,12 +225,13 @@ export class TwitchEventSubService {
       }
     ]
 
+    let okCount = 0
     for (const sub of subs) {
       try {
         const res = await fetch(HELIX, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${twitch.accessToken}`,
             'Client-Id': clientId,
             'Content-Type': 'application/json'
           },
@@ -147,14 +242,27 @@ export class TwitchEventSubService {
             transport: { method: 'websocket', session_id: sessionId }
           })
         })
-        if (!res.ok) {
+        if (res.ok) {
+          okCount += 1
+          this.subscribedTypes.add(sub.type)
+        } else {
           const body = await res.text().catch(() => '')
-          console.warn(`[EventSub] subscription ${sub.type} failed (${res.status}):`, body.slice(0, 300))
+          console.warn(`[EventSub] subscription ${sub.type} failed (${res.status}):`, body.slice(0, 400))
+          if (sub.type === 'channel.follow' && res.status === 403) {
+            this.onStatus?.({
+              connected: true,
+              subscribed: okCount > 0,
+              error: 'Scope moderator:read:followers manquant — déconnectez puis reconnectez Twitch dans Apps.'
+            })
+          }
         }
       } catch (err) {
         console.warn(`[EventSub] subscription ${sub.type} error:`, err)
       }
     }
+
+    this.onStatus?.({ connected: true, subscribed: okCount > 0 })
+    console.info(`[EventSub] ${okCount}/${subs.length} subscriptions actives`)
   }
 
   private handleNotification(msg: EventSubMessage): void {

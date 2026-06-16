@@ -2,6 +2,13 @@ import { getPublicTwitchClientId } from '../platformConfig'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import type { FeedEvent } from '../../../src/types'
 
+export interface TwitchFollowRow {
+  userId: string
+  username: string
+  followedAt: number
+  feedId: string
+}
+
 async function helixHeaders(): Promise<{ Authorization: string; 'Client-Id': string } | null> {
   const twitch = await ensureFreshTwitchToken()
   const clientId = getPublicTwitchClientId()
@@ -9,6 +16,49 @@ async function helixHeaders(): Promise<{ Authorization: string; 'Client-Id': str
   return {
     Authorization: `Bearer ${twitch.accessToken}`,
     'Client-Id': clientId
+  }
+}
+
+function toFollowRow(row: {
+  user_id: string
+  user_name?: string
+  user_login?: string
+  followed_at: string
+}): TwitchFollowRow {
+  const username = row.user_name ?? row.user_login ?? 'Viewer'
+  const followedAt = new Date(row.followed_at).getTime() || Date.now()
+  return {
+    userId: row.user_id,
+    username,
+    followedAt,
+    feedId: `follow-${row.user_id}-${row.followed_at}`
+  }
+}
+
+/** Derniers follows via Helix (nécessite moderator:read:followers). */
+export async function fetchRecentTwitchFollows(limit = 25): Promise<TwitchFollowRow[]> {
+  const headers = await helixHeaders()
+  const twitch = await ensureFreshTwitchToken()
+  if (!headers || !twitch) return []
+
+  try {
+    const url = new URL('https://api.twitch.tv/helix/channels/followers')
+    url.searchParams.set('broadcaster_id', twitch.userId)
+    url.searchParams.set('first', String(Math.min(100, limit)))
+
+    const res = await fetch(url.toString(), { headers })
+    if (!res.ok) {
+      console.warn('[Helix] followers fetch failed:', res.status)
+      return []
+    }
+
+    const json = (await res.json()) as {
+      data?: Array<{ user_id: string; user_name?: string; user_login?: string; followed_at: string }>
+    }
+    return (json.data ?? []).map(toFollowRow).sort((a, b) => b.followedAt - a.followedAt)
+  } catch (err) {
+    console.warn('[Helix] followers fetch error:', err)
+    return []
   }
 }
 
@@ -21,30 +71,16 @@ export async function fetchRecentTwitchActivity(limit = 15): Promise<FeedEvent[]
   const broadcasterId = twitch.userId
   const events: FeedEvent[] = []
 
-  try {
-    const followersUrl = new URL('https://api.twitch.tv/helix/channels/followers')
-    followersUrl.searchParams.set('broadcaster_id', broadcasterId)
-    followersUrl.searchParams.set('first', String(Math.min(100, limit)))
-
-    const followersRes = await fetch(followersUrl.toString(), { headers })
-    if (followersRes.ok) {
-      const json = (await followersRes.json()) as {
-        data?: Array<{ user_id: string; user_name?: string; user_login?: string; followed_at: string }>
-      }
-      for (const row of json.data ?? []) {
-        const name = row.user_name ?? row.user_login ?? 'Viewer'
-        events.push({
-          id: `follow-${row.user_id}-${row.followed_at}`,
-          type: 'follow',
-          platform: 'twitch',
-          icon: '💜',
-          text: `${name} a suivi la chaîne`,
-          timestamp: new Date(row.followed_at).getTime() || Date.now()
-        })
-      }
-    }
-  } catch {
-    /* scope manquant ou réseau */
+  const follows = await fetchRecentTwitchFollows(limit)
+  for (const row of follows) {
+    events.push({
+      id: row.feedId,
+      type: 'follow',
+      platform: 'twitch',
+      icon: '💜',
+      text: `${row.username} a suivi la chaîne`,
+      timestamp: row.followedAt
+    })
   }
 
   try {
@@ -55,7 +91,7 @@ export async function fetchRecentTwitchActivity(limit = 15): Promise<FeedEvent[]
     const subsRes = await fetch(subsUrl.toString(), { headers })
     if (subsRes.ok) {
       const json = (await subsRes.json()) as {
-        data?: Array<{ user_id: string; user_name?: string; user_login?: string; tier?: string; gifter_name?: string }>
+        data?: Array<{ user_id: string; user_name?: string; user_login?: string; tier?: string }>
       }
       for (const row of json.data ?? []) {
         const name = row.user_name ?? row.user_login ?? 'Viewer'
