@@ -476,7 +476,7 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
-        if (record && !stream) markStarted()
+        if (stream || record) markStarted()
       })
 
       if (stream) {
