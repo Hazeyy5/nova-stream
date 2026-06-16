@@ -510,8 +510,8 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Comme OBS : FFmpeg démarre d&apos;abord, puis vidéo et micro partent sur la même timeline.
-                    Aucun réglage manuel nécessaire dans la plupart des cas.
+                    Comme OBS : compensation automatique de la latence vidéo (~65 ms H.264, ~95 ms WebM).
+                    Décochez pour ajuster manuellement si besoin.
                   </>
                 ) : (
                   <>

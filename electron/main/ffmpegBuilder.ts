@@ -2,7 +2,7 @@ import { join } from 'path'
 import { existsSync, statSync } from 'fs'
 import { DESKTOP_AUDIO_PCM } from './desktopAudioCapture'
 import { MIC_AUDIO_PCM } from './micAudioCapture'
-import { resolveManualAudioTrimMs, buildAudioTrimSuffix } from './streamPipelineSync'
+import { resolveStreamAudioTrimMs, buildAudioTrimSuffix } from './streamPipelineSync'
 import type { StreamSettings, VideoEncoder } from '../../src/types'
 
 const FFMPEG_VIDEO_CODEC: Record<VideoEncoder, string> = {
@@ -143,24 +143,26 @@ function dshowInput(device: string, kind: 'video' | 'audio'): string {
 function micPreprocessFilter(
   micIndex: number,
   settings: StreamSettings,
-  outputLabel: string
+  outputLabel: string,
+  videoInputFormat: 'h264' | 'webm'
 ): string {
   const channels = settings.micMono ? 1 : 2
   let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.050:first_pts=0,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
-  chain += buildAudioTrimSuffix(resolveManualAudioTrimMs(settings), channels)
+  chain += buildAudioTrimSuffix(resolveStreamAudioTrimMs(settings, videoInputFormat), channels)
   return `${chain}${outputLabel}`
 }
 
 function desktopPreprocessFilter(
   desktopIndex: number,
   settings: StreamSettings,
-  outputLabel: string
+  outputLabel: string,
+  videoInputFormat: 'h264' | 'webm'
 ): string {
   const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.050:first_pts=0,aformat=sample_fmts=fltp`
-  return `${chain}${buildAudioTrimSuffix(resolveManualAudioTrimMs(settings), 2)}${outputLabel}`
+  return `${chain}${buildAudioTrimSuffix(resolveStreamAudioTrimMs(settings, videoInputFormat), 2)}${outputLabel}`
 }
 
 function volumeFilter(inputLabel: string, linear: number, outputLabel: string): string {
@@ -180,10 +182,11 @@ function micProcessingChain(
   settings: StreamSettings,
   linear: number,
   outputLabel: string,
-  enableMeters: boolean
+  enableMeters: boolean,
+  videoInputFormat: 'h264' | 'webm'
 ): string[] {
   const filters = [
-    micPreprocessFilter(micIndex, settings, '[micpre]'),
+    micPreprocessFilter(micIndex, settings, '[micpre]', videoInputFormat),
     volumeFilter('[micpre]', linear, '[micpost]')
   ]
   if (enableMeters) {
@@ -199,10 +202,11 @@ function desktopProcessingChain(
   settings: StreamSettings,
   linear: number,
   outputLabel: string,
-  enableMeters: boolean
+  enableMeters: boolean,
+  videoInputFormat: 'h264' | 'webm'
 ): string[] {
   const filters = [
-    desktopPreprocessFilter(desktopIndex, settings, '[deskpre]'),
+    desktopPreprocessFilter(desktopIndex, settings, '[deskpre]', videoInputFormat),
     volumeFilter('[deskpre]', linear, '[deskpost]')
   ]
   if (enableMeters) {
@@ -315,20 +319,20 @@ export function buildFfmpegScenePipeArgs(
 
   if (micIndex !== null && desktopIndex === null) {
     filters.push(
-      ...micProcessingChain(micIndex, settings, micVol, '[amix]', enableMeters),
+      ...micProcessingChain(micIndex, settings, micVol, '[amix]', enableMeters, videoInputFormat),
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   } else if (desktopIndex !== null && micIndex === null) {
     filters.push(
-      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[amix]', enableMeters),
+      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[amix]', enableMeters, videoInputFormat),
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'
   } else if (micIndex !== null && desktopIndex !== null) {
     filters.push(
-      ...micProcessingChain(micIndex, settings, micVol, '[a0]', enableMeters),
-      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[a1]', enableMeters),
+      ...micProcessingChain(micIndex, settings, micVol, '[a0]', enableMeters, videoInputFormat),
+      ...desktopProcessingChain(desktopIndex, settings, deskVol, '[a1]', enableMeters, videoInputFormat),
       '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amix]',
       masterAudioFilter('[amix]', '[outa]')
     )

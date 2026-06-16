@@ -1,5 +1,5 @@
 /** Durée d'un chunk MediaRecorder WebM — doit correspondre à videoPipeEncoder.ts */
-export const WEBM_CHUNK_DURATION_MS = 100
+export const WEBM_CHUNK_DURATION_MS = 66
 
 export type VideoPaceMode = 'frame' | 'timed'
 

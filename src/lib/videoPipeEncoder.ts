@@ -14,7 +14,7 @@ const H264_CODEC_CANDIDATES = [
   'avc1.640028'
 ]
 
-export const WEBM_CHUNK_DURATION_MS = 100
+export const WEBM_CHUNK_DURATION_MS = 66
 
 function pickWebmMimeType(): string {
   const types = [
