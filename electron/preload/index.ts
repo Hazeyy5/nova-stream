@@ -31,7 +31,8 @@ const api = {
       videoInputFormat?: 'h264' | 'webm'
     }) => ipcRenderer.invoke('media:start', payload),
     stop: () => ipcRenderer.invoke('media:stop'),
-    sendVideoChunk: (chunk: Uint8Array) => ipcRenderer.send('media:video-chunk', chunk),
+    sendVideoChunk: (chunk: Uint8Array, durationMs?: number) =>
+      ipcRenderer.send('media:video-chunk', { chunk, durationMs }),
     getStatus: () => ipcRenderer.invoke('media:getStatus') as Promise<MediaState>,
     isActive: () => ipcRenderer.invoke('media:isActive') as Promise<boolean>,
     getHealth: () => ipcRenderer.invoke('media:getHealth') as Promise<{

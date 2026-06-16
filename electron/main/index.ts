@@ -147,8 +147,13 @@ app.whenReady().then(async () => {
     return { success: true }
   })
 
-  ipcMain.on('media:video-chunk', (_event, chunk: Uint8Array) => {
-    streamManager.handleVideoChunk(Buffer.from(chunk))
+  ipcMain.on('media:video-chunk', (_event, payload: Uint8Array | { chunk: Uint8Array; durationMs?: number }) => {
+    if (payload instanceof Uint8Array || Buffer.isBuffer(payload)) {
+      streamManager.handleVideoChunk(Buffer.from(payload))
+      return
+    }
+    const durationMs = typeof payload.durationMs === 'number' ? payload.durationMs : undefined
+    streamManager.handleVideoChunk(Buffer.from(payload.chunk), durationMs)
   })
 
   ipcMain.handle('media:start', async (_event, payload: {

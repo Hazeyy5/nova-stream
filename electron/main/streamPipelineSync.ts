@@ -1,8 +1,8 @@
 import type { StreamSettings } from '../../src/types'
 
-/** Latence typique micro temps réel vs vidéo encodée (compensation auto, style OBS). */
-const AUTO_AUDIO_DELAY_H264_MS = 65
-const AUTO_AUDIO_DELAY_WEBM_MS = 95
+/** Compensation fixe au démarrage — le pacing A/V verrouille la timeline ensuite. */
+const AUTO_AUDIO_DELAY_H264_MS = 0
+const AUTO_AUDIO_DELAY_WEBM_MS = 0
 
 /** Ajustement manuel optionnel (±500 ms) — utilisé seulement si audioSyncAuto est désactivé. */
 export function resolveManualAudioTrimMs(settings: StreamSettings): number {

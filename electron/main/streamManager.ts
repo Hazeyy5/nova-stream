@@ -7,6 +7,9 @@ import { listMediaDevices, listDshowMediaDevices, resolveStreamSettings } from '
 import { DesktopAudioCapture } from './desktopAudioCapture'
 import { MicAudioCapture } from './micAudioCapture'
 import { StreamMeterParser, streamAudioMeterService } from './streamMeterParser'
+import { PcmAvSyncGate } from './pcmAvSyncGate'
+
+const WEBM_CHUNK_DURATION_MS = 66
 import type { MediaState, StreamSettings } from '../../src/types'
 
 export interface StartMediaOptions {
@@ -44,7 +47,8 @@ export class StreamManager {
   private videoChunksReceived = 0
   private lastVideoChunkAt = 0
   private healthTimer: ReturnType<typeof setInterval> | null = null
-  private audioMuxStarted = false
+  private pcmAvSyncGate = new PcmAvSyncGate()
+  private sessionVideoInputFormat: 'h264' | 'webm' = 'webm'
   private sessionFramerate = 30
   private state: MediaState = {
     stream: { status: 'idle' },
@@ -81,7 +85,7 @@ export class StreamManager {
     stdin.write(chunk)
   }
 
-  handleVideoChunk(chunk: Buffer): void {
+  handleVideoChunk(chunk: Buffer, durationMs?: number): void {
     if (chunk.length === 0 || !this.process) return
 
     this.videoChunksReceived += 1
@@ -95,13 +99,20 @@ export class StreamManager {
       this.markStreamLive()
     }
 
-    if (!this.audioMuxStarted) {
-      this.audioMuxStarted = true
-      this.startNativeDesktopCaptureIfNeeded()
-      this.startMicCaptureIfNeeded()
-    }
+    const tickMs = durationMs ?? this.defaultVideoTickMs()
+    this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
+      mic: this.micPipe,
+      desktop: this.nativeDesktopPipe
+    })
 
     this.writeVideoToStdin(chunk)
+  }
+
+  private defaultVideoTickMs(): number {
+    if (this.sessionVideoInputFormat === 'webm') {
+      return WEBM_CHUNK_DURATION_MS
+    }
+    return 1000 / Math.max(1, this.sessionFramerate)
   }
 
   private markStreamLive(message = 'En direct'): void {
@@ -148,12 +159,9 @@ export class StreamManager {
     desktopPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
     void this.desktopCapture.start((pcmChunk) => {
       const settings = this.sessionSettings
-      if (!settings || !desktopPipe || desktopPipe.destroyed || !desktopPipe.writable) return
+      if (!settings) return
       const mixed = this.applyDesktopMix(pcmChunk, settings)
-      const ok = desktopPipe.write(mixed)
-      if (!ok) {
-        desktopPipe.once('drain', () => { /* reprend */ })
-      }
+      this.pcmAvSyncGate.pushDesktop(mixed)
     }).catch(() => { /* capture bureau optionnelle */ })
   }
 
@@ -166,12 +174,7 @@ export class StreamManager {
     this.applyMixerLevels(this.sessionSettings)
     micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
     void this.micCapture.start(device, (pcmChunk) => {
-      if (!micPipe || micPipe.destroyed || !micPipe.writable) return
-      const ok = micPipe.write(pcmChunk)
-      if (!ok) {
-        /* Pipe saturé — on saute ce chunk pour éviter que l'audio prenne de l'avance sur la vidéo */
-        micPipe.once('drain', () => { /* reprend */ })
-      }
+      this.pcmAvSyncGate.pushMic(pcmChunk)
     }).catch(() => { /* capture micro optionnelle */ })
   }
 
@@ -260,6 +263,12 @@ export class StreamManager {
 
   private async refreshAudioPipeline(): Promise<void> {
     if (!this.process || !this.sessionOptions || !this.sessionSettings || this.refreshingAudio) return
+
+    // Ne jamais tuer FFmpeg en plein live — provoque coupure / effet « rechargement » sur Twitch.
+    if (this.state.stream.status === 'live' || this.state.stream.status === 'starting') {
+      this.applyMixerLevels(this.sessionSettings)
+      return
+    }
 
     this.refreshingAudio = true
     const wasLive = this.state.stream.status === 'live'
@@ -393,7 +402,8 @@ export class StreamManager {
       this.videoChunksReceived = 0
       this.lastVideoChunkAt = 0
       this.sessionFramerate = resolved.framerate
-      this.audioMuxStarted = false
+      this.sessionVideoInputFormat = videoInputFormat
+      this.pcmAvSyncGate.reset()
       this.sessionUsesNativeDesktop = usesNativeDesktop
       this.sessionUsesMicPipe = usesMicPipe
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
@@ -495,6 +505,8 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
+        this.startNativeDesktopCaptureIfNeeded()
+        this.startMicCaptureIfNeeded()
         if (stream || record) resolveLaunch()
       })
 
@@ -616,7 +628,7 @@ export class StreamManager {
 
   async stop(): Promise<void> {
     this.stopHealthWatchdog()
-    this.audioMuxStarted = false
+    this.pcmAvSyncGate.reset()
     if (this.audioRefreshTimer) {
       clearTimeout(this.audioRefreshTimer)
       this.audioRefreshTimer = null

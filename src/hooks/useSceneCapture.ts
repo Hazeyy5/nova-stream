@@ -2,7 +2,7 @@ import { useRef, useCallback, type RefObject } from 'react'
 import type { StreamEntry } from '../lib/drawScene'
 import { VideoPipeEncoder, type VideoInputFormat } from '../lib/videoPipeEncoder'
 
-const noopChunk: (chunk: Uint8Array) => void = () => {}
+const noopChunk: (chunk: Uint8Array, _meta: { durationMs: number }) => void = () => {}
 
 export function useSceneCapture(
   streamsRef: RefObject<Map<string, StreamEntry>>,
@@ -72,9 +72,9 @@ export function useSceneCapture(
     if (!encoder || !canvas || pipeConnectedRef.current) return
 
     pipeConnectedRef.current = true
-    encoder.beginCapture((chunk) => {
+    encoder.beginCapture((chunk, meta) => {
       pendingVideoChunksRef.current += 1
-      window.novaStream.media.sendVideoChunk(chunk)
+      window.novaStream.media.sendVideoChunk(chunk, meta.durationMs)
       pendingVideoChunksRef.current -= 1
     }, canvas, videoBitrateRef.current)
   }, [canvasRef])
