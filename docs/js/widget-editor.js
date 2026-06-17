@@ -41,18 +41,40 @@
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
   }
 
+  function donationAlertCfg() {
+    const d = window.NovaDonations?.load?.() ?? {}
+    return {
+      alertTitle: d.alertTitle || 'Don',
+      alertDefaultMessage: d.alertDefaultMessage || 'Merci pour votre soutien !',
+      alertMessageTemplate: d.alertMessageTemplate || '{amount} — {message}'
+    }
+  }
+
+  function donationAlertPreviewMsg(cfg) {
+    const template = cfg.alertMessageTemplate || '{amount} — {message}'
+    const defaultMsg = cfg.alertDefaultMessage || 'Merci pour votre soutien !'
+    return template
+      .replace(/\{name\}/g, 'GenerousOne')
+      .replace(/\{amount\}/g, '5 €')
+      .replace(/\{message\}/g, 'Super stream !')
+  }
+
   function renderAlertPreview(cfg, typeId) {
     const t = ALERT_TYPES.find((a) => a.id === typeId) || ALERT_TYPES[0]
     const el = document.getElementById('widget-preview')
     if (!el) return
     const user = window.NovaTwitchLive?.alertUser(liveContext, t.user) ?? t.user
+    const donCfg = readDonationAlertForm()
+    const previewMsg = typeId === 'donation' ? donationAlertPreviewMsg(donCfg) : t.msg
+    const previewTitle = typeId === 'donation' ? (donCfg.alertTitle || 'Don') : null
     el.className = `widget-preview-stage alert-preview alert-style-${cfg.style || 'classic'} alert-anim-${cfg.animation || 'pop'}`
     el.innerHTML = `
       <div class="alert-preview-inner">
         <span class="alert-preview-icon">${t.icon}</span>
         <div class="alert-preview-text">
           <strong>${esc(user)}</strong>
-          <span>${esc(t.msg)}</span>
+          ${previewTitle ? `<em class="alert-preview-type">${esc(previewTitle)}</em>` : ''}
+          <span>${esc(previewMsg)}</span>
         </div>
       </div>
     `
@@ -238,6 +260,38 @@
     `
   }
 
+  function renderDonationAlertFields() {
+    const d = donationAlertCfg()
+    return `
+      <div class="cfg-subsection" id="donation-alert-fields">
+        <p class="cfg-subtitle">Texte alerte don</p>
+        <p class="cfg-hint">Variables : {name}, {amount}, {message}</p>
+        ${fieldText('cfg-don-title', 'Libellé', d.alertTitle, 'Don')}
+        ${fieldText('cfg-don-default', 'Message par défaut', d.alertDefaultMessage, 'Merci pour votre soutien !')}
+        ${fieldText('cfg-don-template', 'Modèle affiché', d.alertMessageTemplate, '{amount} — {message}')}
+      </div>
+    `
+  }
+
+  function readDonationAlertForm() {
+    const g = (id) => document.getElementById(id)
+    return {
+      alertTitle: g('cfg-don-title')?.value?.trim() || 'Don',
+      alertDefaultMessage: g('cfg-don-default')?.value?.trim() || 'Merci pour votre soutien !',
+      alertMessageTemplate: g('cfg-don-template')?.value?.trim() || '{amount} — {message}'
+    }
+  }
+
+  function saveDonationAlertFields() {
+    if (!window.NovaDonations?.save) return
+    window.NovaDonations.save(readDonationAlertForm())
+  }
+
+  function setDonationAlertFieldsVisible(show) {
+    const el = document.getElementById('donation-alert-fields')
+    if (el) el.style.display = show ? 'block' : 'none'
+  }
+
   function renderForm(widgetId, cfg) {
     switch (widgetId) {
       case 'alert':
@@ -264,6 +318,7 @@
             { value: 'pulse', label: 'Pulsation' }
           ], cfg.animation)}
           ${fieldRange('cfg-duration', 'Durée affichage', 3, 10, cfg.durationSec || 5, 's')}
+          ${renderDonationAlertFields()}
         `
       case 'chat':
         return `
@@ -395,6 +450,7 @@
           document.querySelectorAll('[data-alert-type]').forEach((b) => b.classList.remove('active'))
           btn.classList.add('active')
           alertTypeRef.current = btn.dataset.alertType
+          setDonationAlertFieldsVisible(alertTypeRef.current === 'donation')
           updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
         })
       })
@@ -426,6 +482,7 @@
         `<button type="button" class="cfg-tab${i === 0 ? ' active' : ''}" data-alert-type="${t.id}">${t.icon} ${t.label}</button>`
       ).join('')
       tabs.style.display = 'flex'
+      setDonationAlertFieldsVisible(false)
     }
 
     updatePreview(widgetId, cfg, alertTypeRef.current)
@@ -447,6 +504,7 @@
       saveMsg.style.display = 'none'
       try {
         cfg = readForm(widgetId)
+        if (widgetId === 'alert') saveDonationAlertFields()
         NovaWidgetSettings.saveWidget(widgetId, cfg)
         refreshModuleUrls(widgetId, cfg)
         const sync = await NovaWidgetSettings.syncToDesktop()
@@ -516,6 +574,7 @@
       btn.disabled = true
       try {
         await NovaLink.syncWidgetSettings()
+        if (widgetId === 'alert') await NovaDonations.registerOnApi().catch(() => {})
         const payload = { widget: widgetId, settings: cfg }
         if (widgetId === 'alert') {
           payload.alertType = alertTypeRef.current

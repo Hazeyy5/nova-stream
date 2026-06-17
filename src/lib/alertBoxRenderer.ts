@@ -45,7 +45,11 @@ function roundRect(
 }
 
 function metaFor(alert: StreamAlert) {
-  return ALERT_META[alert.type] ?? ALERT_META.follow
+  const base = ALERT_META[alert.type] ?? ALERT_META.follow
+  if (alert.title?.trim()) {
+    return { ...base, label: alert.title.trim() }
+  }
+  return base
 }
 
 function drawClassic(

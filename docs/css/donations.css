@@ -324,3 +324,20 @@
 .donations-history-msg {
   margin-top: 12px;
 }
+
+.donations-subsection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.donations-subtitle {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: #e9d5ff;
+}
+
+.donations-subsection code {
+  font-size: 0.85em;
+  color: #c4b5fd;
+}

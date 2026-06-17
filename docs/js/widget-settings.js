@@ -47,6 +47,9 @@
       suggestedAmounts: [1, 3, 5, 10, 20],
       pageMessage: 'Soutenez le stream et laissez un message !',
       thankYouMessage: 'Merci pour votre générosité !',
+      alertTitle: 'Don',
+      alertDefaultMessage: 'Merci pour votre soutien !',
+      alertMessageTemplate: '{amount} — {message}',
       donationKey: '',
       paypalUsername: ''
     }

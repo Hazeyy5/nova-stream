@@ -17,13 +17,14 @@ export default function AlertOverlay({ alerts }: AlertOverlayProps) {
   if (!alert) return null
 
   const meta = ALERT_META[alert.type]
+  const label = alert.title?.trim() || meta.label
 
   return (
     <div className="alert-overlay alert-active" style={{ '--alert-color': meta.color } as React.CSSProperties}>
       <div className="alert-glow" />
       <span className="alert-icon">{meta.icon}</span>
       <div className="alert-content">
-        <span className="alert-type">{meta.label}</span>
+        <span className="alert-type">{label}</span>
         <span className="alert-user">{alert.username}</span>
         {alert.message && <span className="alert-msg">{alert.message}</span>}
         {alert.amount && <span className="alert-amount">{alert.amount}</span>}

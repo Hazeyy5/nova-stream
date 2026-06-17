@@ -79,6 +79,8 @@ export interface StreamAlert {
   username: string
   message?: string
   amount?: string
+  /** Titre personnalisé (ex. libellé don). */
+  title?: string
   /** Horodatage d'affichage (ms) pour les animations. */
   shownAt?: number
 }
@@ -258,6 +260,12 @@ export interface DonationSettings {
   pageTitle?: string
   pageMessage?: string
   thankYouMessage?: string
+  /** Libellé affiché sur l'alerte live (ex. « Nouveau don »). */
+  alertTitle?: string
+  /** Message par défaut si le viewer n'en laisse pas un. */
+  alertDefaultMessage?: string
+  /** Modèle : {name}, {amount}, {message} */
+  alertMessageTemplate?: string
   /** Clé secrète pour récupérer les dons dans l'app desktop. */
   donationKey?: string
   /** Nom PayPal.me (optionnel) — redirection après envoi du don. */

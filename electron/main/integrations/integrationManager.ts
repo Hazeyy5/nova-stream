@@ -19,6 +19,7 @@ import { loadPersistedFeedEvents, savePersistedFeedEvents } from './feedStore'
 import { fetchRecentTwitchActivity, fetchRecentTwitchFollows } from './twitchFeedHistory'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import { DonationPoller, type PendingDonation } from '../donationPoller'
+import { formatDonationAlertMessage } from '../../../src/lib/donationAlertText'
 import type { ChatMessage, DonationSettings, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
@@ -55,6 +56,7 @@ export class IntegrationManager {
 
     this.chat.setOnAlert((alert) => this.showAlert(alert))
     this.eventSub.setOnAlert((alert) => this.showAlert(alert))
+    this.alerts.setDonationSettingsProvider(() => this.getDonationSettings())
     this.eventSub.setOnStatus((status) => {
       if (status.error) {
         this.addFeedEvent({
@@ -108,20 +110,37 @@ export class IntegrationManager {
   }
 
   ingestDonation(donation: PendingDonation): void {
-    const symbol = donation.currency === 'USD' ? '$' : '€'
-    const amountLabel = `${donation.amount}${symbol}`
-    const message = donation.message
-      ? `${amountLabel} — ${donation.message}`
-      : `${amountLabel} — Merci pour le stream !`
+    const settings = this.getDonationSettings()
+    const { title, message, amountLabel } = formatDonationAlertMessage(
+      {
+        donorName: donation.donorName,
+        message: donation.message,
+        amount: donation.amount,
+        currency: donation.currency
+      },
+      settings
+    )
 
     this.showAlert({
       id: donation.id,
       type: 'donation',
       platform: 'twitch',
       username: donation.donorName,
+      title,
       message,
       amount: amountLabel
     }, `donation:${donation.id}`)
+  }
+
+  getWebWidgetSettings(): WebWidgetSettings {
+    return this.widgetModules.getSettings()
+  }
+
+  patchDonationSettings(partial: Partial<DonationSettings>): WebWidgetSettings {
+    const current = this.widgetModules.getSettings()
+    const donations = { ...current.donations, ...partial }
+    this.applyWebWidgetSettings({ ...current, donations })
+    return this.widgetModules.getSettings()
   }
 
   getDonationSettings(): DonationSettings | undefined {

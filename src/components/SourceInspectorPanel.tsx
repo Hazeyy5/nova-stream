@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { AlertAnimation, AlertBoxStyle, CapturePickerKind, ChatBoxStyle, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source, SourceMaskShape } from '../types'
+import type { AlertAnimation, AlertBoxStyle, CapturePickerKind, ChatBoxStyle, DonationSettings, GoalWidgetStyle, MediaDevice, PollWidgetStyle, Source, SourceMaskShape } from '../types'
+import { DONATION_ALERT_DEFAULTS } from '../lib/donationAlertText'
 import { ALERT_ANIMATIONS } from '../lib/alertAnimation'
 import { ALERT_BOX_STYLES } from '../lib/alertBoxRenderer'
 import { CHAT_BOX_STYLES } from '../lib/chatBoxRenderer'
@@ -16,12 +17,29 @@ interface SourceInspectorPanelProps {
 export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: SourceInspectorPanelProps) {
   const t = source.transform
   const [videoDevices, setVideoDevices] = useState<MediaDevice[]>([])
+  const [donationAlert, setDonationAlert] = useState<Partial<DonationSettings>>({})
 
   useEffect(() => {
     window.novaStream.devices.listMedia().then((devices) => {
       setVideoDevices(devices.filter((d) => d.type === 'video'))
     })
   }, [])
+
+  useEffect(() => {
+    if (source.type !== 'alert') return
+    void window.novaStream.integrations.getWebWidgetSettings().then((settings) => {
+      setDonationAlert(settings.donations ?? {})
+    })
+    const unsub = window.novaStream.integrations.onWebWidgetSettings((settings) => {
+      setDonationAlert(settings.donations ?? {})
+    })
+    return unsub
+  }, [source.type])
+
+  const patchDonationAlert = (partial: Partial<DonationSettings>) => {
+    setDonationAlert((prev) => ({ ...prev, ...partial }))
+    void window.novaStream.integrations.patchDonationSettings(partial)
+  }
 
   return (
     <div className="source-props-body source-props-panel">
@@ -584,6 +602,39 @@ export default function SourceInspectorPanel({ source, onUpdate, onRecapture }: 
           <p className="inspector-hint">
             Connectez Twitch dans Apps pour alimenter ce widget. Utilisez « Tester une alerte » pour prévisualiser.
           </p>
+        </fieldset>
+      )}
+
+      {source.type === 'alert' && (
+        <fieldset className="inspector-section">
+          <legend>Texte alerte don</legend>
+          <p className="inspector-hint">
+            Variables : {'{name}'}, {'{amount}'}, {'{message}'} — synchronisé avec le dashboard Dons du site.
+          </p>
+          <label className="inspector-field">
+            Libellé
+            <input
+              value={donationAlert.alertTitle ?? ''}
+              onChange={(e) => patchDonationAlert({ alertTitle: e.target.value })}
+              placeholder={DONATION_ALERT_DEFAULTS.alertTitle}
+            />
+          </label>
+          <label className="inspector-field">
+            Message par défaut
+            <input
+              value={donationAlert.alertDefaultMessage ?? ''}
+              onChange={(e) => patchDonationAlert({ alertDefaultMessage: e.target.value })}
+              placeholder={DONATION_ALERT_DEFAULTS.alertDefaultMessage}
+            />
+          </label>
+          <label className="inspector-field">
+            Modèle affiché
+            <input
+              value={donationAlert.alertMessageTemplate ?? ''}
+              onChange={(e) => patchDonationAlert({ alertMessageTemplate: e.target.value })}
+              placeholder={DONATION_ALERT_DEFAULTS.alertMessageTemplate}
+            />
+          </label>
         </fieldset>
       )}
     </div>

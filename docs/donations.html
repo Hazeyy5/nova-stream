@@ -74,8 +74,25 @@
       </div>
 
       <div class="field-row">
-        <label for="don-thanks">Message de remerciement</label>
+        <label for="don-thanks">Message de remerciement (page tip)</label>
         <input type="text" id="don-thanks" />
+      </div>
+
+      <div class="donations-subsection">
+        <h3 class="donations-subtitle">Texte de l'alerte live</h3>
+        <p class="donations-hint">Personnalise ce qui s'affiche sur ta scène quand un don arrive. Variables : <code>{name}</code>, <code>{amount}</code>, <code>{message}</code></p>
+        <div class="field-row">
+          <label for="don-alert-title">Libellé de l'alerte</label>
+          <input type="text" id="don-alert-title" placeholder="Don" />
+        </div>
+        <div class="field-row">
+          <label for="don-alert-default">Message par défaut (si le viewer n'en écrit pas)</label>
+          <input type="text" id="don-alert-default" placeholder="Merci pour votre soutien !" />
+        </div>
+        <div class="field-row">
+          <label for="don-alert-template">Modèle du texte affiché</label>
+          <input type="text" id="don-alert-template" placeholder="{amount} — {message}" />
+        </div>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
@@ -127,6 +144,9 @@
       document.getElementById('don-title').value = d.pageTitle || ''
       document.getElementById('don-message').value = d.pageMessage || ''
       document.getElementById('don-thanks').value = d.thankYouMessage || ''
+      document.getElementById('don-alert-title').value = d.alertTitle || ''
+      document.getElementById('don-alert-default').value = d.alertDefaultMessage || ''
+      document.getElementById('don-alert-template').value = d.alertMessageTemplate || '{amount} — {message}'
       document.getElementById('don-url').value = NovaDonations.getTipUrl(session.username)
       document.getElementById('btn-preview').href = NovaDonations.getTipUrl(session.username)
       renderPreview()
@@ -145,7 +165,10 @@
         paypalUsername: document.getElementById('don-paypal').value.trim().replace(/^@/, ''),
         pageTitle: document.getElementById('don-title').value.trim(),
         pageMessage: document.getElementById('don-message').value.trim(),
-        thankYouMessage: document.getElementById('don-thanks').value.trim()
+        thankYouMessage: document.getElementById('don-thanks').value.trim(),
+        alertTitle: document.getElementById('don-alert-title').value.trim(),
+        alertDefaultMessage: document.getElementById('don-alert-default').value.trim(),
+        alertMessageTemplate: document.getElementById('don-alert-template').value.trim() || '{amount} — {message}'
       })
     }
 

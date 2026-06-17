@@ -18,6 +18,7 @@ import type {
   TwitchCategory,
   TwitchChannelInfo,
   WebWidgetSettings,
+  DonationSettings,
   EncoderRecommendation
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
@@ -186,7 +187,11 @@ const api = {
       const handler = (_e: Electron.IpcRendererEvent, settings: WebWidgetSettings) => callback(settings)
       ipcRenderer.on('widgets:settings', handler)
       return () => ipcRenderer.removeListener('widgets:settings', handler)
-    }
+    },
+    getWebWidgetSettings: () =>
+      ipcRenderer.invoke('integrations:getWebWidgetSettings') as Promise<WebWidgetSettings>,
+    patchDonationSettings: (partial: Partial<DonationSettings>) =>
+      ipcRenderer.invoke('integrations:patchDonationSettings', partial) as Promise<WebWidgetSettings>
   },
   sourceProps: {
     open: (source: Source) => ipcRenderer.invoke('sourceProps:open', source),

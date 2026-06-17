@@ -34,7 +34,7 @@ import {
 import { desktopAudioMeterService } from './audioMeterService'
 import { streamAudioMeterService } from './streamMeterParser'
 import { initAutoUpdater, checkForUpdatesManual, installUpdateNow, getUpdateState, syncUpdateStateToRenderer, scheduleStartupUpdateCheck } from './autoUpdater'
-import type { AlertType, AudioChannelId, Source, StreamSettings } from '../../src/types'
+import type { AlertType, AudioChannelId, DonationSettings, Source, StreamSettings } from '../../src/types'
 
 const GAME_CAPTURE_EXCLUDED = [
   'program manager',
@@ -339,6 +339,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('integrations:testAlert', (_e, type?: AlertType) => {
     integrations.testAlert(type)
   })
+  ipcMain.handle('integrations:getWebWidgetSettings', () => integrations.getWebWidgetSettings())
+  ipcMain.handle('integrations:patchDonationSettings', (_e, partial: Partial<DonationSettings>) =>
+    integrations.patchDonationSettings(partial)
+  )
 
   ipcMain.handle('integrations:getChatStatus', () => integrations.getChatStatus())
 

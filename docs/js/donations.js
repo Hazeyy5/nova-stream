@@ -7,6 +7,9 @@
     pageTitle: '',
     pageMessage: 'Soutenez le stream et laissez un message !',
     thankYouMessage: 'Merci pour votre générosité !',
+    alertTitle: 'Don',
+    alertDefaultMessage: 'Merci pour votre soutien !',
+    alertMessageTemplate: '{amount} — {message}',
     donationKey: '',
     paypalUsername: ''
   }
@@ -64,6 +67,9 @@
         pageTitle: d.pageTitle,
         pageMessage: d.pageMessage,
         thankYouMessage: d.thankYouMessage,
+        alertTitle: d.alertTitle,
+        alertDefaultMessage: d.alertDefaultMessage,
+        alertMessageTemplate: d.alertMessageTemplate,
         paypalUsername: d.paypalUsername
       })
     })
