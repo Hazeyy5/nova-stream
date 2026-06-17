@@ -74,8 +74,9 @@
       </div>
 
       <div class="field-row">
-        <label for="don-thanks">Message de remerciement (page tip)</label>
+        <label for="don-thanks">Message de remerciement (page tip après envoi)</label>
         <input type="text" id="don-thanks" />
+        <p class="donations-hint">Utilisé aussi pour l'alerte live si le champ « message alerte » ci-dessous est vide.</p>
       </div>
 
       <div class="donations-subsection">
@@ -168,7 +169,11 @@
         pageMessage: document.getElementById('don-message').value.trim(),
         thankYouMessage: document.getElementById('don-thanks').value.trim(),
         alertTitle: document.getElementById('don-alert-title').value.trim(),
-        alertDefaultMessage: document.getElementById('don-alert-default').value.trim(),
+        alertDefaultMessage: (() => {
+          const explicit = document.getElementById('don-alert-default').value.trim()
+          const thanks = document.getElementById('don-thanks').value.trim()
+          return explicit || thanks
+        })(),
         alertMessageTemplate: document.getElementById('don-alert-template').value.trim() || '{amount} — {message}'
       })
     }
@@ -286,6 +291,12 @@
 
     document.getElementById('btn-test').onclick = async () => {
       try {
+        readForm()
+        if (window.NovaDesktopSync) {
+          await window.NovaDesktopSync.pushSettings()
+        } else {
+          await NovaDonations.syncAll()
+        }
         await NovaLink.testWidget({ widget: 'alert', alertType: 'donation' })
         alert('Alerte don envoyée à Nova Stream !')
       } catch (err) {

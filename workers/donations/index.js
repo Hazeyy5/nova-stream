@@ -46,6 +46,9 @@ function rowToStreamer(row) {
     pageTitle: row.page_title,
     pageMessage: row.page_message,
     thankYouMessage: row.thank_you_message,
+    alertTitle: row.alert_title || 'Don',
+    alertDefaultMessage: row.alert_default_message || row.thank_you_message || '',
+    alertMessageTemplate: row.alert_message_template || '{amount} — {message}',
     paypalUsername: row.paypal_username,
     updatedAt: row.updated_at
   }
@@ -140,6 +143,7 @@ export default {
           pageTitle: settings.pageTitle,
           pageMessage: settings.pageMessage,
           thankYouMessage: settings.thankYouMessage,
+          alertDefaultMessage: settings.alertDefaultMessage || settings.thankYouMessage,
           paypalUsername: settings.paypalUsername
         }
       })
@@ -166,13 +170,17 @@ export default {
         pageTitle,
         pageMessage,
         thankYouMessage,
-        paypalUsername
+        paypalUsername,
+        alertTitle,
+        alertDefaultMessage,
+        alertMessageTemplate
       } = body ?? {}
 
       if (!streamerId || !username || !donationKey) {
         return json({ success: false, message: 'Champs requis manquants' }, 400)
       }
 
+      const thanks = thankYouMessage ?? 'Merci pour votre soutien !'
       const now = Date.now()
       const record = {
         streamer_id: String(streamerId),
@@ -186,7 +194,10 @@ export default {
         suggested_amounts: JSON.stringify(parseSuggested(suggestedAmounts)),
         page_title: pageTitle ?? '',
         page_message: pageMessage ?? '',
-        thank_you_message: thankYouMessage ?? 'Merci pour votre soutien !',
+        thank_you_message: thanks,
+        alert_title: String(alertTitle ?? 'Don').slice(0, 60),
+        alert_default_message: String(alertDefaultMessage ?? thanks).slice(0, 280),
+        alert_message_template: String(alertMessageTemplate ?? '{amount} — {message}').slice(0, 200),
         paypal_username: String(paypalUsername ?? '').replace(/^@/, ''),
         updated_at: now
       }
@@ -196,8 +207,9 @@ export default {
           INSERT INTO streamers (
             streamer_id, username, display_name, avatar_url, donation_key, enabled,
             currency, min_amount, suggested_amounts, page_title, page_message,
-            thank_you_message, paypal_username, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            thank_you_message, alert_title, alert_default_message, alert_message_template,
+            paypal_username, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(streamer_id) DO UPDATE SET
             username = excluded.username,
             display_name = excluded.display_name,
@@ -210,6 +222,9 @@ export default {
             page_title = excluded.page_title,
             page_message = excluded.page_message,
             thank_you_message = excluded.thank_you_message,
+            alert_title = excluded.alert_title,
+            alert_default_message = excluded.alert_default_message,
+            alert_message_template = excluded.alert_message_template,
             paypal_username = excluded.paypal_username,
             updated_at = excluded.updated_at
         `)
@@ -226,6 +241,9 @@ export default {
           record.page_title,
           record.page_message,
           record.thank_you_message,
+          record.alert_title,
+          record.alert_default_message,
+          record.alert_message_template,
           record.paypal_username,
           record.updated_at
         )

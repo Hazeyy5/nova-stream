@@ -20,7 +20,10 @@ export function formatDonationAlertMessage(
   const symbol = donation.currency === 'USD' ? '$' : '€'
   const amountLabel = `${donation.amount}${symbol}`
   const title = settings?.alertTitle?.trim() || DONATION_ALERT_DEFAULTS.alertTitle
-  const defaultMessage = settings?.alertDefaultMessage?.trim() || DONATION_ALERT_DEFAULTS.alertDefaultMessage
+  const defaultMessage =
+    settings?.alertDefaultMessage?.trim() ||
+    settings?.thankYouMessage?.trim() ||
+    DONATION_ALERT_DEFAULTS.alertDefaultMessage
   const template = settings?.alertMessageTemplate?.trim() || DONATION_ALERT_DEFAULTS.alertMessageTemplate
   const messageText = donation.message?.trim() || defaultMessage
   const donorName = donation.donorName?.trim() || 'Anonyme'

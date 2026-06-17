@@ -70,7 +70,7 @@
           </div>
           <div class="tip-field">
             <label for="tip-msg">Message (optionnel)</label>
-            <textarea id="tip-msg" maxlength="280" placeholder="Merci pour le stream !"></textarea>
+            <textarea id="tip-msg" maxlength="280" placeholder="${escapeHtml(s.thankYouMessage || 'Laissez un message au streamer…')}"></textarea>
           </div>
           <button type="button" class="tip-submit" id="tip-submit">Envoyer ${selected}${sym}</button>
           <p class="tip-powered">Propulsé par <a href="${window.NOVA_CONFIG.WEBSITE_URL}">Nova Stream</a></p>
