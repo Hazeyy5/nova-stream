@@ -8,7 +8,7 @@ window.NOVA_CONFIG = {
   GITHUB_REPO: 'Hazeyy5/nova-stream',
   APP_VERSION: '0.8.1',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
-  DONATIONS_API_URL: '',
+  DONATIONS_API_URL: 'https://nova-stream-donations.contact-delaplacetheo.workers.dev',
   SCOPES: [
     'user:read:email',
     'chat:read',

@@ -5,5 +5,5 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "nova-donations"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "4e8be164-f127-4e87-aa5c-3348e0c45b2e"
 migrations_dir = "migrations"
