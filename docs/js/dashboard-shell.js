@@ -84,6 +84,10 @@
 
     document.getElementById('dash-logout')?.addEventListener('click', () => NovaAuth.logout())
 
+    if (window.NovaDesktopSync?.initDashboardAutoSync) {
+      window.NovaDesktopSync.initDashboardAutoSync()
+    }
+
     return session
   }
 

@@ -93,6 +93,9 @@
     const key = storageKey()
     if (!key) throw new Error('Session requise')
     localStorage.setItem(key, JSON.stringify(settings))
+    if (window.NovaDesktopSync?.scheduleAutoSync) {
+      window.NovaDesktopSync.scheduleAutoSync()
+    }
     return settings
   }
 

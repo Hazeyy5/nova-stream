@@ -430,8 +430,11 @@
     form.querySelectorAll('input, select').forEach((el) => {
       el.addEventListener('input', () => {
         const next = readForm(widgetId)
+        NovaWidgetSettings.saveWidget(widgetId, next)
+        if (widgetId === 'alert') saveDonationAlertFields()
         updatePreview(widgetId, next, alertTypeRef.current)
         refreshModuleUrls(widgetId, next)
+        if (window.NovaDesktopSync) window.NovaDesktopSync.scheduleAutoSync()
         if (el.type === 'range') {
           const out = el.parentElement?.querySelector('output')
           if (out) out.textContent = el.value + (el.id === 'cfg-duration' ? 's' : '')
@@ -439,8 +442,11 @@
       })
       el.addEventListener('change', () => {
         const next = readForm(widgetId)
+        NovaWidgetSettings.saveWidget(widgetId, next)
+        if (widgetId === 'alert') saveDonationAlertFields()
         updatePreview(widgetId, next, alertTypeRef.current)
         refreshModuleUrls(widgetId, next)
+        if (window.NovaDesktopSync) window.NovaDesktopSync.scheduleAutoSync()
       })
     })
 
