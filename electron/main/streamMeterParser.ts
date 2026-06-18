@@ -81,19 +81,29 @@ export class StreamMeterParser {
 
 class StreamAudioMeterService {
   private subscribers = new Map<number, WebContents>()
+  private subscriberRefs = new Map<number, number>()
   private levels = {
     mic: { ...SILENT },
     desktop: { ...SILENT }
   }
 
   subscribe(sender: WebContents): void {
-    this.subscribers.set(sender.id, sender)
+    const id = sender.id
+    this.subscriberRefs.set(id, (this.subscriberRefs.get(id) ?? 0) + 1)
+    this.subscribers.set(id, sender)
     sender.once('destroyed', () => this.unsubscribe(sender))
     sender.send('audioMeter:stream', { ...this.levels })
   }
 
   unsubscribe(sender: WebContents): void {
-    this.subscribers.delete(sender.id)
+    const id = sender.id
+    const refs = (this.subscriberRefs.get(id) ?? 1) - 1
+    if (refs <= 0) {
+      this.subscriberRefs.delete(id)
+      this.subscribers.delete(id)
+    } else {
+      this.subscriberRefs.set(id, refs)
+    }
   }
 
   push(updates: Partial<Record<'mic' | 'desktop', StreamMeterLevel>>): void {

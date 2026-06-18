@@ -12,12 +12,14 @@ export class PcmAvSyncGate {
   private micBytes = 0
   private desktopChunks: Buffer[] = []
   private desktopBytes = 0
+  private skipPreRoll = true
 
   reset(): void {
     this.micChunks = []
     this.micBytes = 0
     this.desktopChunks = []
     this.desktopBytes = 0
+    this.skipPreRoll = true
   }
 
   pushMic(chunk: Buffer): void {
@@ -42,6 +44,14 @@ export class PcmAvSyncGate {
     durationMs: number,
     sinks: { mic?: Writable | null; desktop?: Writable | null }
   ): void {
+    if (this.skipPreRoll) {
+      this.skipPreRoll = false
+      this.micChunks = []
+      this.micBytes = 0
+      this.desktopChunks = []
+      this.desktopBytes = 0
+    }
+
     const bytes = Math.max(0, Math.round((PCM_BYTES_PER_SECOND * durationMs) / 1000))
     if (bytes === 0) return
 

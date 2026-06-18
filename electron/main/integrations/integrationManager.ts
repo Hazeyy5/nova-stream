@@ -15,7 +15,7 @@ import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import { TwitchEventSubService } from './twitchEventSub'
 import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
-import { loadPersistedFeedEvents, savePersistedFeedEvents } from './feedStore'
+import { loadPersistedFeedEvents, savePersistedFeedEvents, MAX_FEED_EVENTS } from './feedStore'
 import { fetchRecentTwitchActivity, fetchRecentTwitchFollows } from './twitchFeedHistory'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import { DonationPoller, type PendingDonation } from '../donationPoller'
@@ -158,7 +158,7 @@ export class IntegrationManager {
   private addFeedEvent(event: FeedEvent, persist = true): void {
     const exists = this.feedEvents.some((e) => e.id === event.id)
     if (exists) return
-    this.feedEvents = [event, ...this.feedEvents].slice(0, 50)
+    this.feedEvents = [event, ...this.feedEvents].slice(0, MAX_FEED_EVENTS)
     if (persist) savePersistedFeedEvents(this.feedEvents)
     this.broadcast('feed:event', event)
   }
@@ -168,7 +168,7 @@ export class IntegrationManager {
     const known = new Set(this.feedEvents.map((e) => e.id))
     const merged = [...events.filter((e) => !known.has(e.id)), ...this.feedEvents]
       .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 50)
+      .slice(0, MAX_FEED_EVENTS)
     this.feedEvents = merged
     savePersistedFeedEvents(this.feedEvents)
     for (const event of events) {
@@ -179,8 +179,8 @@ export class IntegrationManager {
   }
 
   private async seedRecentTwitchActivity(): Promise<void> {
-    const recent = await fetchRecentTwitchActivity(20)
-    for (const row of await fetchRecentTwitchFollows(30)) {
+    const recent = await fetchRecentTwitchActivity(10)
+    for (const row of await fetchRecentTwitchFollows(10)) {
       this.knownFollowIds.add(row.feedId)
     }
     this.activityBaselineReady = true
@@ -201,8 +201,8 @@ export class IntegrationManager {
     }
 
     const [follows, feed] = await Promise.all([
-      fetchRecentTwitchFollows(25),
-      fetchRecentTwitchActivity(25)
+      fetchRecentTwitchFollows(10),
+      fetchRecentTwitchActivity(10)
     ])
     this.mergeFeedEvents(feed)
 

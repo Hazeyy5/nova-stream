@@ -238,7 +238,7 @@ export function buildFfmpegScenePipeArgs(
   const mixViaNode = options.mixViaNode === true
   const copyVideo = videoInputFormat === 'h264'
   const isStreaming = !!options.rtmpUrl
-  const enableMeters = !isStreaming
+  const enableMeters = includeAudio
   const args: string[] = ['-y', '-loglevel', 'warning', '-stats', '-fflags', '+genpts+igndts']
 
   if (copyVideo) {

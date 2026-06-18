@@ -9,7 +9,7 @@ import type {
   WidgetLiveData
 } from '../types'
 import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
-import { filterActivityEvents } from '../lib/feedEvents'
+import { filterActivityEvents, MAX_FEED_EVENTS } from '../lib/feedEvents'
 
 export function useIntegrations() {
   const [connections, setConnections] = useState<PlatformConnectionPublic[]>([])
@@ -59,7 +59,7 @@ export function useIntegrations() {
       }),
       window.novaStream.integrations.onFeedEvent((evt) => {
         if (evt.type === 'chat') return
-        setFeedEvents((prev) => filterActivityEvents([evt, ...prev]).slice(0, 50))
+        setFeedEvents((prev) => filterActivityEvents([evt, ...prev]).slice(0, MAX_FEED_EVENTS))
       }),
       window.novaStream.integrations.onFeedCleared(() => {
         setFeedEvents([])

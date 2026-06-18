@@ -88,8 +88,10 @@ export class StreamManager {
   handleVideoChunk(chunk: Buffer, durationMs?: number): void {
     if (chunk.length === 0 || !this.process) return
 
+    const now = Date.now()
+    const prevAt = this.lastVideoChunkAt
     this.videoChunksReceived += 1
-    this.lastVideoChunkAt = Date.now()
+    this.lastVideoChunkAt = now
 
     if (
       this.sessionOptions?.stream &&
@@ -99,7 +101,14 @@ export class StreamManager {
       this.markStreamLive()
     }
 
-    const tickMs = durationMs ?? this.defaultVideoTickMs()
+    let tickMs = durationMs ?? this.defaultVideoTickMs()
+    if (prevAt > 0) {
+      const elapsed = now - prevAt
+      if (elapsed >= 5 && elapsed <= 300) {
+        tickMs = elapsed
+      }
+    }
+
     this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
       mic: this.micPipe,
       desktop: this.nativeDesktopPipe

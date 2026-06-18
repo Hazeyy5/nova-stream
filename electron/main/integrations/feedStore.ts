@@ -3,7 +3,8 @@ import { join } from 'path'
 import { app } from 'electron'
 import type { FeedEvent } from '../../../src/types'
 
-const MAX_EVENTS = 50
+export const MAX_FEED_EVENTS = 10
+const MAX_EVENTS = MAX_FEED_EVENTS
 const FILE = () => join(app.getPath('userData'), 'activity-feed.json')
 
 export function loadPersistedFeedEvents(): FeedEvent[] {
