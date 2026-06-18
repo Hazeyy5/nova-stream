@@ -9,7 +9,7 @@ interface EventsPanelProps {
 }
 
 function timeAgo(ts: number, now: number): string {
-  const s = Math.floor((now - ts) / 1000)
+  const s = Math.max(0, Math.floor((now - ts) / 1000))
   if (s < 60) return `il y a ${s}s`
   if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
   return `il y a ${Math.floor(s / 3600)} h`

@@ -46,6 +46,8 @@ export class IntegrationManager {
   private activityBaselineReady = false
   private lastTwitchAccessToken: string | null = null
 
+  private lastEventSubError = ''
+
   constructor() {
     this.feedEvents = loadPersistedFeedEvents()
 
@@ -58,16 +60,20 @@ export class IntegrationManager {
     this.eventSub.setOnAlert((alert) => this.showAlert(alert))
     this.alerts.setDonationSettingsProvider(() => this.getDonationSettings())
     this.eventSub.setOnStatus((status) => {
-      if (status.error) {
-        this.addFeedEvent({
-          id: `eventsub-warn-${Date.now()}`,
-          type: 'system',
-          platform: 'system',
-          icon: '⚠️',
-          text: status.error,
-          timestamp: Date.now()
-        }, false)
+      if (!status.error) {
+        this.lastEventSubError = ''
+        return
       }
+      if (status.error === this.lastEventSubError) return
+      this.lastEventSubError = status.error
+      this.addFeedEvent({
+        id: `eventsub-warn-${status.error.slice(0, 48).replace(/\s+/g, '-')}`,
+        type: 'system',
+        platform: 'system',
+        icon: '⚠️',
+        text: status.error,
+        timestamp: Date.now()
+      }, false)
     })
     this.alerts.setOnAlert((alert) => this.showAlert(alert))
   }

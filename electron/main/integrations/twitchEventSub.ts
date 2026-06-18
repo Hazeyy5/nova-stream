@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import WebSocket from 'ws'
 import { getPublicTwitchClientId } from '../platformConfig'
 import { ensureFreshTwitchToken } from './twitchTokenRefresh'
 import type { StreamAlert } from '../../../src/types'
@@ -27,10 +28,26 @@ type WsLike = {
 }
 
 function createWebSocket(url: string): WsLike {
-  if (typeof WebSocket !== 'undefined') {
-    return new WebSocket(url) as unknown as WsLike
+  if (typeof globalThis.WebSocket !== 'undefined') {
+    return new globalThis.WebSocket(url) as unknown as WsLike
   }
-  throw new Error('WebSocket indisponible dans le processus principal')
+
+  const nodeWs = new WebSocket(url)
+  const adapter: WsLike = {
+    onmessage: null,
+    onclose: null,
+    onerror: null,
+    close: () => nodeWs.close()
+  }
+
+  nodeWs.on('message', (data) => {
+    const payload = typeof data === 'string' ? data : data.toString()
+    adapter.onmessage?.({ data: payload })
+  })
+  nodeWs.on('close', () => adapter.onclose?.())
+  nodeWs.on('error', () => adapter.onerror?.())
+
+  return adapter
 }
 
 export class TwitchEventSubService {
