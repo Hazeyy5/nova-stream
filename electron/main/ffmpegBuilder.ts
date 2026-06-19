@@ -236,7 +236,7 @@ export function buildFfmpegScenePipeArgs(
   const mixViaNode = options.mixViaNode === true
   const copyVideo = videoInputFormat === 'h264'
   const isStreaming = !!options.rtmpUrl
-  const enableMeters = includeAudio
+  const enableMeters = includeAudio && !isStreaming
   const args: string[] = ['-y', '-loglevel', 'warning', '-stats', '-fflags', '+genpts+igndts']
 
   if (copyVideo) {
@@ -331,7 +331,7 @@ export function buildFfmpegScenePipeArgs(
     filters.push(
       ...micProcessingChain(micIndex, settings, micVol, '[a0]', enableMeters, videoInputFormat),
       ...desktopProcessingChain(desktopIndex, settings, deskVol, '[a1]', enableMeters, videoInputFormat),
-      '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0,volume=0.88[amix]',
+      '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amixpre];[amixpre]volume=0.88[amix]',
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'

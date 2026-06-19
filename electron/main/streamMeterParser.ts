@@ -1,4 +1,5 @@
 import type { WebContents } from 'electron'
+import { applyNoiseFloor, levelFromPcmBuffer } from './pcmLevel'
 
 export interface StreamMeterLevel {
   peak: number
@@ -14,14 +15,26 @@ const SILENT: StreamMeterLevel = {
   displayDb: -60
 }
 
-function dbfsToLinear(dbfs: number): number {
-  if (!Number.isFinite(dbfs) || dbfs <= -60) return 0
-  return Math.min(1, Math.pow(10, dbfs / 20))
-}
-
 function linearToDb(linear: number): number {
   if (linear < 0.00001) return -60
   return Math.max(-60, Math.min(0, 20 * Math.log10(linear)))
+}
+
+function pcmToMeterLevel(buffer: Buffer): StreamMeterLevel {
+  const raw = levelFromPcmBuffer(buffer, {
+    isFloat: false,
+    bitsPerChannel: 16,
+    channelsPerFrame: 2
+  })
+  const peak = applyNoiseFloor(raw.peak)
+  const rms = applyNoiseFloor(raw.rms)
+  const peakDb = linearToDb(peak)
+  return { peak, rms, peakDb, displayDb: peakDb }
+}
+
+function dbfsToLinear(dbfs: number): number {
+  if (!Number.isFinite(dbfs) || dbfs <= -60) return 0
+  return Math.min(1, Math.pow(10, dbfs / 20))
 }
 
 export class StreamMeterParser {
@@ -109,6 +122,22 @@ class StreamAudioMeterService {
   push(updates: Partial<Record<'mic' | 'desktop', StreamMeterLevel>>): void {
     for (const [channel, level] of Object.entries(updates) as Array<['mic' | 'desktop', StreamMeterLevel]>) {
       this.levels[channel] = level
+    }
+    this.broadcast()
+  }
+
+  /** Mesure depuis le PCM Node (live RTMP — évite astats FFmpeg sur stderr). */
+  pushPcm(channel: 'mic' | 'desktop', buffer: Buffer): void {
+    if (buffer.length === 0) return
+    const level = pcmToMeterLevel(buffer)
+    const prev = this.levels[channel]
+    const peak = Math.max(prev.peak * 0.88, level.peak)
+    const peakDb = linearToDb(peak)
+    this.levels[channel] = {
+      peak,
+      rms: level.rms,
+      peakDb,
+      displayDb: peakDb
     }
     this.broadcast()
   }

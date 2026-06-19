@@ -1,8 +1,8 @@
 import type { StreamSettings } from '../../src/types'
 
-/** Compensation légère — évite la double latence avec le verrou vidéo. */
-const AUTO_AUDIO_DELAY_H264_MS = 45
-const AUTO_AUDIO_DELAY_WEBM_MS = 70
+/** Pas de retard artificiel — le tampon PCM gère l'alignement. */
+const AUTO_AUDIO_DELAY_H264_MS = 0
+const AUTO_AUDIO_DELAY_WEBM_MS = 0
 
 /** Ajustement manuel optionnel (±500 ms) — utilisé seulement si audioSyncAuto est désactivé. */
 export function resolveManualAudioTrimMs(settings: StreamSettings): number {

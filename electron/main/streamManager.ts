@@ -88,6 +88,8 @@ export class StreamManager {
   handleVideoChunk(chunk: Buffer, durationMs?: number): void {
     if (chunk.length === 0 || !this.process) return
 
+    this.startAudioCaptureIfNeeded()
+
     this.videoChunksReceived += 1
     this.lastVideoChunkAt = Date.now()
 
@@ -100,13 +102,14 @@ export class StreamManager {
     }
 
     const tickMs = durationMs ?? this.defaultVideoTickMs()
-
-    this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
+    const audioReady = this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
       mic: this.micPipe,
       desktop: this.nativeDesktopPipe
     })
 
-    this.writeVideoToStdin(chunk)
+    if (audioReady) {
+      this.writeVideoToStdin(chunk)
+    }
   }
 
   private defaultVideoTickMs(): number {
@@ -152,6 +155,11 @@ export class StreamManager {
     )
   }
 
+  private startAudioCaptureIfNeeded(): void {
+    this.startNativeDesktopCaptureIfNeeded()
+    this.startMicCaptureIfNeeded()
+  }
+
   private startNativeDesktopCaptureIfNeeded(): void {
     if (!this.sessionUsesNativeDesktop || this.nativeDesktopStarted) return
     this.nativeDesktopStarted = true
@@ -163,6 +171,7 @@ export class StreamManager {
       if (!settings) return
       const mixed = this.applyDesktopMix(pcmChunk, settings)
       this.pcmAvSyncGate.pushDesktop(mixed)
+      if (mixed.length > 0) streamAudioMeterService.pushPcm('desktop', mixed)
     }).catch(() => { /* capture bureau optionnelle */ })
   }
 
@@ -176,6 +185,7 @@ export class StreamManager {
     micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
     void this.micCapture.start(device, (pcmChunk) => {
       this.pcmAvSyncGate.pushMic(pcmChunk)
+      if (pcmChunk.length > 0) streamAudioMeterService.pushPcm('mic', pcmChunk)
     }).catch(() => { /* capture micro optionnelle */ })
   }
 
@@ -262,9 +272,9 @@ export class StreamManager {
     this.applyMixerLevels(settings)
   }
 
-  /** @deprecated no-op — conservé pour compatibilité IPC */
+  /** Démarre la capture audio avant les premiers chunks vidéo (préchauffage tampon). */
   markPipelineReady(): void {
-    /* L'ancrage A/V se fait au premier chunk vidéo. */
+    this.startAudioCaptureIfNeeded()
   }
 
   private async refreshAudioPipeline(): Promise<void> {
@@ -425,6 +435,7 @@ export class StreamManager {
       }
 
       let stderr = ''
+      const STDERR_MAX = 32_000
       let started = false
       let rejected = false
       let spawnedAt = 0
@@ -511,8 +522,6 @@ export class StreamManager {
 
       proc.on('spawn', () => {
         spawnedAt = Date.now()
-        this.startNativeDesktopCaptureIfNeeded()
-        this.startMicCaptureIfNeeded()
         if (stream || record) resolveLaunch()
       })
 
@@ -546,9 +555,11 @@ export class StreamManager {
       }
 
       proc.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString()
+        const text = chunk.toString()
+        stderr += text
+        if (stderr.length > STDERR_MAX) stderr = stderr.slice(-STDERR_MAX)
 
-        const meterUpdates = meterParser.parseChunk(chunk.toString())
+        const meterUpdates = meterParser.parseChunk(text)
         if (meterUpdates) streamAudioMeterService.push(meterUpdates)
 
         if (!started && !rejected && stream && isRtmpOutputError(stderr)) {
@@ -565,6 +576,10 @@ export class StreamManager {
         if (!started && audioInputError) {
           fail(parseFfmpegError(stderr))
           return
+        }
+
+        if (started && stream && !rejected && isRtmpOutputError(text)) {
+          console.error('[stream] erreur RTMP en direct:', text.trim())
         }
 
         if (stream && this.state.stream.status === 'starting' && isStreamEncoding(stderr)) {
@@ -602,6 +617,7 @@ export class StreamManager {
 
         if (code !== 0 && code !== null && !rejected) {
           const message = parseFfmpegError(stderr)
+          console.error('[stream] ffmpeg exit', { code, message, tail: stderr.slice(-2000) })
           this.setState({
             stream: { status: 'error', message },
             recording: { status: 'idle' }
@@ -758,7 +774,7 @@ export class StreamManager {
     const age = this.lastVideoChunkAt > 0 ? Date.now() - this.lastVideoChunkAt : Number.MAX_SAFE_INTEGER
     return {
       ffmpegRunning: this.process !== null,
-      videoFlowing: age < 5000,
+      videoFlowing: age < 15000,
       lastVideoChunkAgeMs: this.lastVideoChunkAt > 0 ? age : -1,
       videoChunksTotal: this.videoChunksReceived
     }
@@ -779,7 +795,7 @@ export class StreamManager {
         return
       }
       const age = this.lastVideoChunkAt > 0 ? Date.now() - this.lastVideoChunkAt : Number.MAX_SAFE_INTEGER
-      if (age > 12000) {
+      if (age > 30000) {
         this.setState({
           stream: {
             ...this.state.stream,

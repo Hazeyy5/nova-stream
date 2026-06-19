@@ -183,12 +183,10 @@ function AppContent() {
     const startedAt = mediaState.stream.startedAt ?? 0
 
     const check = async () => {
-      if (startedAt > 0 && Date.now() - startedAt < 10000) return
+      if (startedAt > 0 && Date.now() - startedAt < 25000) return
 
       const health = await window.novaStream.media.getHealth()
-      if (!health.ffmpegRunning || !health.videoFlowing) {
-        await sceneCapture.disarm()
-        await window.novaStream.media.stop()
+      if (!health.ffmpegRunning) {
         setMediaState((prev) => {
           if (prev.stream.status !== 'live') return prev
           return {
@@ -197,8 +195,22 @@ function AppContent() {
               status: 'error',
               message: prev.stream.message?.includes('arrêté')
                 ? prev.stream.message
-                : 'Connexion live interrompue — relancez le live si nécessaire.',
+                : 'Le flux s\'est arrêté — relancez le live si nécessaire.',
               startedAt: undefined
+            }
+          }
+        })
+        return
+      }
+
+      if (!health.videoFlowing) {
+        setMediaState((prev) => {
+          if (prev.stream.status !== 'live') return prev
+          return {
+            ...prev,
+            stream: {
+              ...prev.stream,
+              message: 'Flux actif — vidéo en pause momentanée (onglet masqué ou charge CPU).'
             }
           }
         })
@@ -222,7 +234,7 @@ function AppContent() {
       }
     }
 
-    const id = setInterval(() => { void check() }, 15000)
+    const id = setInterval(() => { void check() }, 30000)
     void check()
     return () => clearInterval(id)
   }, [mediaState.stream.status, mediaState.stream.startedAt, twitchConnected, sceneCapture])
