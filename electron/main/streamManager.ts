@@ -88,10 +88,8 @@ export class StreamManager {
   handleVideoChunk(chunk: Buffer, durationMs?: number): void {
     if (chunk.length === 0 || !this.process) return
 
-    const now = Date.now()
-    const prevAt = this.lastVideoChunkAt
     this.videoChunksReceived += 1
-    this.lastVideoChunkAt = now
+    this.lastVideoChunkAt = Date.now()
 
     if (
       this.sessionOptions?.stream &&
@@ -101,13 +99,7 @@ export class StreamManager {
       this.markStreamLive()
     }
 
-    let tickMs = durationMs ?? this.defaultVideoTickMs()
-    if (prevAt > 0) {
-      const elapsed = now - prevAt
-      if (elapsed >= 5 && elapsed <= 300) {
-        tickMs = elapsed
-      }
-    }
+    const tickMs = durationMs ?? this.defaultVideoTickMs()
 
     this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
       mic: this.micPipe,
@@ -268,6 +260,11 @@ export class StreamManager {
     if (!this.process || !this.sessionSettings) return
     this.sessionSettings = settings
     this.applyMixerLevels(settings)
+  }
+
+  /** Appelé quand le renderer branche l'encodeur vidéo sur FFmpeg (juste avant les chunks). */
+  markPipelineReady(): void {
+    this.pcmAvSyncGate.prepareForVideo()
   }
 
   private async refreshAudioPipeline(): Promise<void> {

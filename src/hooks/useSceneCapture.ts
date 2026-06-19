@@ -72,6 +72,7 @@ export function useSceneCapture(
     if (!encoder || !canvas || pipeConnectedRef.current) return
 
     pipeConnectedRef.current = true
+    window.novaStream.media.markPipelineReady()
     encoder.beginCapture((chunk, meta) => {
       pendingVideoChunksRef.current += 1
       window.novaStream.media.sendVideoChunk(chunk, meta.durationMs)

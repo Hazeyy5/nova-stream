@@ -156,6 +156,10 @@ app.whenReady().then(async () => {
     streamManager.handleVideoChunk(Buffer.from(payload.chunk), durationMs)
   })
 
+  ipcMain.on('media:pipeline-ready', () => {
+    streamManager.markPipelineReady()
+  })
+
   ipcMain.handle('media:start', async (_event, payload: {
     settings: StreamSettings
     stream: boolean

@@ -42,6 +42,7 @@ const api = {
       lastVideoChunkAgeMs: number
       videoChunksTotal: number
     }>,
+    markPipelineReady: () => ipcRenderer.send('media:pipeline-ready'),
     updateAudioSettings: (settings: StreamSettings) =>
       ipcRenderer.invoke('media:updateAudioSettings', settings) as Promise<{ success: boolean }>,
     updateMixerSettings: (settings: StreamSettings) =>
