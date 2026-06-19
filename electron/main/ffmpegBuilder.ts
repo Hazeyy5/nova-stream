@@ -2,7 +2,7 @@ import { join } from 'path'
 import { existsSync, statSync } from 'fs'
 import { DESKTOP_AUDIO_PCM } from './desktopAudioCapture'
 import { MIC_AUDIO_PCM } from './micAudioCapture'
-import { resolveStreamAudioTrimMs, buildAudioTrimSuffix } from './streamPipelineSync'
+import { resolveStreamAudioTrimMs, buildAudioTrimSuffix, resolveVideoItsoffsetSec } from './streamPipelineSync'
 import type { StreamSettings, VideoEncoder } from '../../src/types'
 
 const FFMPEG_VIDEO_CODEC: Record<VideoEncoder, string> = {
@@ -238,6 +238,11 @@ export function buildFfmpegScenePipeArgs(
   const isStreaming = !!options.rtmpUrl
   const enableMeters = includeAudio && !isStreaming
   const args: string[] = ['-y', '-loglevel', 'warning', '-stats', '-fflags', '+genpts+igndts']
+
+  const videoOffsetSec = resolveVideoItsoffsetSec(settings, videoInputFormat)
+  if (videoOffsetSec > 0.001) {
+    args.push('-itsoffset', videoOffsetSec.toFixed(3))
+  }
 
   if (copyVideo) {
     args.push(

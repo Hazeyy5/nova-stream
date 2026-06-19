@@ -200,17 +200,15 @@ export default function MixerDock({ settings, isMediaActive, onUpdateSettings, o
     hookAudioContextResume()
   }, [])
 
-  const idleMicMeter = useAudioMeter(
+  const micMeter = useAudioMeter(
     settings.audioDevice,
-    !isMediaActive && !!settings.audioDevice,
+    !!settings.audioDevice,
     micGainDb,
     settings.micMono ?? false
   )
   const idleDesktopMeter = useDesktopAudioMeter(!isMediaActive && !!settings.desktopAudioDevice, desktopGainDb)
-  const streamMicMeter = useStreamAudioMeter(isMediaActive, 'mic', micGainDb)
   const streamDesktopMeter = useStreamAudioMeter(isMediaActive, 'desktop', desktopGainDb)
 
-  const micMeter = isMediaActive ? streamMicMeter : idleMicMeter
   const desktopMeter = isMediaActive ? streamDesktopMeter : idleDesktopMeter
   useMicMonitor(
     settings.audioDevice,

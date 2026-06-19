@@ -510,7 +510,7 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Comme OBS : compensation au démarrage + correction continue de la dérive A/V pendant le live.
+                    Comme OBS : micro capturé en direct par FFmpeg, vidéo retardée (~110–210 ms) pour aligner bouche et voix.
                   </>
                 ) : (
                   <>

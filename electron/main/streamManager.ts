@@ -102,14 +102,12 @@ export class StreamManager {
     }
 
     const tickMs = durationMs ?? this.defaultVideoTickMs()
-    const audioReady = this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
-      mic: this.micPipe,
+    this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
+      mic: null,
       desktop: this.nativeDesktopPipe
     })
 
-    if (audioReady) {
-      this.writeVideoToStdin(chunk)
-    }
+    this.writeVideoToStdin(chunk)
   }
 
   private defaultVideoTickMs(): number {
@@ -157,7 +155,6 @@ export class StreamManager {
 
   private startAudioCaptureIfNeeded(): void {
     this.startNativeDesktopCaptureIfNeeded()
-    this.startMicCaptureIfNeeded()
   }
 
   private startNativeDesktopCaptureIfNeeded(): void {
@@ -380,14 +377,16 @@ export class StreamManager {
     }
 
     const rtmpUrl = stream ? buildRtmpUrl(resolved) : undefined
-    const useNodeMix = includeAudio && !!resolved.audioDevice
-    const { args, usesNativeDesktop, usesMicPipe, micPipeFd, desktopPipeFd, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
+    const usesNativeDesktop = includeAudio &&
+      resolved.desktopAudioEnabled &&
+      (resolved.desktopAudioBackend ?? 'native') === 'native'
+    const { args, usesNativeDesktop: usesNativeDesktopPipe, usesMicPipe, micPipeFd, desktopPipeFd, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
       rtmpUrl,
       recordPath,
       includeAudio,
       videoInputFormat,
-      micViaPipe: useNodeMix,
-      mixViaNode: useNodeMix
+      micViaPipe: false,
+      mixViaNode: usesNativeDesktop
     })
     const meterParser = new StreamMeterParser(meterChannels)
 
@@ -420,7 +419,7 @@ export class StreamManager {
       this.sessionFramerate = resolved.framerate
       this.sessionVideoInputFormat = videoInputFormat
       this.pcmAvSyncGate.reset()
-      this.sessionUsesNativeDesktop = usesNativeDesktop
+      this.sessionUsesNativeDesktop = usesNativeDesktopPipe
       this.sessionUsesMicPipe = usesMicPipe
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
       this.micPipe = micPipeFd !== null ? (proc.stdio[micPipeFd] as Writable | null) : null
