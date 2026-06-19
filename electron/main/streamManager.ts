@@ -262,9 +262,9 @@ export class StreamManager {
     this.applyMixerLevels(settings)
   }
 
-  /** Appelé quand le renderer branche l'encodeur vidéo sur FFmpeg (juste avant les chunks). */
+  /** @deprecated no-op — conservé pour compatibilité IPC */
   markPipelineReady(): void {
-    this.pcmAvSyncGate.prepareForVideo()
+    /* L'ancrage A/V se fait au premier chunk vidéo. */
   }
 
   private async refreshAudioPipeline(): Promise<void> {

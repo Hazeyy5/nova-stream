@@ -32,9 +32,9 @@ function appendVideoEncoderArgs(args: string[], encoder: VideoEncoder): void {
 
 const RECORDING_MOVFLAGS = 'frag_keyframe+empty_moov+default_base_moof'
 
-const MIC_HEADROOM = 0.72
-const DESKTOP_HEADROOM = 0.42
-const MAX_LINEAR_GAIN = 3.5
+const MIC_HEADROOM = 0.5
+const DESKTOP_HEADROOM = 0.32
+const MAX_LINEAR_GAIN = 2.5
 
 function dbToLinear(db: number): number {
   if (db <= -60) return 0
@@ -61,9 +61,7 @@ export function resolveStreamDesktopLinear(settings: StreamSettings): number {
   return resolveDesktopLinear(settings)
 }
 
-const MASTER_AUDIO_CHAIN =
-  'acompressor=threshold=-18dB:ratio=3:attack=5:release=120:makeup=1,' +
-  'alimiter=limit=0.82:attack=5:release=80:level=disabled'
+const MASTER_AUDIO_CHAIN = 'alimiter=limit=0.92:attack=8:release=120:level=disabled'
 
 export interface FfmpegBuildResult {
   args: string[]
@@ -147,7 +145,7 @@ function micPreprocessFilter(
   videoInputFormat: 'h264' | 'webm'
 ): string {
   const channels = settings.micMono ? 1 : 2
-  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.04:first_pts=0,aformat=sample_fmts=fltp`
+  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
@@ -161,7 +159,7 @@ function desktopPreprocessFilter(
   outputLabel: string,
   videoInputFormat: 'h264' | 'webm'
 ): string {
-  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.04:first_pts=0,aformat=sample_fmts=fltp`
+  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100,aformat=sample_fmts=fltp`
   return `${chain}${buildAudioTrimSuffix(resolveStreamAudioTrimMs(settings, videoInputFormat), 2)}${outputLabel}`
 }
 
@@ -333,7 +331,7 @@ export function buildFfmpegScenePipeArgs(
     filters.push(
       ...micProcessingChain(micIndex, settings, micVol, '[a0]', enableMeters, videoInputFormat),
       ...desktopProcessingChain(desktopIndex, settings, deskVol, '[a1]', enableMeters, videoInputFormat),
-      '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[amix]',
+      '[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0,volume=0.88[amix]',
       masterAudioFilter('[amix]', '[outa]')
     )
     audioOut = '[outa]'

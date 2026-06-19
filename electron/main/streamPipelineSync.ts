@@ -1,8 +1,8 @@
 import type { StreamSettings } from '../../src/types'
 
-/** Latence typique vidéo encodée vs micro temps réel (compensation au mux FFmpeg). */
-const AUTO_AUDIO_DELAY_H264_MS = 90
-const AUTO_AUDIO_DELAY_WEBM_MS = 130
+/** Compensation légère — évite la double latence avec le verrou vidéo. */
+const AUTO_AUDIO_DELAY_H264_MS = 45
+const AUTO_AUDIO_DELAY_WEBM_MS = 70
 
 /** Ajustement manuel optionnel (±500 ms) — utilisé seulement si audioSyncAuto est désactivé. */
 export function resolveManualAudioTrimMs(settings: StreamSettings): number {
