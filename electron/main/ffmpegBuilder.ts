@@ -145,7 +145,7 @@ function micPreprocessFilter(
   videoInputFormat: 'h264' | 'webm'
 ): string {
   const channels = settings.micMono ? 1 : 2
-  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100,aformat=sample_fmts=fltp`
+  let chain = `[${micIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.01:first_pts=0,aformat=sample_fmts=fltp`
   if (settings.micMono) {
     chain += `,pan=mono|c0=0.5*c0+0.5*c1`
   }
@@ -159,7 +159,7 @@ function desktopPreprocessFilter(
   outputLabel: string,
   videoInputFormat: 'h264' | 'webm'
 ): string {
-  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100,aformat=sample_fmts=fltp`
+  const chain = `[${desktopIndex}:a]asetpts=PTS-STARTPTS,aresample=44100:async=1:min_hard_comp=0.01:first_pts=0,aformat=sample_fmts=fltp`
   return `${chain}${buildAudioTrimSuffix(resolveStreamAudioTrimMs(settings, videoInputFormat), 2)}${outputLabel}`
 }
 
@@ -279,7 +279,7 @@ export function buildFfmpegScenePipeArgs(
       micPipeFd = nextPipeFd++
       usesMicPipe = true
       pushAudioInput(args, [
-        '-thread_queue_size', '128',
+        '-thread_queue_size', '512',
         '-fflags', 'nobuffer',
         '-f', MIC_AUDIO_PCM.format,
         '-ar', String(MIC_AUDIO_PCM.sampleRate),
@@ -298,7 +298,7 @@ export function buildFfmpegScenePipeArgs(
     if (backend === 'native') {
       desktopPipeFd = nextPipeFd++
       pushAudioInput(args, [
-        '-thread_queue_size', '128',
+        '-thread_queue_size', '512',
         '-fflags', 'nobuffer',
         '-f', DESKTOP_AUDIO_PCM.format,
         '-ar', String(DESKTOP_AUDIO_PCM.sampleRate),
@@ -346,6 +346,7 @@ export function buildFfmpegScenePipeArgs(
     args.push('-filter_complex', filters.join(';'))
     args.push('-map', '0:v')
     args.push('-map', audioOut!)
+    args.push('-max_muxing_queue_size', '9999')
   } else {
     args.push('-map', '0:v')
   }
@@ -367,7 +368,7 @@ export function buildFfmpegScenePipeArgs(
 
   if (audioOut) {
     const monoMicOnly = settings.micMono && micIndex !== null && desktopIndex === null
-    args.push('-c:a', 'aac', '-b:a', `${settings.audioBitrate}k`, '-ar', '44100')
+    args.push('-c:a', 'aac', '-b:a', `${settings.audioBitrate}k`, '-ar', '44100', '-async', '1')
     if (monoMicOnly) args.push('-ac', '1')
   } else {
     args.push('-an')

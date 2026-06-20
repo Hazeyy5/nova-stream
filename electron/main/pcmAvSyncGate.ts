@@ -4,9 +4,8 @@ import { MIC_AUDIO_PCM } from './micAudioCapture'
 const PCM_BYTES_PER_SECOND =
   MIC_AUDIO_PCM.sampleRate * MIC_AUDIO_PCM.channels * 2
 
-/** Tampon max avant retrait progressif d'un chunk ancien. */
+/** Tampon max avant retrait progressif d'un seul chunk ancien. */
 const MAX_BUFFER_MS = 3200
-/** Attendre ce tampon avant la première libération (évite les silences = décalage). */
 const WARMUP_BYTES = Math.floor((PCM_BYTES_PER_SECOND * 120) / 1000)
 
 export class PcmAvSyncGate {
@@ -15,6 +14,7 @@ export class PcmAvSyncGate {
   private desktopChunks: Buffer[] = []
   private desktopBytes = 0
   private warmedUp = false
+  private silenceBuf: Buffer | null = null
 
   reset(): void {
     this.micChunks = []
@@ -39,15 +39,9 @@ export class PcmAvSyncGate {
   }
 
   hasWarmupBuffer(): boolean {
-    const need = this.desktopChunks.length > 0 || this.desktopBytes > 0
-      ? Math.max(WARMUP_BYTES, 1)
-      : WARMUP_BYTES
-    return this.micBytes >= need || this.desktopBytes >= need
+    return this.micBytes >= WARMUP_BYTES || this.desktopBytes >= WARMUP_BYTES
   }
 
-  /**
-   * Libère exactement `durationMs` d'audio PCM pour accompagner un chunk vidéo.
-   */
   releaseForVideoTick(
     durationMs: number,
     sinks: { mic?: Writable | null; desktop?: Writable | null }
@@ -85,6 +79,15 @@ export class PcmAvSyncGate {
     this.desktopBytes -= dropped.length
   }
 
+  private silence(size: number): Buffer {
+    if (!this.silenceBuf || this.silenceBuf.length < size) {
+      this.silenceBuf = Buffer.alloc(size)
+    } else {
+      this.silenceBuf.fill(0, 0, size)
+    }
+    return this.silenceBuf.subarray(0, size)
+  }
+
   private writeBytes(
     queue: Buffer[],
     bytesNeeded: number,
@@ -94,16 +97,21 @@ export class PcmAvSyncGate {
     if (sink.destroyed || !sink.writable) return
 
     let remaining = bytesNeeded
-    const parts: Buffer[] = []
 
     while (remaining > 0 && queue.length > 0) {
       const head = queue[0]
       if (head.length <= remaining) {
-        parts.push(queue.shift()!)
-        remaining -= head.length
+        if (!sink.write(head)) {
+          sink.once('drain', () => { /* reprend */ })
+        }
         onConsumed(head.length)
+        queue.shift()
+        remaining -= head.length
       } else {
-        parts.push(head.subarray(0, remaining))
+        const slice = head.subarray(0, remaining)
+        if (!sink.write(slice)) {
+          sink.once('drain', () => { /* reprend */ })
+        }
         queue[0] = head.subarray(remaining)
         onConsumed(remaining)
         remaining = 0
@@ -111,15 +119,10 @@ export class PcmAvSyncGate {
     }
 
     if (remaining > 0) {
-      parts.push(Buffer.alloc(remaining))
-    }
-
-    const out = Buffer.concat(parts)
-    if (out.length === 0) return
-
-    const ok = sink.write(out)
-    if (!ok) {
-      sink.once('drain', () => { /* reprend */ })
+      const pad = Buffer.from(this.silence(remaining))
+      if (!sink.write(pad)) {
+        sink.once('drain', () => { /* reprend */ })
+      }
     }
   }
 }

@@ -37,6 +37,7 @@ export class StreamManager {
   private micPipe: Writable | null = null
   private nativeDesktopStarted = false
   private micCaptureStarted = false
+  private micRestartTimer: ReturnType<typeof setTimeout> | null = null
   private startCancelled = false
   private activeLaunch: {
     reject: (err: Error) => void
@@ -174,17 +175,43 @@ export class StreamManager {
   }
 
   private startMicCaptureIfNeeded(): void {
-    if (!this.sessionUsesMicPipe || this.micCaptureStarted || !this.sessionSettings?.audioDevice) return
-    this.micCaptureStarted = true
+    if (!this.sessionUsesMicPipe || !this.sessionSettings?.audioDevice) return
+    if (this.micCapture.isRunning()) return
 
+    this.micCaptureStarted = true
     const micPipe = this.micPipe
     const device = this.sessionSettings.audioDevice
     this.applyMixerLevels(this.sessionSettings)
     micPipe?.on('error', () => { /* pipe fermé à l'arrêt */ })
-    void this.micCapture.start(device, (pcmChunk) => {
-      this.pcmAvSyncGate.pushMic(pcmChunk)
-      if (pcmChunk.length > 0) streamAudioMeterService.pushPcm('mic', pcmChunk)
-    }).catch(() => { /* capture micro optionnelle */ })
+
+    void this.micCapture.start(
+      device,
+      (pcmChunk) => {
+        this.pcmAvSyncGate.pushMic(pcmChunk)
+        if (pcmChunk.length > 0) streamAudioMeterService.pushPcm('mic', pcmChunk)
+      },
+      {
+        onClose: (code) => {
+          if (!this.process || this.startCancelled) return
+          console.warn('[stream] capture micro interrompue, redémarrage…', { code })
+          this.micCaptureStarted = false
+          if (this.micRestartTimer) clearTimeout(this.micRestartTimer)
+          this.micRestartTimer = setTimeout(() => {
+            this.micRestartTimer = null
+            this.startMicCaptureIfNeeded()
+          }, 800)
+        }
+      }
+    ).catch(() => {
+      this.micCaptureStarted = false
+    })
+  }
+
+  private clearMicRestartTimer(): void {
+    if (this.micRestartTimer) {
+      clearTimeout(this.micRestartTimer)
+      this.micRestartTimer = null
+    }
   }
 
   async start(options: StartMediaOptions): Promise<void> {
@@ -581,6 +608,18 @@ export class StreamManager {
 
         if (started && stream && !rejected && isRtmpOutputError(text)) {
           console.error('[stream] erreur RTMP en direct:', text.trim())
+          if (this.state.stream.status === 'live') {
+            this.setState({
+              stream: {
+                status: 'error',
+                message: parseFfmpegError(stderr),
+                startedAt: undefined
+              },
+              recording: { ...this.state.recording, status: 'idle' }
+            })
+            rejected = true
+            try { proc.kill('SIGTERM') } catch { /* ignore */ }
+          }
         }
 
         if (stream && this.state.stream.status === 'starting' && isStreamEncoding(stderr)) {
@@ -598,7 +637,9 @@ export class StreamManager {
         clearStartTimeout()
         this.activeLaunch = null
         this.process = null
+        this.clearMicRestartTimer()
         const stopping = this.state.stream.status === 'stopping' || this.startCancelled
+        const wasLive = this.state.stream.status === 'live' || this.state.stream.status === 'starting'
 
         if (stopping) {
           if (!rejected) {
@@ -613,6 +654,21 @@ export class StreamManager {
 
         if (!started && !rejected) {
           fail(parseFfmpegError(stderr))
+          return
+        }
+
+        if (wasLive && !rejected) {
+          const message = code !== 0 && code !== null
+            ? parseFfmpegError(stderr)
+            : 'Flux interrompu — relancez le live. (Connexion FFmpeg ou Twitch perdue)'
+          console.error('[stream] ffmpeg exit during live', { code, message, tail: stderr.slice(-2000) })
+          this.stopHealthWatchdog()
+          this.setState({
+            stream: { status: 'error', message },
+            recording: { status: 'idle' }
+          })
+          void this.desktopCapture.stop()
+          void this.micCapture.stop()
           return
         }
 
@@ -651,6 +707,7 @@ export class StreamManager {
 
   async stop(): Promise<void> {
     this.stopHealthWatchdog()
+    this.clearMicRestartTimer()
     this.pcmAvSyncGate.reset()
     if (this.audioRefreshTimer) {
       clearTimeout(this.audioRefreshTimer)
@@ -805,6 +862,10 @@ export class StreamManager {
             startedAt: undefined
           }
         })
+        return
+      }
+      if (this.sessionUsesMicPipe && !this.micCapture.isRunning()) {
+        this.startMicCaptureIfNeeded()
       }
     }, 4000)
   }
