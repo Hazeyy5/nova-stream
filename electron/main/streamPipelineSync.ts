@@ -4,8 +4,8 @@ import type { StreamSettings } from '../../src/types'
  * Décalage vidéo (itsoffset) — comme OBS : la vidéo navigateur/encodeur
  * arrive plus tard que le micro DirectShow ; on retarde la vidéo pour aligner les lèvres.
  */
-const AUTO_VIDEO_OFFSET_H264_SEC = 0.11
-const AUTO_VIDEO_OFFSET_WEBM_SEC = 0.21
+const AUTO_VIDEO_OFFSET_H264_SEC = 0.14
+const AUTO_VIDEO_OFFSET_WEBM_SEC = 0.24
 
 /** Ajustement manuel optionnel (±500 ms). */
 export function resolveManualAudioTrimMs(settings: StreamSettings): number {

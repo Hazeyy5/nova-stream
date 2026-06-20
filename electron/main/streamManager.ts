@@ -103,7 +103,7 @@ export class StreamManager {
 
     const tickMs = durationMs ?? this.defaultVideoTickMs()
     this.pcmAvSyncGate.releaseForVideoTick(tickMs, {
-      mic: null,
+      mic: this.micPipe,
       desktop: this.nativeDesktopPipe
     })
 
@@ -154,6 +154,7 @@ export class StreamManager {
   }
 
   private startAudioCaptureIfNeeded(): void {
+    this.startMicCaptureIfNeeded()
     this.startNativeDesktopCaptureIfNeeded()
   }
 
@@ -380,13 +381,14 @@ export class StreamManager {
     const usesNativeDesktop = includeAudio &&
       resolved.desktopAudioEnabled &&
       (resolved.desktopAudioBackend ?? 'native') === 'native'
-    const { args, usesNativeDesktop: usesNativeDesktopPipe, usesMicPipe, micPipeFd, desktopPipeFd, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
+    const usesMicPipe = includeAudio && !!resolved.audioDevice
+    const { args, usesNativeDesktop: usesNativeDesktopPipe, usesMicPipe: micPipeActive, micPipeFd, desktopPipeFd, meterChannels } = buildFfmpegScenePipeArgs(resolved, {
       rtmpUrl,
       recordPath,
       includeAudio,
       videoInputFormat,
-      micViaPipe: false,
-      mixViaNode: usesNativeDesktop
+      micViaPipe: usesMicPipe,
+      mixViaNode: usesMicPipe || usesNativeDesktop
     })
     const meterParser = new StreamMeterParser(meterChannels)
 
@@ -420,7 +422,7 @@ export class StreamManager {
       this.sessionVideoInputFormat = videoInputFormat
       this.pcmAvSyncGate.reset()
       this.sessionUsesNativeDesktop = usesNativeDesktopPipe
-      this.sessionUsesMicPipe = usesMicPipe
+      this.sessionUsesMicPipe = micPipeActive
       this.nativeDesktopPipe = desktopPipeFd !== null ? (proc.stdio[desktopPipeFd] as Writable | null) : null
       this.micPipe = micPipeFd !== null ? (proc.stdio[micPipeFd] as Writable | null) : null
       this.nativeDesktopStarted = false
