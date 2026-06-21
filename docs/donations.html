@@ -57,11 +57,37 @@
         <div class="amount-tags" id="amount-preview"></div>
       </div>
 
-      <div class="field-row">
-        <label for="don-paypal">PayPal.me (optionnel)</label>
-        <input type="text" id="don-paypal" placeholder="votre_nom_paypal" />
-        <p class="donations-hint">Après le don, les viewers sont redirigés vers PayPal pour payer. Sans PayPal, l'alerte s'affiche quand même sur votre stream.</p>
+      <div class="donations-subsection paypal-connect-section">
+        <h3 class="donations-subtitle">Compte PayPal (recommandé)</h3>
+        <p class="donations-hint">
+          Comme Streamlabs : connectez PayPal pour encaisser les dons. L'alerte live n'apparaît qu'<strong>après paiement confirmé</strong>.
+          Choisissez le type de compte que vous possédez.
+        </p>
+        <div id="paypal-status-box" class="paypal-status-box">
+          <p class="donations-hint">Chargement du statut PayPal…</p>
+        </div>
+        <div id="paypal-connect-actions" class="paypal-connect-actions" style="display:none">
+          <button type="button" class="btn btn-paypal" id="btn-paypal-standard">
+            Connecter PayPal Standard
+          </button>
+          <button type="button" class="btn btn-paypal btn-paypal-business" id="btn-paypal-business">
+            Connecter PayPal Business
+          </button>
+        </div>
+        <button type="button" class="btn btn-outline" id="btn-paypal-disconnect" style="display:none;margin-top:8px">
+          Déconnecter PayPal
+        </button>
+        <p class="donations-hint" id="paypal-server-hint"></p>
       </div>
+
+      <details class="donations-legacy-paypal">
+        <summary>Mode legacy — PayPal.me (sans vérification paiement)</summary>
+        <div class="field-row" style="margin-top:12px">
+          <label for="don-paypal">PayPal.me (optionnel)</label>
+          <input type="text" id="don-paypal" placeholder="votre_nom_paypal" />
+          <p class="donations-hint">Utilisé seulement si PayPal n'est pas connecté ci-dessus. L'alerte part avant le paiement — risque de faux dons.</p>
+        </div>
+      </details>
 
       <div class="field-row">
         <label for="don-title">Titre de la page</label>
@@ -178,12 +204,98 @@
       })
     }
 
+    function statusLabel(status) {
+      const map = {
+        pending_payment: 'En attente paiement',
+        pending_alert: 'Payé — alerte en cours',
+        alerted: 'Alerté',
+        failed: 'Échec',
+        cancelled: 'Annulé'
+      }
+      return map[status] || status
+    }
+
+    async function refreshPayPalStatus() {
+      const box = document.getElementById('paypal-status-box')
+      const connectActions = document.getElementById('paypal-connect-actions')
+      const disconnectBtn = document.getElementById('btn-paypal-disconnect')
+      const serverHint = document.getElementById('paypal-server-hint')
+
+      try {
+        const config = await NovaDonations.fetchPayPalConfig()
+        if (!config.configured) {
+          serverHint.textContent = '⚠️ PayPal non configuré côté serveur (secrets Worker). Contactez le mainteneur ou déployez vos clés PayPal Developer.'
+          serverHint.style.color = '#fbbf24'
+          box.innerHTML = '<p class="donations-hint">Connexion PayPal indisponible tant que l\'API n\'a pas de clés PayPal.</p>'
+          connectActions.style.display = 'none'
+          disconnectBtn.style.display = 'none'
+          return
+        }
+        serverHint.textContent = `Mode PayPal : ${config.mode === 'live' ? 'production' : 'sandbox (test)'}`
+        serverHint.style.color = '#94a3b8'
+
+        const paypal = await NovaDonations.fetchPayPalStatus()
+        if (paypal.connected) {
+          const typeLabel = paypal.accountType === 'business' ? 'Business' : 'Standard'
+          box.innerHTML = `
+            <div class="paypal-connected">
+              <span class="paypal-connected-badge">✓ PayPal connecté (${typeLabel})</span>
+              <span class="paypal-connected-email">${escapeHtml(paypal.email || 'Compte lié')}</span>
+            </div>
+          `
+          connectActions.style.display = 'none'
+          disconnectBtn.style.display = 'inline-flex'
+        } else {
+          box.innerHTML = '<p class="donations-hint">Aucun compte PayPal connecté — les viewers ne pourront pas payer via checkout vérifié.</p>'
+          connectActions.style.display = 'flex'
+          disconnectBtn.style.display = 'none'
+        }
+      } catch (err) {
+        box.innerHTML = `<p class="donations-hint" style="color:#f87171">${escapeHtml(err.message)}</p>`
+        connectActions.style.display = 'none'
+        disconnectBtn.style.display = 'none'
+      }
+    }
+
+    async function connectPayPal(accountType) {
+      const returnUrl = window.location.href.split('?')[0]
+      const url = await NovaDonations.getPayPalConnectUrl(accountType, returnUrl)
+      window.location.href = url
+    }
+
+    document.getElementById('btn-paypal-standard').onclick = () => void connectPayPal('standard')
+    document.getElementById('btn-paypal-business').onclick = () => void connectPayPal('business')
+    document.getElementById('btn-paypal-disconnect').onclick = async () => {
+      if (!confirm('Déconnecter PayPal ? Les dons vérifiés seront désactivés.')) return
+      try {
+        await NovaDonations.disconnectPayPal()
+        await refreshPayPalStatus()
+      } catch (err) {
+        alert(err.message)
+      }
+    }
+
+    const paypalReturn = new URLSearchParams(location.search).get('paypal')
+    if (paypalReturn === 'connected') {
+      history.replaceState({}, '', location.pathname)
+      setTimeout(() => {
+        const msg = document.getElementById('save-msg')
+        msg.className = 'status-msg success'
+        msg.textContent = '✓ Compte PayPal connecté avec succès !'
+        msg.style.display = 'block'
+      }, 400)
+    } else if (paypalReturn === 'error') {
+      const errMsg = new URLSearchParams(location.search).get('paypalError') || 'Erreur PayPal'
+      history.replaceState({}, '', location.pathname)
+      alert(errMsg)
+    }
+
     const apiHint = document.getElementById('api-hint')
     if (!NovaDonations.apiUrl()) {
       apiHint.textContent = '⚠️ API de dons non configurée — déployez workers/donations (D1) et renseignez donationsApiUrl. Vous pouvez tester les alertes depuis l\'app.'
       apiHint.style.color = '#fbbf24'
     } else {
-      apiHint.textContent = '✓ Service de dons actif (D1) — page tip + historique par streamer.'
+      apiHint.textContent = '✓ Service de dons actif (D1) — PayPal Standard ou Business + alertes après paiement.'
       apiHint.style.color = '#4ade80'
     }
 
@@ -233,7 +345,7 @@
                   <td>${escapeHtml(d.donorName)}</td>
                   <td>${d.amount}${d.currency === 'USD' ? '$' : '€'}</td>
                   <td>${escapeHtml(d.message || '—')}</td>
-                  <td>${d.status === 'pending_alert' ? 'En attente' : d.status === 'alerted' ? 'Alerté' : d.status}</td>
+                  <td>${statusLabel(d.status)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -252,6 +364,7 @@
     document.getElementById('btn-refresh-history').onclick = () => void loadHistory()
 
     fillForm(NovaDonations.load())
+    void refreshPayPalStatus()
 
     document.getElementById('panel-settings')?.querySelectorAll('input, select, textarea').forEach((el) => {
       const onEdit = () => { readForm() }

@@ -11,7 +11,8 @@
     alertDefaultMessage: 'Merci pour votre soutien !',
     alertMessageTemplate: '{amount} — {message}',
     donationKey: '',
-    paypalUsername: ''
+    paypalUsername: '',
+    paypalAccountType: 'standard'
   }
 
   function load() {
@@ -91,6 +92,99 @@
     }
   }
 
+  async function fetchPayPalConfig() {
+    const base = apiUrl()
+    if (!base) return { configured: false, clientId: '' }
+    const res = await fetch(`${base}/v1/paypal/config`, { signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+    return data
+  }
+
+  async function fetchPayPalStatus() {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const session = window.NovaAuth.getSession()
+    if (!session) throw new Error('Connectez-vous avec Twitch')
+    const d = load()
+    const url = new URL(`${base}/v1/paypal/status`)
+    url.searchParams.set('streamerId', session.userId)
+    url.searchParams.set('key', d.donationKey)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Statut PayPal indisponible')
+    }
+    return data.paypal
+  }
+
+  async function getPayPalConnectUrl(accountType, returnUrl) {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const session = window.NovaAuth.getSession()
+    if (!session) throw new Error('Connectez-vous avec Twitch')
+    const d = load()
+    const url = new URL(`${base}/v1/paypal/connect-url`)
+    url.searchParams.set('streamerId', session.userId)
+    url.searchParams.set('key', d.donationKey)
+    url.searchParams.set('accountType', accountType === 'business' ? 'business' : 'standard')
+    if (returnUrl) url.searchParams.set('returnUrl', returnUrl)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Connexion PayPal indisponible')
+    }
+    return data.url
+  }
+
+  async function disconnectPayPal() {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const session = window.NovaAuth.getSession()
+    if (!session) throw new Error('Connectez-vous avec Twitch')
+    const d = load()
+    const res = await fetch(`${base}/v1/paypal/disconnect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ streamerId: session.userId, key: d.donationKey })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Déconnexion PayPal échouée')
+    }
+    return data
+  }
+
+  async function createPayPalOrder(payload) {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const res = await fetch(`${base}/v1/paypal/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Création commande PayPal échouée')
+    }
+    return data
+  }
+
+  async function capturePayPalOrder(payload) {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const res = await fetch(`${base}/v1/paypal/capture-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Capture PayPal échouée')
+    }
+    return data
+  }
+
+  /** Legacy — alerte immédiate sans vérification paiement. */
   async function submitTip(payload) {
     const base = apiUrl()
     if (!base) throw new Error('Service de dons non configuré')
@@ -151,6 +245,12 @@
     apiUrl,
     registerOnApi,
     syncAll,
+    fetchPayPalConfig,
+    fetchPayPalStatus,
+    getPayPalConnectUrl,
+    disconnectPayPal,
+    createPayPalOrder,
+    capturePayPalOrder,
     submitTip,
     fetchStreamer,
     fetchHistory

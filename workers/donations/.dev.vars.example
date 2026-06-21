@@ -1,0 +1,6 @@
+# Copiez en .dev.vars pour wrangler dev (ne pas committer .dev.vars)
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+PAYPAL_MODE=sandbox
+PAYPAL_REDIRECT_URI=https://nova-stream-donations.contact-delaplacetheo.workers.dev/v1/paypal/callback
+PAYPAL_WEBHOOK_ID=

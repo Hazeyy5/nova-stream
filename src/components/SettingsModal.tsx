@@ -510,7 +510,7 @@ export default function SettingsModal({
               <p className="settings-hint">
                 {form.audioSyncAuto !== false ? (
                   <>
-                    Comme OBS : micro capturé en direct par FFmpeg, vidéo retardée (~110–210 ms) pour aligner bouche et voix.
+                    Son et jeu calés automatiquement sur l&apos;encodeur vidéo. Webcam en 720p basse latence (ImageCapture).
                   </>
                 ) : (
                   <>

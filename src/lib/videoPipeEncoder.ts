@@ -108,7 +108,8 @@ export class VideoPipeEncoder {
             height,
             bitrate: bitrateKbps * 1000,
             framerate: options.framerate,
-            avc: { format: 'annexb' }
+            avc: { format: 'annexb' },
+            latencyMode: 'realtime'
           })
           if (!support.supported) continue
           await this.startWebCodecs(codec, width, height, bitrateKbps * 1000, options.framerate)
@@ -284,7 +285,8 @@ export class VideoPipeEncoder {
       height,
       bitrate,
       framerate,
-      avc: { format: 'annexb' }
+      avc: { format: 'annexb' },
+      latencyMode: 'realtime'
     })
 
     this.encoder = encoder

@@ -1,5 +1,5 @@
 import type { SceneCollection, Source, SourceTransform } from '../types'
-import { resolveVideoDeviceId } from './videoDeviceResolver'
+import { openWebcamStream } from './webcamCapture'
 
 export type WebcamSlotAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'
 
@@ -13,14 +13,7 @@ export interface WebcamLayoutContext {
 /** Sonde la résolution native de la webcam (settings ou caméra par défaut). */
 export async function probeWebcamResolution(deviceName?: string): Promise<{ width: number; height: number } | null> {
   try {
-    const deviceId = deviceName?.trim()
-      ? await resolveVideoDeviceId(deviceName.trim())
-      : undefined
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: deviceId ? { deviceId: { exact: deviceId } } : true,
-      audio: false
-    })
+    const stream = await openWebcamStream(deviceName?.trim())
 
     const track = stream.getVideoTracks()[0]
     const trackSettings = track?.getSettings()

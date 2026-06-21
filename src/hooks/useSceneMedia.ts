@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { Source } from '../types'
-import { acquireSourceStream, releaseSourceStream, resumeStreamEntry, type StreamEntry } from '../lib/drawScene'
+import { acquireSourceStream, disposeStreamEntry, releaseSourceStream, resumeStreamEntry, type StreamEntry } from '../lib/drawScene'
 import { isMediaCapableSource, mediaCaptureFingerprint, mediaSourceKey } from '../lib/sourceMedia'
 
 interface UseSceneMediaOptions {
@@ -35,6 +35,7 @@ export function useSceneMedia(sources: Source[], options: UseSceneMediaOptions =
   const releaseFingerprint = useCallback((fingerprint: string) => {
     const entry = fingerprintRef.current.get(fingerprint)
     if (entry) {
+      disposeStreamEntry(entry)
       entry.stream?.getTracks().forEach((t) => t.stop())
       const type = typeRef.current.get(entry.sourceId)
       if (type) releaseSourceStream(entry.sourceId, type)

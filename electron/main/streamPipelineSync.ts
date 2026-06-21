@@ -1,11 +1,16 @@
 import type { StreamSettings } from '../../src/types'
 
 /**
- * Décalage vidéo (itsoffset) — comme OBS : la vidéo navigateur/encodeur
- * arrive plus tard que le micro DirectShow ; on retarde la vidéo pour aligner les lèvres.
+ * Décalage vidéo (itsoffset) — uniquement si le micro est lu en direct par FFmpeg (dshow).
+ * Avec le pipe PCM synchronisé sur les chunks vidéo, l'offset auto est nul.
  */
-const AUTO_VIDEO_OFFSET_H264_SEC = 0.14
-const AUTO_VIDEO_OFFSET_WEBM_SEC = 0.24
+const LEGACY_VIDEO_OFFSET_H264_SEC = 0.14
+const LEGACY_VIDEO_OFFSET_WEBM_SEC = 0.24
+
+export interface StreamSyncOptions {
+  /** Micro injecté via pipe Node, aligné sur les ticks vidéo (mode live actuel). */
+  micViaPipe?: boolean
+}
 
 /** Ajustement manuel optionnel (±500 ms). */
 export function resolveManualAudioTrimMs(settings: StreamSettings): number {
@@ -17,30 +22,38 @@ export function resolveManualAudioTrimMs(settings: StreamSettings): number {
 
 export function resolveVideoItsoffsetSec(
   settings: StreamSettings,
-  videoInputFormat: 'h264' | 'webm' = 'webm'
+  videoInputFormat: 'h264' | 'webm' = 'webm',
+  options: StreamSyncOptions = {}
 ): number {
-  const base = videoInputFormat === 'h264' ? AUTO_VIDEO_OFFSET_H264_SEC : AUTO_VIDEO_OFFSET_WEBM_SEC
+  const pipedMic = options.micViaPipe === true
+
   if (settings.audioSyncAuto === false) {
     const manualMs = resolveManualAudioTrimMs(settings)
     if (manualMs < 0) {
-      // Son en retard → retarder davantage la vidéo
+      // Son en retard → retarder la vidéo
+      const legacyBase = videoInputFormat === 'h264' ? LEGACY_VIDEO_OFFSET_H264_SEC : LEGACY_VIDEO_OFFSET_WEBM_SEC
+      const base = pipedMic ? 0 : legacyBase
       return base + -manualMs / 1000
     }
     if (manualMs > 0) {
-      // Son en avance → moins de retard vidéo
-      return Math.max(0, base - manualMs / 1000)
+      // Son en avance → adelay audio (resolveStreamAudioTrimMs), pas d'itsoffset vidéo
+      return 0
     }
   }
-  return base
+
+  if (pipedMic) return 0
+
+  return videoInputFormat === 'h264' ? LEGACY_VIDEO_OFFSET_H264_SEC : LEGACY_VIDEO_OFFSET_WEBM_SEC
 }
 
 /**
  * Décalage audio FFmpeg (adelay) — seulement si son en avance en mode manuel.
- * Le mode auto s'appuie sur itsoffset vidéo.
+ * Le mode auto avec pipe micro : audio déjà calé sur les chunks vidéo.
  */
 export function resolveStreamAudioTrimMs(
   settings: StreamSettings,
-  _videoInputFormat: 'h264' | 'webm' = 'webm'
+  _videoInputFormat: 'h264' | 'webm' = 'webm',
+  _options: StreamSyncOptions = {}
 ): number {
   if (settings.audioSyncAuto === false) {
     const manualMs = resolveManualAudioTrimMs(settings)

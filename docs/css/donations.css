@@ -341,3 +341,73 @@
   font-size: 0.85em;
   color: #c4b5fd;
 }
+
+.paypal-connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-paypal {
+  background: #0070ba;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-paypal:hover {
+  background: #005ea6;
+}
+
+.btn-paypal-business {
+  background: #003087;
+}
+
+.paypal-status-box {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.paypal-connected {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paypal-connected-badge {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.paypal-connected-email {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.donations-legacy-paypal {
+  margin-top: 16px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.donations-legacy-paypal summary {
+  cursor: pointer;
+  color: #cbd5e1;
+}
+
+.tip-paypal-wrap {
+  min-height: 48px;
+  margin-top: 8px;
+}
+
+.tip-pay-hint {
+  font-size: 0.85rem;
+  margin-top: 8px;
+}

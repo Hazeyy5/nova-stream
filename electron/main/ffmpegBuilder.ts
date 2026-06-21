@@ -239,7 +239,8 @@ export function buildFfmpegScenePipeArgs(
   const enableMeters = includeAudio && !isStreaming
   const args: string[] = ['-y', '-loglevel', 'warning', '-stats', '-fflags', '+genpts+igndts']
 
-  const videoOffsetSec = resolveVideoItsoffsetSec(settings, videoInputFormat)
+  const syncOptions = { micViaPipe }
+  const videoOffsetSec = resolveVideoItsoffsetSec(settings, videoInputFormat, syncOptions)
   if (videoOffsetSec > 0.001) {
     args.push('-itsoffset', videoOffsetSec.toFixed(3))
   }

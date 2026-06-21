@@ -268,8 +268,10 @@ export interface DonationSettings {
   alertMessageTemplate?: string
   /** Clé secrète pour récupérer les dons dans l'app desktop. */
   donationKey?: string
-  /** Nom PayPal.me (optionnel) — redirection après envoi du don. */
+  /** Nom PayPal.me (legacy — si PayPal OAuth non connecté). */
   paypalUsername?: string
+  /** standard | business — choix du streamer à la connexion OAuth. */
+  paypalAccountType?: 'standard' | 'business'
 }
 
 export interface StreamSettings {

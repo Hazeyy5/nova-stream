@@ -11,7 +11,11 @@ import {
 } from './widgetRenderer'
 import { DEFAULT_WIDGET_LIVE_DATA } from '../types'
 import { applySourceMaskClip, buildSourceCanvasFilter } from './sourceEffects'
-import { resolveVideoDeviceId } from './videoDeviceResolver'
+import {
+  configureWebcamVideoElement,
+  createWebcamImageCapture,
+  openWebcamStream
+} from './webcamCapture'
 
 async function loadImageSource(source: Source): Promise<HTMLImageElement | null> {
   let src = source.imageUrl?.trim() ?? ''
@@ -40,6 +44,43 @@ export interface StreamEntry {
   stream: MediaStream | null
   video: HTMLVideoElement | null
   image: HTMLImageElement | null
+  /** ImageCapture — frame la plus récente, moins de tampon que HTMLVideoElement. */
+  webcamCapture?: ImageCapture | null
+  webcamFrame?: ImageBitmap | null
+  webcamFramePending?: boolean
+}
+
+export function disposeStreamEntry(entry: StreamEntry): void {
+  entry.webcamFrame?.close()
+  entry.webcamFrame = null
+  entry.webcamCapture = null
+  entry.webcamFramePending = false
+}
+
+function requestWebcamFrame(entry: StreamEntry): void {
+  const capture = entry.webcamCapture
+  if (!capture || entry.webcamFramePending) return
+  entry.webcamFramePending = true
+  void capture.grabFrame()
+    .then((frame) => {
+      entry.webcamFrame?.close()
+      entry.webcamFrame = frame
+    })
+    .catch(() => { /* frame ignorée */ })
+    .finally(() => {
+      entry.webcamFramePending = false
+    })
+}
+
+function webcamDrawSource(entry: StreamEntry): CanvasImageSource | null {
+  if (entry.webcamCapture) requestWebcamFrame(entry)
+  if (entry.webcamFrame) return entry.webcamFrame
+  return entry.video
+}
+
+function isWebcamDrawReady(entry: StreamEntry): boolean {
+  if (entry.webcamFrame) return true
+  return entry.video != null && entry.video.readyState >= 2
 }
 
 export function resumeStreamEntry(entry: StreamEntry): void {
@@ -113,20 +154,14 @@ export async function acquireSourceStream(source: Source): Promise<StreamEntry> 
     return acquireBrowserSource(source.id, source.browserUrl)
   } else if (source.type === 'webcam') {
     try {
-      const deviceId = source.webcamDevice
-        ? await resolveVideoDeviceId(source.webcamDevice)
-        : undefined
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
-        audio: false
-      })
+      const stream = await openWebcamStream(source.webcamDevice)
       const video = document.createElement('video')
       video.srcObject = stream
-      video.muted = true
-      video.playsInline = true
+      configureWebcamVideoElement(video)
       await video.play()
       entry.stream = stream
       entry.video = video
+      entry.webcamCapture = createWebcamImageCapture(stream)
     } catch { /* pas de caméra */ }
   } else if (source.type === 'image' && (source.imageUrl || source.imageLocalPath)) {
     const image = await loadImageSource(source)
@@ -261,8 +296,10 @@ export function drawScene(
 
       if (entry?.video) {
         resumeStreamEntry(entry)
-        if (entry.video.readyState >= 2) {
-          drawMedia(ctx, entry.video, dx, dy, dw, dh, source)
+        const media = source.type === 'webcam' ? webcamDrawSource(entry) : entry.video
+        const ready = source.type === 'webcam' ? isWebcamDrawReady(entry) : entry.video.readyState >= 2
+        if (media && ready) {
+          drawMedia(ctx, media, dx, dy, dw, dh, source)
         }
       } else if (entry?.image?.complete && entry.image.naturalWidth > 0) {
         drawMedia(ctx, entry.image, dx, dy, dw, dh, source)

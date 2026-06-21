@@ -1,7 +1,21 @@
 /**
  * API relais des dons Nova Stream (Cloudflare Worker + D1).
- * Déploiement : voir README.md
+ * PayPal OAuth (Standard / Business) + checkout vérifié avant alerte.
  */
+
+import {
+  buildConnectUrl,
+  captureCheckoutOrder,
+  createCheckoutOrder,
+  deletePayPalAccount,
+  getPayPalAccount,
+  handleOAuthCallback,
+  markDonationPaid,
+  paypalConfigured,
+  processWebhookEvent,
+  rowToPayPalPublic,
+  verifyAndParseWebhook
+} from './paypal.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +28,10 @@ function json(data, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json', ...CORS }
   })
+}
+
+function redirect(url, status = 302) {
+  return Response.redirect(url, status)
 }
 
 function parseSuggested(raw, fallback = [1, 3, 5, 10, 20]) {
@@ -31,8 +49,9 @@ function parseSuggested(raw, fallback = [1, 3, 5, 10, 20]) {
   return fallback
 }
 
-function rowToStreamer(row) {
+function rowToStreamer(row, paypalRow = null) {
   if (!row) return null
+  const paypal = rowToPayPalPublic(paypalRow)
   return {
     streamerId: row.streamer_id,
     username: row.username,
@@ -50,6 +69,9 @@ function rowToStreamer(row) {
     alertDefaultMessage: row.alert_default_message || row.thank_you_message || '',
     alertMessageTemplate: row.alert_message_template || '{amount} — {message}',
     paypalUsername: row.paypal_username,
+    paypalConnected: paypal.connected,
+    paypalEmail: paypal.email || '',
+    paypalAccountType: paypal.accountType || '',
     updatedAt: row.updated_at
   }
 }
@@ -64,7 +86,9 @@ function rowToDonation(row) {
     currency: row.currency,
     status: row.status,
     paymentProvider: row.payment_provider,
-    createdAt: row.created_at
+    paymentRef: row.payment_ref || '',
+    createdAt: row.created_at,
+    paidAt: row.paid_at ?? null
   }
 }
 
@@ -73,7 +97,9 @@ async function getStreamerById(db, streamerId) {
     .prepare('SELECT * FROM streamers WHERE streamer_id = ?')
     .bind(streamerId)
     .first()
-  return rowToStreamer(row)
+  if (!row) return null
+  const paypalRow = await getPayPalAccount(db, streamerId)
+  return rowToStreamer(row, paypalRow)
 }
 
 async function getStreamerByUsername(db, username) {
@@ -81,13 +107,26 @@ async function getStreamerByUsername(db, username) {
     .prepare('SELECT * FROM streamers WHERE username = ? COLLATE NOCASE')
     .bind(String(username).toLowerCase())
     .first()
-  return rowToStreamer(row)
+  if (!row) return null
+  const paypalRow = await getPayPalAccount(db, row.streamer_id)
+  return rowToStreamer(row, paypalRow)
 }
 
 async function verifyStreamerKey(db, streamerId, key) {
   const s = await getStreamerById(db, streamerId)
   if (!s || s.donationKey !== key) return null
   return s
+}
+
+async function streamerHasPayPal(db, streamerId) {
+  const row = await getPayPalAccount(db, streamerId)
+  return !!(row?.refresh_token_enc || row?.access_token_enc)
+}
+
+function legacyPaypalMeUrl(settings, amount, currency) {
+  const paypal = settings.paypalUsername?.trim()
+  if (!paypal) return ''
+  return `https://paypal.me/${encodeURIComponent(paypal)}/${amount}${currency}`
 }
 
 export default {
@@ -107,9 +146,242 @@ export default {
     if (path === '/v1/health') {
       try {
         await db.prepare('SELECT 1 AS ok').first()
-        return json({ ok: true, service: 'nova-donations', storage: 'd1' })
+        return json({
+          ok: true,
+          service: 'nova-donations',
+          storage: 'd1',
+          paypal: paypalConfigured(env)
+        })
       } catch {
         return json({ ok: false, service: 'nova-donations', storage: 'd1' }, 503)
+      }
+    }
+
+    if (path === '/v1/paypal/config' && request.method === 'GET') {
+      return json({
+        success: true,
+        configured: paypalConfigured(env),
+        clientId: env.PAYPAL_CLIENT_ID?.trim() || '',
+        mode: env.PAYPAL_MODE === 'live' ? 'live' : 'sandbox'
+      })
+    }
+
+    if (path === '/v1/paypal/status' && request.method === 'GET') {
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+      if (!streamerId || !key) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) return json({ success: false, message: 'Non autorisé' }, 403)
+
+      const row = await getPayPalAccount(db, streamerId)
+      return json({ success: true, paypal: rowToPayPalPublic(row) })
+    }
+
+    if (path === '/v1/paypal/connect-url' && request.method === 'GET') {
+      if (!paypalConfigured(env)) {
+        return json({ success: false, message: 'PayPal non configuré sur le serveur' }, 503)
+      }
+
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+      const accountType = url.searchParams.get('accountType') === 'business' ? 'business' : 'standard'
+      const returnUrl = url.searchParams.get('returnUrl') || ''
+
+      if (!streamerId || !key) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) return json({ success: false, message: 'Non autorisé' }, 403)
+
+      try {
+        const connectUrl = buildConnectUrl(env, { streamerId, donationKey: key, accountType, returnUrl })
+        return json({ success: true, url: connectUrl, accountType })
+      } catch (err) {
+        return json({ success: false, message: err instanceof Error ? err.message : 'Erreur PayPal' }, 500)
+      }
+    }
+
+    if (path === '/v1/paypal/callback' && request.method === 'GET') {
+      const code = url.searchParams.get('code')
+      const stateRaw = url.searchParams.get('state')
+      const oauthError = url.searchParams.get('error_description') || url.searchParams.get('error')
+
+      let returnBase = ''
+      try {
+        if (oauthError) throw new Error(oauthError)
+        if (!code) throw new Error('Autorisation PayPal annulée')
+
+        const result = await handleOAuthCallback(env, db, { code, stateRaw })
+        returnBase = result.returnUrl || ''
+        const target = new URL(returnBase || 'https://hazeyy5.github.io/nova-stream/donations.html')
+        target.searchParams.set('paypal', 'connected')
+        if (result.email) target.searchParams.set('paypalEmail', result.email)
+        return redirect(target.toString())
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Connexion PayPal échouée'
+        const target = new URL(returnBase || 'https://hazeyy5.github.io/nova-stream/donations.html')
+        target.searchParams.set('paypal', 'error')
+        target.searchParams.set('paypalError', message)
+        return redirect(target.toString())
+      }
+    }
+
+    if (path === '/v1/paypal/disconnect' && request.method === 'POST') {
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ success: false, message: 'JSON invalide' }, 400)
+      }
+      const streamerId = String(body?.streamerId ?? '')
+      const key = String(body?.key ?? '')
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) return json({ success: false, message: 'Non autorisé' }, 403)
+
+      await deletePayPalAccount(db, streamerId)
+      return json({ success: true })
+    }
+
+    if (path === '/v1/paypal/create-order' && request.method === 'POST') {
+      if (!paypalConfigured(env)) {
+        return json({ success: false, message: 'PayPal non configuré' }, 503)
+      }
+
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ success: false, message: 'JSON invalide' }, 400)
+      }
+
+      const streamerId = String(body?.streamerId ?? '')
+      const donorName = String(body?.donorName ?? 'Anonyme').trim().slice(0, 40)
+      const message = String(body?.message ?? '').trim().slice(0, 280)
+      const amount = Number(body?.amount)
+      const currency = body?.currency === 'USD' ? 'USD' : 'EUR'
+      const returnUrl = String(body?.returnUrl ?? '')
+      const cancelUrl = String(body?.cancelUrl ?? returnUrl)
+
+      if (!streamerId || !Number.isFinite(amount)) {
+        return json({ success: false, message: 'Données invalides' }, 400)
+      }
+
+      const settings = await getStreamerById(db, streamerId)
+      if (!settings?.enabled) {
+        return json({ success: false, message: 'Dons désactivés' }, 403)
+      }
+      if (amount < settings.minAmount) {
+        return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
+      }
+
+      const hasPayPal = await streamerHasPayPal(db, streamerId)
+      if (!hasPayPal) {
+        return json({
+          success: false,
+          message: 'Le streamer n\'a pas connecté PayPal — dons indisponibles',
+          code: 'PAYPAL_NOT_CONNECTED'
+        }, 403)
+      }
+
+      const donationId = crypto.randomUUID()
+      const createdAt = Date.now()
+
+      await db
+        .prepare(`
+          INSERT INTO donations (
+            id, streamer_id, donor_name, message, amount, currency,
+            status, payment_provider, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'paypal', ?)
+        `)
+        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt)
+        .run()
+
+      try {
+        const order = await createCheckoutOrder(env, db, {
+          streamer: settings,
+          donation: { id: donationId, amount, currency },
+          returnUrl: returnUrl || 'https://hazeyy5.github.io/nova-stream/tip.html?paid=1',
+          cancelUrl: cancelUrl || 'https://hazeyy5.github.io/nova-stream/tip.html?cancel=1'
+        })
+
+        await db
+          .prepare(`UPDATE donations SET payment_ref = ? WHERE id = ?`)
+          .bind(order.id, donationId)
+          .run()
+
+        return json({
+          success: true,
+          donationId,
+          orderId: order.id,
+          clientId: env.PAYPAL_CLIENT_ID?.trim() || ''
+        })
+      } catch (err) {
+        await db.prepare(`UPDATE donations SET status = 'failed' WHERE id = ?`).bind(donationId).run()
+        return json({
+          success: false,
+          message: err instanceof Error ? err.message : 'Création commande PayPal échouée'
+        }, 502)
+      }
+    }
+
+    if (path === '/v1/paypal/capture-order' && request.method === 'POST') {
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ success: false, message: 'JSON invalide' }, 400)
+      }
+
+      const streamerId = String(body?.streamerId ?? '')
+      const orderId = String(body?.orderId ?? '')
+      const donationId = String(body?.donationId ?? '')
+
+      if (!streamerId || !orderId) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+
+      const settings = await getStreamerById(db, streamerId)
+      if (!settings?.enabled) {
+        return json({ success: false, message: 'Dons désactivés' }, 403)
+      }
+
+      try {
+        const capture = await captureCheckoutOrder(env, db, streamerId, orderId)
+        const resolvedDonationId =
+          donationId ||
+          capture.purchase_units?.[0]?.payments?.captures?.[0]?.custom_id ||
+          capture.purchase_units?.[0]?.reference_id ||
+          ''
+
+        if (resolvedDonationId) {
+          const paymentRef = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id || orderId
+          await markDonationPaid(db, resolvedDonationId, paymentRef)
+        }
+
+        return json({
+          success: true,
+          donationId: resolvedDonationId,
+          thankYouMessage: settings.thankYouMessage,
+          status: 'pending_alert'
+        })
+      } catch (err) {
+        return json({
+          success: false,
+          message: err instanceof Error ? err.message : 'Capture PayPal échouée'
+        }, 502)
+      }
+    }
+
+    if (path === '/v1/webhooks/paypal' && request.method === 'POST') {
+      try {
+        const event = await verifyAndParseWebhook(env, request)
+        if (!event) return json({ success: false, message: 'Webhook non vérifié' }, 400)
+        const result = await processWebhookEvent(db, event)
+        return json({ success: true, ...result })
+      } catch {
+        return json({ success: false }, 500)
       }
     }
 
@@ -144,7 +416,8 @@ export default {
           pageMessage: settings.pageMessage,
           thankYouMessage: settings.thankYouMessage,
           alertDefaultMessage: settings.alertDefaultMessage || settings.thankYouMessage,
-          paypalUsername: settings.paypalUsername
+          paypalConnected: settings.paypalConnected,
+          paypalLegacyMe: !!settings.paypalUsername?.trim()
         }
       })
     }
@@ -252,6 +525,7 @@ export default {
       return json({ success: true })
     }
 
+    /** Legacy : alerte immédiate + lien PayPal.me (sans vérification paiement). */
     if (path === '/v1/donate' && request.method === 'POST') {
       let body
       try {
@@ -274,9 +548,17 @@ export default {
       if (!settings?.enabled) {
         return json({ success: false, message: 'Dons désactivés' }, 403)
       }
-
       if (amount < settings.minAmount) {
         return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
+      }
+
+      const hasPayPal = await streamerHasPayPal(db, streamerId)
+      if (hasPayPal) {
+        return json({
+          success: false,
+          message: 'Utilisez le bouton PayPal pour payer — l\'alerte apparaîtra après confirmation du paiement.',
+          code: 'USE_PAYPAL_CHECKOUT'
+        }, 400)
       }
 
       const donationId = crypto.randomUUID()
@@ -293,20 +575,17 @@ export default {
         .run()
 
       const symbol = currency === 'USD' ? '$' : '€'
-      let paymentUrl = ''
-      const paypal = settings.paypalUsername?.trim()
-      if (paypal) {
-        paymentUrl = `https://paypal.me/${encodeURIComponent(paypal)}/${amount}${currency}`
-      }
+      const paymentUrl = legacyPaypalMeUrl(settings, amount, currency)
 
       return json({
         success: true,
         donationId,
+        legacy: true,
         thankYouMessage: settings.thankYouMessage,
         paymentUrl,
         paymentHint: paymentUrl
-          ? `Finalisez votre don de ${amount}${symbol} via PayPal pour soutenir ${settings.displayName}.`
-          : `Votre don de ${amount}${symbol} a été envoyé — l'alerte apparaîtra sur le stream de ${settings.displayName}.`
+          ? `Alerte envoyée — finalisez votre don de ${amount}${symbol} via PayPal.me (mode legacy).`
+          : `Votre don de ${amount}${symbol} a été enregistré — l'alerte apparaîtra sur le stream.`
       })
     }
 
@@ -376,7 +655,8 @@ export default {
       const totalRow = await db
         .prepare(`
           SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
-          FROM donations WHERE streamer_id = ? AND status IN ('alerted', 'paid')
+          FROM donations
+          WHERE streamer_id = ? AND status IN ('alerted', 'pending_alert') AND payment_provider != 'manual'
         `)
         .bind(streamerId)
         .first()
