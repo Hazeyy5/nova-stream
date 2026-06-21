@@ -23,7 +23,10 @@ npx wrangler d1 migrations apply nova-donations --local
 
 1. [developer.paypal.com](https://developer.paypal.com) → **Create App** (Sandbox puis Live).
 2. Notez **Client ID** et **Secret**.
-3. **Redirect URI** (OAuth) :
+3. **Log in with PayPal** (app Sandbox → Features / App settings) :
+   - Activer **Log in with PayPal**
+   - Cocher les scopes : **openid**, **profile**, **email**
+   - **Return URL** :
    `https://VOTRE-WORKER.workers.dev/v1/paypal/callback`
 4. (Recommandé) **Webhook** → URL :
    `https://VOTRE-WORKER.workers.dev/v1/webhooks/paypal`

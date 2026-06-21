@@ -3,7 +3,8 @@
  * Les commandes sont créées avec le token du streamer → l'argent va sur son compte.
  */
 
-const OAUTH_SCOPES = 'openid profile email https://uri.paypal.com/services/paypalattributes'
+/** Scopes Log in with PayPal — activer openid/profile/email dans l'app Developer. */
+const OAUTH_SCOPES = 'openid profile email'
 
 export function paypalConfigured(env) {
   return !!(env.PAYPAL_CLIENT_ID?.trim() && env.PAYPAL_CLIENT_SECRET?.trim())
@@ -122,6 +123,7 @@ export function buildConnectUrl(env, { streamerId, donationKey, accountType, ret
   })
 
   const params = new URLSearchParams({
+    flowEntry: 'static',
     client_id: env.PAYPAL_CLIENT_ID.trim(),
     response_type: 'code',
     scope: OAUTH_SCOPES,
@@ -129,7 +131,7 @@ export function buildConnectUrl(env, { streamerId, donationKey, accountType, ret
     state
   })
 
-  return `${paypalWebBase(env)}/signin/authorize?${params.toString()}`
+  return `${paypalWebBase(env)}/connect?${params.toString()}`
 }
 
 export async function getPayPalAccount(db, streamerId) {
