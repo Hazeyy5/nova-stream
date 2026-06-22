@@ -17,12 +17,15 @@
 
   <script src="js/config.js"></script>
   <script src="js/donations.js"></script>
+  <script src="js/giphy-picker.js"></script>
   <script>
     const params = new URLSearchParams(location.search)
     const username = (params.get('u') || params.get('user') || '').trim().toLowerCase()
     const root = document.getElementById('tip-root')
     let streamerState = null
     let paypalSdkLoaded = false
+    let giphyPicker = null
+    window.__tipSelectedGifUrl = ''
 
     if (!username) {
       root.innerHTML = '<p class="tip-error">Chaîne non spécifiée. Utilisez ?u=votre_pseudo</p>'
@@ -94,6 +97,11 @@
             <label for="tip-msg">Message (optionnel)</label>
             <textarea id="tip-msg" maxlength="280" placeholder="${escapeHtml(s.thankYouMessage || 'Laissez un message au streamer…')}"></textarea>
           </div>
+          <div class="tip-giphy-wrap" id="tip-giphy-wrap" hidden>
+            <p class="tip-giphy-heading" id="tip-giphy-heading">Ajouter un GIF Giphy</p>
+            <p class="tip-giphy-hint">Disponible à partir de ${s.donationGifMinAmount ?? 25}${sym} — le GIF apparaîtra sur l'alerte live.</p>
+            <div id="tip-giphy-mount"></div>
+          </div>
           ${payBlock}
           <p class="tip-powered">Propulsé par <a href="${window.NOVA_CONFIG.WEBSITE_URL}">Nova Stream</a></p>
         </div>
@@ -122,6 +130,46 @@
       if (submitBtn) {
         submitBtn.onclick = () => void submitLegacyTip(s)
       }
+
+      setupGiphySection(s, amountBtns, customInput)
+    }
+
+    function getTipGifPayload(s) {
+      const min = s?.donationGifMinAmount ?? 25
+      const amount = window.__tipCurrentAmount()
+      if (amount < min) return ''
+      return window.__tipSelectedGifUrl || giphyPicker?.getSelected?.() || ''
+    }
+
+    function setupGiphySection(s, amountBtns, customInput) {
+      const wrap = document.getElementById('tip-giphy-wrap')
+      const mount = document.getElementById('tip-giphy-mount')
+      if (!wrap || !mount || !s.giphyConfigured || !window.NovaGiphyPicker) {
+        if (wrap) wrap.hidden = true
+        return
+      }
+
+      const min = s.donationGifMinAmount ?? 25
+      const sym = s.currency === 'USD' ? '$' : '€'
+      const heading = document.getElementById('tip-giphy-heading')
+      if (heading) heading.textContent = `Ajouter un GIF Giphy (≥ ${min}${sym})`
+
+      giphyPicker = NovaGiphyPicker.mount(mount, {
+        onChange: (url) => { window.__tipSelectedGifUrl = url }
+      })
+
+      function updateVisibility() {
+        const show = window.__tipCurrentAmount() >= min
+        wrap.hidden = !show
+        if (!show) {
+          window.__tipSelectedGifUrl = ''
+          giphyPicker?.clear?.()
+        }
+      }
+
+      amountBtns.forEach((btn) => btn.addEventListener('click', updateVisibility))
+      customInput?.addEventListener('input', updateVisibility)
+      updateVisibility()
     }
 
     async function setupPayPalButtons(s) {
@@ -145,6 +193,7 @@
             message: document.getElementById('tip-msg')?.value.trim() || '',
             amount,
             currency: s.currency,
+            alertGifUrl: getTipGifPayload(s),
             returnUrl: location.href.split('?')[0] + '?paid=1',
             cancelUrl: location.href
           })
@@ -211,7 +260,8 @@
           donorName: document.getElementById('tip-name').value.trim() || 'Anonyme',
           message: document.getElementById('tip-msg').value.trim(),
           amount,
-          currency: s.currency
+          currency: s.currency,
+          alertGifUrl: getTipGifPayload(s)
         })
 
         root.innerHTML = `

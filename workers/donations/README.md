@@ -39,6 +39,7 @@ cd workers/donations
 npx wrangler secret put PAYPAL_CLIENT_ID
 npx wrangler secret put PAYPAL_CLIENT_SECRET
 npx wrangler secret put PAYPAL_WEBHOOK_ID   # optionnel mais recommandé
+npx wrangler secret put GIPHY_API_KEY        # recherche GIF donateurs (≥ 25 €)
 ```
 
 Variables dans `wrangler.toml` (ou secrets) :
@@ -106,6 +107,10 @@ Si PayPal n'est pas connecté, le streamer peut encore renseigner **PayPal.me** 
 | `POST /v1/paypal/capture-order` | Capturer paiement → alerte |
 | `POST /v1/webhooks/paypal` | Webhook PayPal (backup) |
 | `POST /v1/donate` | Legacy (alerte sans vérif) |
+| `GET /v1/giphy/search` | Recherche / trending Giphy (page de don) |
+| `GET /v1/giphy/config` | Seuil GIF (25) + statut API |
+
+Les donateurs peuvent ajouter un **GIF Giphy** sur la page de tip pour les dons **≥ 25 €** (ou USD). L'URL est stockée en base (`alert_gif_url`) et affichée sur l'alerte live.
 
 ## Statuts don
 

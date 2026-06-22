@@ -458,6 +458,42 @@
   margin-bottom: 10px;
 }
 
+.cfg-sound-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cfg-sound-row .cfg-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.cfg-sound-row .cfg-sound-test {
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.alert-preview-gif {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin: 0 auto 8px;
+  border-radius: 6px;
+}
+
+.alert-preview-inner:has(.alert-preview-gif) {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.alert-preview-inner:has(.alert-preview-gif) .alert-preview-text {
+  text-align: center;
+}
+
 .cfg-toggle {
   flex-direction: row;
   align-items: center;

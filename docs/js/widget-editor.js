@@ -260,6 +260,52 @@
     `
   }
 
+  function renderSoundFields(cfg) {
+    const sounds = cfg.sounds || {}
+    return `
+      <div class="cfg-subsection">
+        <p class="cfg-subtitle">Sons de notification</p>
+        <p class="cfg-hint">Un son distinct est joué dans l'app Nova Stream à chaque alerte. Laissez vide pour le son par défaut, ou collez une URL MP3/WAV/OGG.</p>
+        ${fieldToggle('cfg-sound-enabled', 'Sons activés', cfg.soundEnabled !== false)}
+        ${fieldRange('cfg-sound-volume', 'Volume', 0, 100, cfg.soundVolume ?? 80, '%')}
+        ${ALERT_TYPES.map((t) => `
+          <div class="cfg-sound-row">
+            ${fieldText(`cfg-sound-${t.id}`, `Son — ${t.label}`, sounds[t.id] || '', 'URL audio (optionnel)')}
+            <button type="button" class="btn btn-ghost btn-sm cfg-sound-test" data-sound-type="${t.id}">Tester</button>
+          </div>
+        `).join('')}
+      </div>
+    `
+  }
+
+  function readSoundForm() {
+    const g = (id) => document.getElementById(id)
+    const sounds = {}
+    ALERT_TYPES.forEach((t) => {
+      const v = g(`cfg-sound-${t.id}`)?.value?.trim()
+      if (v) sounds[t.id] = v
+    })
+    return {
+      soundEnabled: g('cfg-sound-enabled')?.checked !== false,
+      soundVolume: parseInt(g('cfg-sound-volume')?.value || '80', 10),
+      sounds
+    }
+  }
+
+  function bindSoundTestButtons() {
+    document.querySelectorAll('.cfg-sound-test').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.soundType
+        if (!type || !window.NovaAlertSounds) return
+        const soundCfg = readSoundForm()
+        window.NovaAlertSounds.play(type, {
+          volume: soundCfg.soundVolume,
+          customUrl: soundCfg.sounds[type] || ''
+        })
+      })
+    })
+  }
+
   function renderDonationAlertFields() {
     const d = donationAlertCfg()
     return `
@@ -269,6 +315,7 @@
         ${fieldText('cfg-don-title', 'Libellé', d.alertTitle, 'Don')}
         ${fieldText('cfg-don-default', 'Message par défaut', d.alertDefaultMessage, 'Merci pour votre soutien !')}
         ${fieldText('cfg-don-template', 'Modèle affiché', d.alertMessageTemplate, '{amount} — {message}')}
+        <p class="cfg-hint">Les GIF Giphy sont choisis par le donateur sur la page de don (à partir de 25 €).</p>
       </div>
     `
   }
@@ -318,6 +365,7 @@
             { value: 'pulse', label: 'Pulsation' }
           ], cfg.animation)}
           ${fieldRange('cfg-duration', 'Durée affichage', 3, 10, cfg.durationSec || 5, 's')}
+          ${renderSoundFields(cfg)}
           ${renderDonationAlertFields()}
         `
       case 'chat':
@@ -386,7 +434,8 @@
           style: g('cfg-style')?.value || 'classic',
           animation: g('cfg-animation')?.value || 'pop',
           durationSec: parseInt(g('cfg-duration')?.value || '5', 10),
-          types
+          types,
+          ...readSoundForm()
         }
       }
       case 'chat':
@@ -451,6 +500,7 @@
     })
 
     if (widgetId === 'alert') {
+      bindSoundTestButtons()
       document.querySelectorAll('[data-alert-type]').forEach((btn) => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('[data-alert-type]').forEach((b) => b.classList.remove('active'))

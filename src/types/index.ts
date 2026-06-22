@@ -83,6 +83,8 @@ export interface StreamAlert {
   title?: string
   /** Horodatage d'affichage (ms) pour les animations. */
   shownAt?: number
+  /** GIF Giphy choisi par le donateur (don premium). */
+  gifUrl?: string
 }
 
 export interface FeedEvent {
@@ -216,6 +218,12 @@ export interface WebWidgetSettings {
     animation?: AlertAnimation
     durationSec?: number
     types?: Partial<Record<AlertType, boolean>>
+    /** Jouer un son à chaque alerte (défaut : activé). */
+    soundEnabled?: boolean
+    /** Volume des sons d'alerte (0–100, défaut 80). */
+    soundVolume?: number
+    /** URL audio personnalisée par type (vide = son Nova Stream par défaut). */
+    sounds?: Partial<Record<AlertType, string>>
   }
   chat?: {
     enabled?: boolean

@@ -7,7 +7,10 @@
       style: 'classic',
       animation: 'pop',
       durationSec: 5,
-      types: { follow: true, sub: true, donation: true, raid: true }
+      types: { follow: true, sub: true, donation: true, raid: true },
+      soundEnabled: true,
+      soundVolume: 80,
+      sounds: { follow: '', sub: '', donation: '', raid: '' }
     },
     chat: {
       enabled: true,
@@ -81,6 +84,9 @@
         if (def.types && saved[widget].types) {
           out[widget].types = { ...def.types, ...saved[widget].types }
         }
+        if (def.sounds && saved[widget].sounds) {
+          out[widget].sounds = { ...def.sounds, ...saved[widget].sounds }
+        }
         if (Array.isArray(def.options) && Array.isArray(saved[widget].options)) {
           out[widget].options = saved[widget].options
         }
@@ -104,6 +110,9 @@
     all[widgetId] = { ...all[widgetId], ...partial }
     if (partial.types) {
       all[widgetId].types = { ...all[widgetId].types, ...partial.types }
+    }
+    if (partial.sounds) {
+      all[widgetId].sounds = { ...all[widgetId].sounds, ...partial.sounds }
     }
     return saveAll(all)
   }

@@ -32,6 +32,8 @@ import PreviewHeightResizer from './components/PreviewHeightResizer'
 import { useScenes } from './hooks/useScenes'
 
 import { useIntegrations } from './hooks/useIntegrations'
+import { useWebWidgetSettings } from './hooks/useWebWidgetSettings'
+import { useAlertSounds } from './hooks/useAlertSounds'
 
 import { useSceneMedia } from './hooks/useSceneMedia'
 
@@ -87,6 +89,8 @@ function AppContent() {
   const scenes = useScenes()
 
   const integrations = useIntegrations()
+  const webWidgetSettings = useWebWidgetSettings()
+  useAlertSounds(webWidgetSettings)
 
   const twitchConnected = integrations.connections.some((c) => c.platform === 'twitch')
   const streamKeyFetchRef = useRef(false)

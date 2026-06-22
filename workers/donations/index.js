@@ -16,6 +16,7 @@ import {
   rowToPayPalPublic,
   verifyAndParseWebhook
 } from './paypal.js'
+import { DONATION_GIF_MIN_AMOUNT, resolveAlertGifUrl, searchGiphy } from './giphy.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -88,7 +89,8 @@ function rowToDonation(row) {
     paymentProvider: row.payment_provider,
     paymentRef: row.payment_ref || '',
     createdAt: row.created_at,
-    paidAt: row.paid_at ?? null
+    paidAt: row.paid_at ?? null,
+    alertGifUrl: row.alert_gif_url || ''
   }
 }
 
@@ -263,6 +265,7 @@ export default {
       const currency = body?.currency === 'USD' ? 'USD' : 'EUR'
       const returnUrl = String(body?.returnUrl ?? '')
       const cancelUrl = String(body?.cancelUrl ?? returnUrl)
+      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl)
 
       if (!streamerId || !Number.isFinite(amount)) {
         return json({ success: false, message: 'Données invalides' }, 400)
@@ -292,10 +295,10 @@ export default {
         .prepare(`
           INSERT INTO donations (
             id, streamer_id, donor_name, message, amount, currency,
-            status, payment_provider, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'paypal', ?)
+            status, payment_provider, created_at, alert_gif_url
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'paypal', ?, ?)
         `)
-        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt)
+        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt, alertGifUrl)
         .run()
 
       try {
@@ -417,8 +420,40 @@ export default {
           thankYouMessage: settings.thankYouMessage,
           alertDefaultMessage: settings.alertDefaultMessage || settings.thankYouMessage,
           paypalConnected: settings.paypalConnected,
-          paypalLegacyMe: !!settings.paypalUsername?.trim()
+          paypalLegacyMe: !!settings.paypalUsername?.trim(),
+          donationGifMinAmount: DONATION_GIF_MIN_AMOUNT,
+          giphyConfigured: !!env.GIPHY_API_KEY?.trim()
         }
+      })
+    }
+
+    if (path === '/v1/giphy/search' && request.method === 'GET') {
+      const q = url.searchParams.get('q') ?? ''
+      const limit = url.searchParams.get('limit')
+      try {
+        const result = await searchGiphy(env, { q, limit })
+        if (!result.configured) {
+          return json({ success: false, message: 'Giphy non configuré', configured: false }, 503)
+        }
+        return json({
+          success: true,
+          configured: true,
+          minAmount: DONATION_GIF_MIN_AMOUNT,
+          gifs: result.gifs
+        })
+      } catch (err) {
+        return json({
+          success: false,
+          message: err instanceof Error ? err.message : 'Recherche Giphy échouée'
+        }, 502)
+      }
+    }
+
+    if (path === '/v1/giphy/config' && request.method === 'GET') {
+      return json({
+        success: true,
+        configured: !!env.GIPHY_API_KEY?.trim(),
+        minAmount: DONATION_GIF_MIN_AMOUNT
       })
     }
 
@@ -539,6 +574,7 @@ export default {
       const message = String(body?.message ?? '').trim().slice(0, 280)
       const amount = Number(body?.amount)
       const currency = body?.currency === 'USD' ? 'USD' : 'EUR'
+      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl)
 
       if (!streamerId || !Number.isFinite(amount)) {
         return json({ success: false, message: 'Données invalides' }, 400)
@@ -568,10 +604,10 @@ export default {
         .prepare(`
           INSERT INTO donations (
             id, streamer_id, donor_name, message, amount, currency,
-            status, payment_provider, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_alert', 'manual', ?)
+            status, payment_provider, created_at, alert_gif_url
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_alert', 'manual', ?, ?)
         `)
-        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt)
+        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt, alertGifUrl)
         .run()
 
       const symbol = currency === 'USD' ? '$' : '€'

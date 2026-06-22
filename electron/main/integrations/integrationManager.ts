@@ -85,7 +85,8 @@ export class IntegrationManager {
 
   private showAlert(alert: StreamAlert, dedupeKey?: string): void {
     const alertSettings = this.widgetModules.getSettings().alert
-    if (alert.type === 'donation' && alertSettings?.types?.donation === false) return
+    if (alertSettings?.enabled === false) return
+    if (alertSettings?.types?.[alert.type] === false) return
 
     const key = dedupeKey ?? `${alert.type}:${alert.username.toLowerCase()}`
     if (this.recentAlertKeys.has(key)) return
@@ -117,7 +118,7 @@ export class IntegrationManager {
     setTimeout(() => {
       this.activeAlerts = this.activeAlerts.filter((a) => a.id !== stamped.id)
       this.broadcast('alert:dismiss', stamped.id)
-    }, 5000)
+    }, Math.max(3000, (alertSettings?.durationSec ?? 5) * 1000))
   }
 
   ingestDonation(donation: PendingDonation): void {
@@ -139,7 +140,8 @@ export class IntegrationManager {
       username: donation.donorName,
       title,
       message,
-      amount: amountLabel
+      amount: amountLabel,
+      gifUrl: donation.alertGifUrl || undefined
     }, `donation:${donation.id}`)
   }
 

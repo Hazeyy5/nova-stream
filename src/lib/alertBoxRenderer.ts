@@ -4,6 +4,7 @@ import {
   computeAlertAnimation,
   type AlertAnimState
 } from './alertAnimation'
+import { getAlertGif } from './alertGifCache'
 
 export { ALERT_ANIMATIONS } from './alertAnimation'
 
@@ -315,6 +316,8 @@ export function drawAlertBox(
   const render = RENDERERS[style] ?? RENDERERS.classic
 
   const layerAlpha = ctx.globalAlpha
+  const gif = alert.type === 'donation' && alert.gifUrl ? getAlertGif(alert.gifUrl) : null
+  const gifBand = gif ? Math.min(h * 0.38, w * 0.42) : 0
 
   if (style === 'celebration') {
     drawCelebrationSparkles(ctx, x, y, w, h, elapsed, metaFor(alert).color)
@@ -322,6 +325,20 @@ export function drawAlertBox(
 
   ctx.save()
   applyAnimTransform(ctx, x, y, w, h, anim, layerAlpha)
-  render(ctx, 0, 0, w, h, alert, anim)
+
+  if (gif && gifBand > 0) {
+    const pad = Math.max(4, h * 0.04)
+    const gifSize = Math.min(gifBand, w - pad * 2)
+    const gx = (w - gifSize) / 2
+    ctx.drawImage(gif, gx, pad, gifSize, gifSize)
+  }
+
+  const contentTop = gif && gifBand > 0 ? gifBand + Math.max(4, h * 0.04) : 0
+  const contentH = Math.max(h * 0.45, h - contentTop)
+  ctx.save()
+  ctx.translate(0, contentTop)
+  render(ctx, 0, 0, w, contentH, alert, anim)
+  ctx.restore()
+
   ctx.restore()
 }

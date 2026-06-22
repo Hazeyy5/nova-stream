@@ -10,6 +10,7 @@ export interface PendingDonation {
   amount: number
   currency: string
   createdAt: number
+  alertGifUrl?: string
 }
 
 export class DonationPoller {
