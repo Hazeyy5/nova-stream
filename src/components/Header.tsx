@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { IconLive, IconRecord } from './Icons'
 import logoUrl from '../assets/logo.png'
 import './Header.css'
@@ -9,6 +10,12 @@ interface HeaderProps {
 }
 
 export default function Header({ sceneName, isLive, isRecording }: HeaderProps) {
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    void window.novaStream.platform.getConfig().then((config) => setAppVersion(config.version))
+  }, [])
+
   return (
     <header className="header">
       <div className="header-left">
@@ -38,7 +45,7 @@ export default function Header({ sceneName, isLive, isRecording }: HeaderProps) 
       </div>
 
       <div className="header-right">
-        <span className="header-version">v0.6</span>
+        <span className="header-version">{appVersion ? `v${appVersion}` : '…'}</span>
       </div>
     </header>
   )

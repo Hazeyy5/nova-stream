@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'http'
+import { app } from 'electron'
 import type { IntegrationManager } from './integrationManager'
 import { handleWidgetLinkRequest } from '../widgetLinkRoutes'
 import { tryServeDocsStatic } from '../docsStatic'
@@ -50,7 +51,7 @@ export class LinkServer {
         res.end(JSON.stringify({
           online: true,
           app: 'Nova Stream',
-          version: '0.5.0',
+          version: app.getVersion(),
           connections: this.integrations.getConnections()
         }))
         return
