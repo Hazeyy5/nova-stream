@@ -48,10 +48,10 @@
     const searchInput = container.querySelector('#tip-giphy-search')
     const grid = container.querySelector('#tip-giphy-grid')
 
-    function setSelected(url) {
+    function setSelected(url, previewUrl) {
       selectedUrl = url || ''
       if (selectedUrl) {
-        selectedImg.src = selectedUrl
+        selectedImg.src = previewUrl || selectedUrl
         selectedEl.hidden = false
       } else {
         selectedEl.hidden = true
@@ -65,14 +65,20 @@
         grid.innerHTML = '<p class="tip-giphy-empty">Aucun GIF trouvé.</p>'
         return
       }
-      grid.innerHTML = gifs.map((g) => `
-        <button type="button" class="tip-giphy-item${selectedUrl === g.url ? ' selected' : ''}" data-url="${esc(g.url)}" title="${esc(g.title)}">
-          <img src="${esc(g.previewUrl || g.url)}" alt="" loading="lazy" />
+      grid.innerHTML = gifs.map((g) => {
+        const playbackUrl = g.mp4Url || g.url
+        const preview = g.previewUrl || g.url
+        return `
+        <button type="button" class="tip-giphy-item${selectedUrl === playbackUrl ? ' selected' : ''}" data-url="${esc(playbackUrl)}" data-preview="${esc(preview)}" title="${esc(g.title)}">
+          <img src="${esc(preview)}" alt="" loading="lazy" />
         </button>
-      `).join('')
+      `
+      }).join('')
 
       grid.querySelectorAll('.tip-giphy-item').forEach((btn) => {
-        btn.addEventListener('click', () => setSelected(btn.dataset.url || ''))
+        btn.addEventListener('click', () => {
+          setSelected(btn.dataset.url || '', btn.dataset.preview || '')
+        })
       })
     }
 

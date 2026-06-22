@@ -64,11 +64,18 @@ function mapGiphyItem(item) {
     item.images.preview_gif?.url ||
     item.images.downsized?.url ||
     url
+  const mp4Url =
+    item.images.original?.mp4 ||
+    item.images.looping?.mp4 ||
+    item.images.preview_mp4?.mp4 ||
+    ''
   if (!url) return null
+  const derivedMp4 = mp4Url || (url.includes('.gif') ? url.replace(/\.gif(\?.*)?$/i, '.mp4$1') : '')
   return {
     id: item.id,
     title: item.title || '',
     url,
-    previewUrl
+    previewUrl,
+    mp4Url: derivedMp4
   }
 }
