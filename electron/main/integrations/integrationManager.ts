@@ -17,6 +17,7 @@ import { AlertManager } from './alertManager'
 import { fetchTwitchWidgetStats } from './twitchWidgetStats'
 import { loadPersistedFeedEvents, savePersistedFeedEvents, MAX_FEED_EVENTS } from './feedStore'
 import { fetchRecentTwitchActivity, fetchRecentTwitchFollows } from './twitchFeedHistory'
+import { loadWidgetSettings, saveWidgetSettings } from '../widgetSettingsStore'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import { DonationPoller, type PendingDonation } from '../donationPoller'
 import { formatDonationAlertMessage } from '../../../src/lib/donationAlertText'
@@ -50,6 +51,10 @@ export class IntegrationManager {
 
   constructor() {
     this.feedEvents = loadPersistedFeedEvents()
+    const savedWidgets = loadWidgetSettings()
+    if (Object.keys(savedWidgets).length > 0) {
+      this.widgetModules.setSettings(savedWidgets)
+    }
 
     this.chat.setOnMessage((msg) => {
       this.messages = [...this.messages.slice(-99), msg]
@@ -347,6 +352,7 @@ export class IntegrationManager {
 
   applyWebWidgetSettings(settings: WebWidgetSettings, token?: string): void {
     this.widgetModules.setSettings(settings)
+    saveWidgetSettings(settings)
     if (token?.trim()) this.widgetModules.setToken(token)
     this.broadcast('widgets:settings', settings)
     this.syncDonationPolling()

@@ -14,14 +14,13 @@ export interface PendingDonation {
 
 export class DonationPoller {
   private timer: ReturnType<typeof setInterval> | null = null
-  private since = 0
+  private seenIds = new Set<string>()
   private polling = false
 
   constructor(private onDonation: (donation: PendingDonation) => void) {}
 
   start(getSettings: () => DonationSettings | null | undefined): void {
     this.stop()
-    this.since = Date.now() - 5000
     void this.tick(getSettings)
     this.timer = setInterval(() => {
       void this.tick(getSettings)
@@ -42,7 +41,9 @@ export class DonationPoller {
     if (!apiUrl) return
 
     const settings = getSettings()
-    if (!settings?.enabled || !settings.donationKey) return
+    if (!settings?.enabled || !settings.donationKey) {
+      return
+    }
 
     const twitch = await ensureFreshTwitchToken()
     if (!twitch) return
@@ -52,20 +53,28 @@ export class DonationPoller {
       const url = new URL(`${apiUrl.replace(/\/$/, '')}/v1/poll`)
       url.searchParams.set('streamerId', twitch.userId)
       url.searchParams.set('key', settings.donationKey)
-      url.searchParams.set('since', String(this.since))
 
       const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('[donations] poll HTTP', res.status)
+        return
+      }
 
-      const json = (await res.json()) as { success?: boolean; donations?: PendingDonation[] }
-      if (!json.success || !Array.isArray(json.donations)) return
+      const json = (await res.json()) as { success?: boolean; donations?: PendingDonation[]; message?: string }
+      if (!json.success) {
+        console.warn('[donations] poll refusé:', json.message ?? 'inconnu')
+        return
+      }
+      if (!Array.isArray(json.donations) || json.donations.length === 0) return
 
       for (const donation of json.donations) {
+        if (this.seenIds.has(donation.id)) continue
+        this.seenIds.add(donation.id)
+        console.log('[donations] alerte don reçue:', donation.donorName, donation.amount)
         this.onDonation(donation)
-        this.since = Math.max(this.since, donation.createdAt)
       }
-    } catch {
-      /* réseau ou API indisponible */
+    } catch (err) {
+      console.warn('[donations] poll erreur:', err instanceof Error ? err.message : err)
     } finally {
       this.polling = false
     }

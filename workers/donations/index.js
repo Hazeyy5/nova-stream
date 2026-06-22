@@ -592,7 +592,6 @@ export default {
     if (path === '/v1/poll' && request.method === 'GET') {
       const streamerId = url.searchParams.get('streamerId')
       const key = url.searchParams.get('key')
-      const since = Number(url.searchParams.get('since') ?? 0)
 
       if (!streamerId || !key) {
         return json({ success: false, message: 'Paramètres manquants' }, 400)
@@ -606,11 +605,11 @@ export default {
       const { results } = await db
         .prepare(`
           SELECT * FROM donations
-          WHERE streamer_id = ? AND status = 'pending_alert' AND created_at > ?
-          ORDER BY created_at ASC
+          WHERE streamer_id = ? AND status = 'pending_alert'
+          ORDER BY COALESCE(paid_at, created_at) ASC
           LIMIT 50
         `)
-        .bind(streamerId, since)
+        .bind(streamerId)
         .all()
 
       const pending = (results ?? []).map(rowToDonation)

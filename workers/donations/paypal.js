@@ -285,7 +285,7 @@ export async function markDonationPaid(db, donationId, paymentRef) {
         payment_provider = 'paypal',
         payment_ref = ?,
         paid_at = ?
-      WHERE id = ? AND status = 'pending_payment'
+      WHERE id = ? AND status IN ('pending_payment', 'pending_alert')
     `)
     .bind(paymentRef, now, donationId)
     .run()
