@@ -9,6 +9,9 @@ window.NOVA_CONFIG = {
   APP_VERSION: '0.8.14',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
   DONATIONS_API_URL: 'https://nova-stream-donations.contact-delaplacetheo.workers.dev',
+  DISCORD_CLIENT_ID: '1519758833939906770',
+  DISCORD_BOT_INVITE_URL: 'https://discord.com/api/oauth2/authorize?client_id=1519758833939906770&permissions=8&scope=bot%20applications.commands',
+  DISCORD_COMMUNITY_URL: '',
   SCOPES: [
     'user:read:email',
     'chat:read',

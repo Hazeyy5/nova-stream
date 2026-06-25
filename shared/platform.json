@@ -5,6 +5,9 @@
   "githubUrl": "https://github.com/Hazeyy5/nova-stream",
   "twitchClientId": "fuyhtssyr56gtacm8ehit09i4q252b",
   "donationsApiUrl": "https://nova-stream-donations.contact-delaplacetheo.workers.dev",
+  "discordClientId": "1519758833939906770",
+  "discordBotInviteUrl": "https://discord.com/api/oauth2/authorize?client_id=1519758833939906770&permissions=8&scope=bot%20applications.commands",
+  "discordCommunityInviteUrl": "",
   "supportEmail": "",
   "_comment": "Le twitchClientId est renseigné UNE FOIS par le mainteneur du projet. Tous les utilisateurs s'authentifient via cette app Twitch officielle Nova Stream et reçoivent leur propre token personnel."
 }

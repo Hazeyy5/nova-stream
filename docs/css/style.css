@@ -162,6 +162,26 @@ body::before {
   box-shadow: 0 8px 28px rgba(145, 70, 255, 0.4);
 }
 
+.btn-discord {
+  background: linear-gradient(135deg, #5865f2, #4752c4);
+  color: white;
+  box-shadow: 0 8px 28px rgba(88, 101, 242, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-discord:hover {
+  filter: brightness(1.08);
+}
+
+.discord-card code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
 .btn-outline {
   background: transparent;
   color: var(--text);

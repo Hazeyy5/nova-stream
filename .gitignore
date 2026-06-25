@@ -6,4 +6,6 @@ dist/
 Thumbs.db
 .env
 .env.local
+**/.env
+discord-bot/node_modules/
 !.env.example
