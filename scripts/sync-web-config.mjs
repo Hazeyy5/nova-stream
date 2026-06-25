@@ -19,8 +19,6 @@ window.NOVA_CONFIG = {
   APP_VERSION: '${platform.version || '0.0.0'}',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
   DONATIONS_API_URL: '${(platform.donationsApiUrl || '').replace(/'/g, "\\'")}',
-  DISCORD_CLIENT_ID: '${platform.discordClientId || ''}',
-  DISCORD_BOT_INVITE_URL: '${(platform.discordBotInviteUrl || '').replace(/'/g, "\\'")}',
   DISCORD_COMMUNITY_URL: '${(platform.discordCommunityInviteUrl || '').replace(/'/g, "\\'")}',
   SCOPES: [
     'user:read:email',

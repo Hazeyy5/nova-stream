@@ -51,14 +51,10 @@
       </div>
     </section>
 
-    <section class="link-card" id="discord-dash">
-      <h3>Discord Nova Stream</h3>
-      <p>Invitez le bot sur votre serveur Discord pour créer automatiquement la structure communauté Nova Stream (rôles, salons, bienvenue).</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        <a href="#" class="btn btn-discord" id="btn-discord-bot" target="_blank" rel="noopener">Inviter le bot</a>
-        <a href="#" class="btn btn-outline" id="btn-discord-community" target="_blank" rel="noopener" style="display:none">Rejoindre le Discord</a>
-      </div>
-      <p class="donations-hint" style="margin-top:10px">Après invitation : <code>/nova-setup</code> sur votre serveur.</p>
+    <section class="link-card discord-card" id="discord-dash" data-discord-hidden-without-url hidden>
+      <h3>Communauté Discord</h3>
+      <p>Rejoignez le serveur Discord officiel Nova Stream pour le support, les annonces et les retours sur l'application.</p>
+      <a href="#" class="btn btn-discord" id="btn-discord-community" data-discord-community target="_blank" rel="noopener" style="margin-top:12px">Rejoindre le Discord</a>
     </section>
   </div>
 

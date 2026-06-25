@@ -1,95 +1,46 @@
 # Bot Discord Nova Stream
 
-Configure automatiquement un serveur Discord pour la communauté Nova Stream (rôles, catégories, salons, message de bienvenue).
+Bot réservé au **serveur Discord officiel Nova Stream** (modération, `/nova-setup` admin, `/nova-info`).
 
-> **Limitation Discord** : un bot **ne peut pas créer** un serveur Discord via l’API. Vous créez un serveur vide en 2 clics, vous invitez le bot, puis `/nova-setup` (ou setup auto si le serveur est vide).
-
-## Démarrage rapide
+## Démarrage
 
 ```bash
 cd discord-bot
 npm install
 cp .env.example .env
-# Éditez .env avec votre token
+# Token + DISCORD_GUILD_ID du serveur Nova Stream
 npm start
 ```
 
-## Portail Discord Developer — quoi activer
+## Portail Discord Developer
 
-Allez sur [discord.com/developers/applications](https://discord.com/developers/applications) et sélectionnez votre application.
+1. [discord.com/developers/applications](https://discord.com/developers/applications) → votre app
+2. **Bot** → Reset Token → `.env`
+3. **Public Bot** → **Désactivé** (le bot ne doit pas être invitable ailleurs)
+4. **Privileged Gateway Intents** → rien à activer
+5. Invitez le bot **une seule fois** sur le serveur Nova Stream (OAuth2, scope `bot` + `applications.commands`, permission Administrateur pour le setup initial)
 
-### 1. General Information
-
-- **Name** : `Nova Stream` (ou au choix)
-- **Icon** : logo Nova Stream (optionnel)
-
-### 2. Bot
-
-| Option | Valeur |
-|--------|--------|
-| **Reset Token** | ⚠️ Régénérez le token si vous l’avez partagé publiquement, puis mettez-le dans `.env` |
-| **Public Bot** | ✅ Activé (pour inviter sur n’importe quel serveur) |
-| **Requires OAuth2 Code Grant** | ❌ Désactivé |
-| **Privileged Gateway Intents** | **Aucun requis** pour ce bot (commandes slash uniquement) |
-
-- ❌ **Presence Intent** — pas nécessaire  
-- ❌ **Server Members Intent** — pas nécessaire  
-- ❌ **Message Content Intent** — pas nécessaire  
-
-### 3. OAuth2 → URL Generator
-
-Cochez :
-
-**Scopes**
-
-- ✅ `bot`
-- ✅ `applications.commands`
-
-**Bot Permissions** (cochez **Administrateur** pour le setup initial, ou au minimum) :
-
-- Manage Roles  
-- Manage Channels  
-- Send Messages  
-- Embed Links  
-- Read Message History  
-- Use Slash Commands  
-
-Copiez l’**URL générée**, ouvrez-la dans le navigateur, choisissez votre serveur.
-
-### 4. Inviter le bot
-
-1. Discord → **Ajouter un serveur** → **Pour moi et mes amis** → nommez-le (ex. `Nova Stream Community`)
-2. Ouvrez l’URL OAuth2 → sélectionnez ce serveur → autorisez
-3. Dans Discord, tapez `/nova-setup` (ou attendez le setup auto si le serveur est vide)
-
-### 5. (Optionnel) Commandes instantanées en dev
-
-Dans `.env`, ajoutez l’ID du serveur pour enregistrer les slash commands immédiatement :
-
-```env
-DISCORD_GUILD_ID=123456789012345678
-```
-
-(Clic droit sur l’icône du serveur → **Copier l’identifiant du serveur** — mode développeur activé dans Discord)
-
-## Commandes
+## Commandes (serveur Nova Stream uniquement)
 
 | Commande | Description |
 |----------|-------------|
-| `/nova-setup` | Crée rôles, catégories et salons Nova Stream |
-| `/nova-info` | Liens site, GitHub, rappel des fonctionnalités |
-| `/nova-aide` | Guide d’invitation et de configuration |
+| `/nova-setup` | [Admin] Crée ou complète rôles et salons |
+| `/nova-info` | Liens site, GitHub, rappel des features |
 
-## Structure créée
+## Lien public sur le site
 
-- **Rôles** : Nova Admin, Modérateur, Streamer, Membre, Bot  
-- **Catégories** : Informations, Communauté, Nova Stream, Support, Vocal  
-- **Salons** : bienvenue, annonces, général, aide-app, widgets-dons, support, etc.
+Dans `shared/platform.json`, ajoutez l'invite permanente du serveur (pas du bot) :
 
-Le setup est **idempotent** : relancer `/nova-setup` ne duplique pas les salons déjà présents.
+```json
+"discordCommunityInviteUrl": "https://discord.gg/votre-lien"
+```
+
+Puis `npm run sync-config` et push.
+
+Le site affiche alors **Rejoindre le Discord Nova Stream** (accueil + dashboard).
 
 ## Sécurité
 
-- Ne commitez **jamais** le fichier `.env`
-- Régénérez le token bot si exposé (chat, screenshot, GitHub)
-- En production, hébergez le bot (VPS, Railway, Render, etc.) avec le token en variable d’environnement
+- Ne commitez jamais `.env`
+- Régénérez le token si exposé
+- `DISCORD_GUILD_ID` obligatoire — le bot ignore les autres serveurs

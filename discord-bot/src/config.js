@@ -7,9 +7,17 @@ export const GITHUB_URL = process.env.NOVA_GITHUB_URL?.trim() || 'https://github
 
 export const SETUP_MARKER = 'nova-stream-setup-v1'
 
-export function assertToken() {
+export function assertConfig() {
   if (!TOKEN) {
     console.error('[Nova Discord] DISCORD_TOKEN manquant — copiez discord-bot/.env.example vers discord-bot/.env')
     process.exit(1)
   }
+  if (!GUILD_ID) {
+    console.error('[Nova Discord] DISCORD_GUILD_ID manquant — ID du serveur Nova Stream (clic droit → Copier l\'identifiant du serveur)')
+    process.exit(1)
+  }
+}
+
+export function isNovaGuild(guildId) {
+  return guildId === GUILD_ID
 }
