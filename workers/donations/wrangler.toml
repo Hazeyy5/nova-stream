@@ -3,7 +3,7 @@ main = "index.js"
 compatibility_date = "2024-01-01"
 
 [vars]
-PAYPAL_MODE = "sandbox"
+PAYPAL_MODE = "live"
 PAYPAL_REDIRECT_URI = "https://nova-stream-donations.contact-delaplacetheo.workers.dev/v1/paypal/callback"
 
 [[d1_databases]]
