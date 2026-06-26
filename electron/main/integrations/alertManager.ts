@@ -34,7 +34,8 @@ export class AlertManager {
     const alerts: Record<Exclude<StreamAlert['type'], 'donation'>, Partial<StreamAlert>> = {
       follow: { username: 'NovaViewer', message: 'vient de suivre la chaîne !' },
       sub: { username: 'SuperSub', message: 'vient de s\'abonner !', amount: 'Tier 1' },
-      raid: { username: 'RaidLeader', message: 'raid avec 42 viewers !', amount: '42' }
+      raid: { username: 'RaidLeader', message: 'raid avec 42 viewers !', amount: '42' },
+      bits: { username: 'CheerFan', message: 'GG le stream !', amount: '500 bits' }
     }
     this.emit({ id: randomUUID(), type, ...alerts[type] } as StreamAlert)
   }

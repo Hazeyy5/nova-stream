@@ -5,7 +5,25 @@ Application de streaming desktop + site web — alternative à Streamlabs OBS.
 🌐 **Site web** : [hazeyy5.github.io/nova-stream](https://hazeyy5.github.io/nova-stream)  
 📦 **Repo** : [github.com/Hazeyy5/nova-stream](https://github.com/Hazeyy5/nova-stream)
 
-## Fonctionnalités (v0.5)
+## Fonctionnalités (v0.9)
+
+### Alertes & widgets
+- File d'attente d'alertes (affichage séquentiel)
+- Alertes Bits/Cheers Twitch (EventSub)
+- Sons personnalisables par type d'alerte
+- GIF Giphy sur les dons (seuil configurable, modération)
+- Overlays navigateur live (alertes + sons depuis l'app desktop)
+
+### Dons
+- PayPal OAuth (Standard / Business) avec alertes après paiement confirmé
+- Historique des dons enrichi (montant, GIF, statut)
+- Page tip publique partageable
+
+### Intégrations
+- Twitch EventSub (follow, sub, raid, cheer)
+- Chat Twitch, objectifs followers/subs, compteur viewers
+- Bot Discord Nova Stream (`/nova-setup`, `/sondage`)
+- Annonces automatiques dans `#mises-a-jour` à chaque release
 
 ### Interface
 - Layout studio professionnel (scènes, sources, aperçu, mixeur)

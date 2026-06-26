@@ -4,6 +4,14 @@
   const token = params.get('t') || window.OVERLAY_TOKEN || ''
   const cfgParam = params.get('cfg')
 
+  const ALERT_META = {
+    follow: { icon: '💜', label: 'Nouveau follower', color: '#9146FF' },
+    sub: { icon: '⭐', label: 'Nouvel abonné', color: '#f1c40f' },
+    donation: { icon: '💰', label: 'Don', color: '#2ecc71' },
+    raid: { icon: '🚀', label: 'Raid', color: '#e74c3c' },
+    bits: { icon: '💎', label: 'Bits / Cheer', color: '#9b59b6' }
+  }
+
   function decodeCfg(raw) {
     if (!raw) return null
     try {
@@ -38,12 +46,66 @@
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   }
 
+  function gifMp4Url(gifUrl) {
+    const url = String(gifUrl || '').trim()
+    if (!url) return ''
+    if (url.includes('.mp4')) return url
+    return url.replace(/\.gif(\?.*)?$/i, '.mp4$1')
+  }
+
   let liveContext = null
+  let lastPlayedAlertId = null
+  let widgetCfg = {}
+
+  function playAlertSoundIfNeeded(alert, cfg, alertCfgFromDesktop) {
+    const alertCfg = alertCfgFromDesktop || cfg || {}
+    if (alertCfg.enabled === false) return
+    if (alertCfg.types?.[alert.type] === false) return
+    if (alertCfg.soundEnabled === false) return
+    if (!window.NovaAlertSounds?.play) return
+    if (lastPlayedAlertId === alert.id) return
+    lastPlayedAlertId = alert.id
+
+    const customUrl = alertCfg.sounds?.[alert.type] || ''
+    window.NovaAlertSounds.play(alert.type, {
+      volume: alertCfg.soundVolume ?? 80,
+      customUrl
+    })
+  }
 
   function renderAlert(root, cfg) {
+    const alert = liveContext?.activeAlert
+    const style = cfg.style || 'classic'
+    const anim = cfg.animation || 'pop'
+
+    if (alert && alert.type) {
+      const meta = ALERT_META[alert.type] || ALERT_META.follow
+      const label = alert.title?.trim() || meta.label
+      const color = meta.color
+      const mp4 = alert.type === 'donation' && alert.gifUrl ? gifMp4Url(alert.gifUrl) : ''
+
+      root.innerHTML = `
+        <div class="alert-preview alert-style-${style} alert-anim-${anim} alert-playing" style="--alert-color:${color}">
+          <div class="alert-preview-inner">
+            ${mp4
+              ? `<video class="alert-preview-gif" src="${esc(mp4)}" autoplay loop muted playsinline></video>`
+              : `<span class="alert-preview-icon">${meta.icon}</span>`}
+            <div class="alert-preview-text">
+              <strong>${esc(alert.username)}</strong>
+              <em class="alert-preview-type">${esc(label)}</em>
+              ${alert.message ? `<span>${esc(alert.message)}</span>` : ''}
+              ${alert.amount ? `<span class="alert-preview-amount">${esc(alert.amount)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `
+      playAlertSoundIfNeeded(alert, cfg, liveContext?.alertConfig)
+      return
+    }
+
     const user = window.NovaTwitchLive?.alertUser(liveContext, 'NovaViewer') ?? 'NovaViewer'
     root.innerHTML = `
-      <div class="alert-preview alert-style-${cfg.style || 'classic'} alert-playing" style="--alert-color:#9146FF">
+      <div class="alert-preview alert-style-${style} alert-anim-${anim}" style="--alert-color:#9146FF">
         <div class="alert-preview-inner">
           <span class="alert-preview-icon">💜</span>
           <div class="alert-preview-text">
@@ -144,18 +206,20 @@
   async function init() {
     const root = document.getElementById('overlay-root')
     if (!root) return
-    const cfg = (await loadConfig()) || {}
+    widgetCfg = (await loadConfig()) || {}
 
     if (window.NovaTwitchLive) {
+      NovaTwitchLive.setOverlayToken?.(token)
       NovaTwitchLive.subscribe((ctx) => {
         liveContext = ctx
-        renderAll(root, cfg)
+        renderAll(root, widgetCfg)
       })
       await NovaTwitchLive.refresh()
-      NovaTwitchLive.startPolling(15000)
+      const pollMs = widget === 'alert' ? 2000 : 15000
+      NovaTwitchLive.startPolling(pollMs)
     }
 
-    renderAll(root, cfg)
+    renderAll(root, widgetCfg)
   }
 
   init()

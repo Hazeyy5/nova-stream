@@ -11,7 +11,9 @@
 
   async function fetchFromDesktop() {
     try {
-      const res = await fetch(`${desktopBase()}/api/widget-stats`, {
+      const overlayToken = window.__novaOverlayToken || ''
+      const q = overlayToken ? `?t=${encodeURIComponent(overlayToken)}` : ''
+      const res = await fetch(`${desktopBase()}/api/widget-stats${q}`, {
         signal: AbortSignal.timeout(4000)
       })
       if (!res.ok) return null
@@ -151,6 +153,10 @@
     pollTimer = setInterval(() => { void refresh() }, intervalMs)
   }
 
+  function setOverlayToken(token) {
+    window.__novaOverlayToken = token || ''
+  }
+
   function stopPolling() {
     if (!pollTimer) return
     clearInterval(pollTimer)
@@ -169,6 +175,7 @@
     viewerCountValue,
     chatLines,
     alertUser,
+    setOverlayToken,
     getContext: () => liveContext
   }
 })()

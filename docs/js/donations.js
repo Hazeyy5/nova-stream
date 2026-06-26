@@ -12,7 +12,9 @@
     alertMessageTemplate: '{amount} — {message}',
     donationKey: '',
     paypalUsername: '',
-    paypalAccountType: 'standard'
+    paypalAccountType: 'standard',
+    donationGifMinAmount: 25,
+    donationGifEnabled: true
   }
 
   function load() {
@@ -71,7 +73,9 @@
         alertTitle: d.alertTitle,
         alertDefaultMessage: d.alertDefaultMessage,
         alertMessageTemplate: d.alertMessageTemplate,
-        paypalUsername: d.paypalUsername
+        paypalUsername: d.paypalUsername,
+        donationGifMinAmount: d.donationGifMinAmount ?? 25,
+        donationGifEnabled: d.donationGifEnabled !== false
       })
     })
 

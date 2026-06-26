@@ -24,6 +24,7 @@ jobs:
       - run: npx electron-builder --win --publish never
 
       - uses: softprops/action-gh-release@v2
+        id: gh_release
         with:
           files: |
             release/*.exe
@@ -33,3 +34,20 @@ jobs:
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Annonce Discord (#mises-a-jour)
+        if: success()
+        shell: bash
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_UPDATES_CHANNEL: mises-a-jour
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          BODY=$(gh release view "$TAG" --json body -q .body 2>/dev/null || echo "")
+          export RELEASE_BODY="$BODY"
+          export VERSION="$TAG"
+          node scripts/post-release-discord.mjs

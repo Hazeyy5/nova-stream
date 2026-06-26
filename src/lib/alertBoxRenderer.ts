@@ -24,7 +24,8 @@ const ALERT_META: Record<
   follow: { icon: '💜', label: 'Nouveau follower', color: '#9146FF', accent: '#c4b5fd' },
   sub: { icon: '⭐', label: 'Nouvel abonné', color: '#f1c40f', accent: '#fde68a' },
   donation: { icon: '💰', label: 'Don', color: '#2ecc71', accent: '#86efac' },
-  raid: { icon: '🚀', label: 'Raid', color: '#e74c3c', accent: '#fca5a5' }
+  raid: { icon: '🚀', label: 'Raid', color: '#e74c3c', accent: '#fca5a5' },
+  bits: { icon: '💎', label: 'Bits / Cheers', color: '#9b59b6', accent: '#d8b4fe' }
 }
 
 function roundRect(

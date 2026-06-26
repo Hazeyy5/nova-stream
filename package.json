@@ -1,6 +1,6 @@
 {
   "name": "nova-stream",
-  "version": "0.8.14",
+  "version": "0.9.0",
   "description": "Application de streaming — alternative légère à Streamlabs OBS",
   "main": "./out/main/index.js",
   "scripts": {
@@ -10,6 +10,7 @@
     "start": "electron-vite preview",
     "sync-config": "node scripts/sync-web-config.mjs",
     "discord-bot": "npm run start --prefix discord-bot",
+    "discord-bot:register": "npm run register --prefix discord-bot",
     "discord-bot:install": "npm install --prefix discord-bot",
     "dist:win": "npm run build && electron-builder --win --publish never",
     "dist:win:publish": "npm run build && electron-builder --win --publish always",

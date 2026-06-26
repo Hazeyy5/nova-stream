@@ -70,7 +70,7 @@ export interface ChatMessage {
   badges?: string[]
 }
 
-export type AlertType = 'follow' | 'sub' | 'donation' | 'raid'
+export type AlertType = 'follow' | 'sub' | 'donation' | 'raid' | 'bits'
 
 export interface StreamAlert {
   id: string
@@ -280,6 +280,10 @@ export interface DonationSettings {
   paypalUsername?: string
   /** standard | business — choix du streamer à la connexion OAuth. */
   paypalAccountType?: 'standard' | 'business'
+  /** Montant minimum pour qu'un donateur ajoute un GIF Giphy (défaut 25). */
+  donationGifMinAmount?: number
+  /** Désactiver les GIF donateurs sur les alertes. */
+  donationGifEnabled?: boolean
 }
 
 export interface StreamSettings {

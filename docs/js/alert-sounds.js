@@ -48,6 +48,11 @@
         playTone(ctx, 330, t0 + 0.12, 0.18, v * 0.38, 'sawtooth')
         playTone(ctx, 440, t0 + 0.26, 0.24, v * 0.45, 'triangle')
         break
+      case 'bits':
+        playTone(ctx, 880, t0, 0.08, v * 0.38, 'square')
+        playTone(ctx, 1174.66, t0 + 0.07, 0.1, v * 0.4, 'square')
+        playTone(ctx, 1568, t0 + 0.16, 0.16, v * 0.42)
+        break
     }
   }
 

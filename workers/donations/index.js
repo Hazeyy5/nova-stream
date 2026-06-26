@@ -70,6 +70,8 @@ function rowToStreamer(row, paypalRow = null) {
     alertDefaultMessage: row.alert_default_message || row.thank_you_message || '',
     alertMessageTemplate: row.alert_message_template || '{amount} — {message}',
     paypalUsername: row.paypal_username,
+    donationGifMinAmount: row.donation_gif_min_amount ?? DONATION_GIF_MIN_AMOUNT,
+    donationGifEnabled: row.donation_gif_enabled !== 0,
     paypalConnected: paypal.connected,
     paypalEmail: paypal.email || '',
     paypalAccountType: paypal.accountType || '',
@@ -123,12 +125,6 @@ async function verifyStreamerKey(db, streamerId, key) {
 async function streamerHasPayPal(db, streamerId) {
   const row = await getPayPalAccount(db, streamerId)
   return !!(row?.refresh_token_enc || row?.access_token_enc)
-}
-
-function legacyPaypalMeUrl(settings, amount, currency) {
-  const paypal = settings.paypalUsername?.trim()
-  if (!paypal) return ''
-  return `https://paypal.me/${encodeURIComponent(paypal)}/${amount}${currency}`
 }
 
 export default {
@@ -265,7 +261,6 @@ export default {
       const currency = body?.currency === 'USD' ? 'USD' : 'EUR'
       const returnUrl = String(body?.returnUrl ?? '')
       const cancelUrl = String(body?.cancelUrl ?? returnUrl)
-      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl)
 
       if (!streamerId || !Number.isFinite(amount)) {
         return json({ success: false, message: 'Données invalides' }, 400)
@@ -278,6 +273,11 @@ export default {
       if (amount < settings.minAmount) {
         return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
       }
+
+      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl, {
+        minAmount: settings.donationGifMinAmount,
+        enabled: settings.donationGifEnabled
+      })
 
       const hasPayPal = await streamerHasPayPal(db, streamerId)
       if (!hasPayPal) {
@@ -420,8 +420,8 @@ export default {
           thankYouMessage: settings.thankYouMessage,
           alertDefaultMessage: settings.alertDefaultMessage || settings.thankYouMessage,
           paypalConnected: settings.paypalConnected,
-          paypalLegacyMe: !!settings.paypalUsername?.trim(),
-          donationGifMinAmount: DONATION_GIF_MIN_AMOUNT,
+          donationGifMinAmount: settings.donationGifMinAmount ?? DONATION_GIF_MIN_AMOUNT,
+          donationGifEnabled: settings.donationGifEnabled !== false,
           giphyConfigured: !!env.GIPHY_API_KEY?.trim()
         }
       })
@@ -430,6 +430,16 @@ export default {
     if (path === '/v1/giphy/search' && request.method === 'GET') {
       const q = url.searchParams.get('q') ?? ''
       const limit = url.searchParams.get('limit')
+      const streamerId = url.searchParams.get('streamerId')
+      let gifMinAmount = DONATION_GIF_MIN_AMOUNT
+      let gifEnabled = true
+      if (streamerId) {
+        const settings = await getStreamerById(db, streamerId)
+        if (settings) {
+          gifMinAmount = settings.donationGifMinAmount ?? DONATION_GIF_MIN_AMOUNT
+          gifEnabled = settings.donationGifEnabled !== false
+        }
+      }
       try {
         const result = await searchGiphy(env, { q, limit })
         if (!result.configured) {
@@ -438,7 +448,8 @@ export default {
         return json({
           success: true,
           configured: true,
-          minAmount: DONATION_GIF_MIN_AMOUNT,
+          enabled: gifEnabled,
+          minAmount: gifMinAmount,
           gifs: result.gifs
         })
       } catch (err) {
@@ -481,7 +492,9 @@ export default {
         paypalUsername,
         alertTitle,
         alertDefaultMessage,
-        alertMessageTemplate
+        alertMessageTemplate,
+        donationGifMinAmount,
+        donationGifEnabled
       } = body ?? {}
 
       if (!streamerId || !username || !donationKey) {
@@ -507,6 +520,8 @@ export default {
         alert_default_message: String(alertDefaultMessage ?? thanks).slice(0, 280),
         alert_message_template: String(alertMessageTemplate ?? '{amount} — {message}').slice(0, 200),
         paypal_username: String(paypalUsername ?? '').replace(/^@/, ''),
+        donation_gif_min_amount: Math.max(1, Number(donationGifMinAmount) || DONATION_GIF_MIN_AMOUNT),
+        donation_gif_enabled: donationGifEnabled === false ? 0 : 1,
         updated_at: now
       }
 
@@ -516,8 +531,8 @@ export default {
             streamer_id, username, display_name, avatar_url, donation_key, enabled,
             currency, min_amount, suggested_amounts, page_title, page_message,
             thank_you_message, alert_title, alert_default_message, alert_message_template,
-            paypal_username, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            paypal_username, donation_gif_min_amount, donation_gif_enabled, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(streamer_id) DO UPDATE SET
             username = excluded.username,
             display_name = excluded.display_name,
@@ -534,6 +549,8 @@ export default {
             alert_default_message = excluded.alert_default_message,
             alert_message_template = excluded.alert_message_template,
             paypal_username = excluded.paypal_username,
+            donation_gif_min_amount = excluded.donation_gif_min_amount,
+            donation_gif_enabled = excluded.donation_gif_enabled,
             updated_at = excluded.updated_at
         `)
         .bind(
@@ -553,6 +570,8 @@ export default {
           record.alert_default_message,
           record.alert_message_template,
           record.paypal_username,
+          record.donation_gif_min_amount,
+          record.donation_gif_enabled,
           record.updated_at
         )
         .run()
@@ -560,69 +579,13 @@ export default {
       return json({ success: true })
     }
 
-    /** Legacy : alerte immédiate + lien PayPal.me (sans vérification paiement). */
+    /** Legacy PayPal.me — désactivé (utiliser checkout PayPal vérifié). */
     if (path === '/v1/donate' && request.method === 'POST') {
-      let body
-      try {
-        body = await request.json()
-      } catch {
-        return json({ success: false, message: 'JSON invalide' }, 400)
-      }
-
-      const streamerId = String(body?.streamerId ?? '')
-      const donorName = String(body?.donorName ?? 'Anonyme').trim().slice(0, 40)
-      const message = String(body?.message ?? '').trim().slice(0, 280)
-      const amount = Number(body?.amount)
-      const currency = body?.currency === 'USD' ? 'USD' : 'EUR'
-      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl)
-
-      if (!streamerId || !Number.isFinite(amount)) {
-        return json({ success: false, message: 'Données invalides' }, 400)
-      }
-
-      const settings = await getStreamerById(db, streamerId)
-      if (!settings?.enabled) {
-        return json({ success: false, message: 'Dons désactivés' }, 403)
-      }
-      if (amount < settings.minAmount) {
-        return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
-      }
-
-      const hasPayPal = await streamerHasPayPal(db, streamerId)
-      if (hasPayPal) {
-        return json({
-          success: false,
-          message: 'Utilisez le bouton PayPal pour payer — l\'alerte apparaîtra après confirmation du paiement.',
-          code: 'USE_PAYPAL_CHECKOUT'
-        }, 400)
-      }
-
-      const donationId = crypto.randomUUID()
-      const createdAt = Date.now()
-
-      await db
-        .prepare(`
-          INSERT INTO donations (
-            id, streamer_id, donor_name, message, amount, currency,
-            status, payment_provider, created_at, alert_gif_url
-          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_alert', 'manual', ?, ?)
-        `)
-        .bind(donationId, streamerId, donorName || 'Anonyme', message, amount, currency, createdAt, alertGifUrl)
-        .run()
-
-      const symbol = currency === 'USD' ? '$' : '€'
-      const paymentUrl = legacyPaypalMeUrl(settings, amount, currency)
-
       return json({
-        success: true,
-        donationId,
-        legacy: true,
-        thankYouMessage: settings.thankYouMessage,
-        paymentUrl,
-        paymentHint: paymentUrl
-          ? `Alerte envoyée — finalisez votre don de ${amount}${symbol} via PayPal.me (mode legacy).`
-          : `Votre don de ${amount}${symbol} a été enregistré — l'alerte apparaîtra sur le stream.`
-      })
+        success: false,
+        message: 'Le mode PayPal.me legacy n\'est plus disponible. Le streamer doit connecter PayPal via le tableau de bord Nova Stream.',
+        code: 'LEGACY_DISABLED'
+      }, 410)
     }
 
     if (path === '/v1/poll' && request.method === 'GET') {

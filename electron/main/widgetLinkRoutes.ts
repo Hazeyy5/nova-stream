@@ -45,13 +45,21 @@ export function handleWidgetLinkRequest(
         const stats = await integrations.getWidgetLiveDataFresh()
         const chat = integrations.getRecentChatMessages(6)
         const connection = integrations.getTwitchConnectionPublic()
+        const token = query.get('t') ?? undefined
+        const activeAlerts = integrations.getActiveAlerts()
+        const activeAlert = activeAlerts[0] ?? null
+        const alertConfig = token
+          ? (integrations.getWidgetModuleConfig('alert', token) as Record<string, unknown> | null)
+          : null
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({
           success: true,
           stats,
           chat,
           displayName: connection?.displayName,
-          username: connection?.username
+          username: connection?.username,
+          activeAlert,
+          alertConfig
         }))
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur stats widget'
@@ -95,7 +103,7 @@ export function handleWidgetLinkRequest(
         integrations.testWidget({
           widget: data.widget,
           settings: data.settings,
-          alertType: data.alertType as 'follow' | 'sub' | 'donation' | 'raid' | undefined
+          alertType: data.alertType as 'follow' | 'sub' | 'donation' | 'raid' | 'bits' | undefined
         })
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ success: true }))

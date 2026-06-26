@@ -3,7 +3,8 @@
     { id: 'follow', label: 'Followers', icon: '💜', user: 'NovaFan42', msg: 'Nouveau follower', color: '#9146FF' },
     { id: 'sub', label: 'Abonnements', icon: '⭐', user: 'SubLover', msg: "Merci pour le sub !", color: '#f1c40f' },
     { id: 'donation', label: 'Dons', icon: '💰', user: 'GenerousOne', msg: '5 € — Super stream !', color: '#2ecc71' },
-    { id: 'raid', label: 'Raids', icon: '🚀', user: 'RaidSquad', msg: 'Raid avec 128 viewers', color: '#e74c3c' }
+    { id: 'raid', label: 'Raids', icon: '🚀', user: 'RaidSquad', msg: 'Raid avec 128 viewers', color: '#e74c3c' },
+    { id: 'bits', label: 'Bits / Cheers', icon: '💎', user: 'CheerFan', msg: '500 bits — GG !', color: '#9b59b6' }
   ]
 
   const WIDGET_META = {

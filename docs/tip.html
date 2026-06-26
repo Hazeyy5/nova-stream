@@ -65,10 +65,7 @@
       const payBlock = s.paypalConnected
         ? `<div id="paypal-button-container" class="tip-paypal-wrap"></div>
            <p class="tip-powered tip-pay-hint">Paiement sécurisé PayPal — l'alerte apparaît après confirmation.</p>`
-        : s.paypalLegacyMe
-          ? `<button type="button" class="tip-submit" id="tip-submit">Envoyer ${selected}${sym}</button>
-             <p class="tip-powered tip-pay-hint">Mode legacy : alerte avant paiement PayPal.me.</p>`
-          : `<p class="tip-error">Ce streamer n'a pas encore configuré PayPal.</p>`
+        : `<p class="tip-error">Ce streamer n'a pas encore connecté PayPal. Les dons ne sont pas disponibles pour le moment.</p>`
 
       root.innerHTML = `
         <div id="tip-form-view">
@@ -126,11 +123,6 @@
         }
       })
 
-      const submitBtn = document.getElementById('tip-submit')
-      if (submitBtn) {
-        submitBtn.onclick = () => void submitLegacyTip(s)
-      }
-
       setupGiphySection(s, amountBtns, customInput)
     }
 
@@ -144,7 +136,7 @@
     function setupGiphySection(s, amountBtns, customInput) {
       const wrap = document.getElementById('tip-giphy-wrap')
       const mount = document.getElementById('tip-giphy-mount')
-      if (!wrap || !mount || !s.giphyConfigured || !window.NovaGiphyPicker) {
+      if (!wrap || !mount || !s.giphyConfigured || s.donationGifEnabled === false || !window.NovaGiphyPicker) {
         if (wrap) wrap.hidden = true
         return
       }
@@ -237,46 +229,6 @@
         script.onerror = () => reject(new Error('SDK PayPal indisponible'))
         document.head.appendChild(script)
       })
-    }
-
-    async function submitLegacyTip(s) {
-      const errEl = document.getElementById('tip-error')
-      const submitBtn = document.getElementById('tip-submit')
-      errEl.style.display = 'none'
-      submitBtn.disabled = true
-
-      const sym = s.currency === 'USD' ? '$' : '€'
-      const amount = window.__tipCurrentAmount()
-      if (amount < s.minAmount) {
-        errEl.textContent = `Montant minimum : ${s.minAmount}${sym}`
-        errEl.style.display = 'block'
-        submitBtn.disabled = false
-        return
-      }
-
-      try {
-        const result = await NovaDonations.submitTip({
-          streamerId: s.streamerId,
-          donorName: document.getElementById('tip-name').value.trim() || 'Anonyme',
-          message: document.getElementById('tip-msg').value.trim(),
-          amount,
-          currency: s.currency,
-          alertGifUrl: getTipGifPayload(s)
-        })
-
-        root.innerHTML = `
-          <div class="tip-success">
-            <h2>✓ Don enregistré</h2>
-            <p>${escapeHtml(result.thankYouMessage || s.thankYouMessage || 'Merci !')}</p>
-            <p style="color:#94a3b8;margin-top:12px">${escapeHtml(result.paymentHint || '')}</p>
-            ${result.paymentUrl ? `<a class="btn btn-primary" style="display:inline-block;margin-top:16px" href="${escapeHtml(result.paymentUrl)}" target="_blank" rel="noopener">Payer via PayPal.me</a>` : ''}
-          </div>
-        `
-      } catch (err) {
-        errEl.textContent = err.message
-        errEl.style.display = 'block'
-        submitBtn.disabled = false
-      }
     }
 
     function escapeHtml(str) {

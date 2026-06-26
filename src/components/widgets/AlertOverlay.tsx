@@ -9,7 +9,8 @@ const ALERT_META: Record<StreamAlert['type'], { icon: string; label: string; col
   follow: { icon: '💜', label: 'Nouveau follower', color: '#9146FF' },
   sub: { icon: '⭐', label: 'Nouvel abonné', color: '#f1c40f' },
   donation: { icon: '💰', label: 'Don', color: '#2ecc71' },
-  raid: { icon: '🚀', label: 'Raid', color: '#e74c3c' }
+  raid: { icon: '🚀', label: 'Raid', color: '#e74c3c' },
+  bits: { icon: '💎', label: 'Bits / Cheer', color: '#9b59b6' }
 }
 
 export default function AlertOverlay({ alerts }: AlertOverlayProps) {

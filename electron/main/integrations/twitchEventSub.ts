@@ -61,7 +61,7 @@ export class TwitchEventSubService {
   private stopped = true
   private subscribedTypes = new Set<string>()
 
-  setOnAlert(callback: (alert: StreamAlert) => void): void {
+  setOnAlert(callback: (alert: StreamAlert, dedupeKey?: string) => void): void {
     this.onAlert = callback
   }
 
@@ -239,6 +239,11 @@ export class TwitchEventSubService {
         type: 'channel.raid',
         version: '1',
         condition: { to_broadcaster_user_id: this.broadcasterId }
+      },
+      {
+        type: 'channel.cheer',
+        version: '1',
+        condition: { broadcaster_user_id: this.broadcasterId }
       }
     ]
 
@@ -324,10 +329,25 @@ export class TwitchEventSubService {
         message: `raid avec ${viewers} viewers !`,
         amount: viewers
       })
+      return
+    }
+
+    if (subType === 'channel.cheer') {
+      const username = String(event.user_name ?? event.user_login ?? 'Viewer')
+      const bits = Number(event.bits ?? 0)
+      const cheerMsg = String(event.message ?? '').trim()
+      this.emit({
+        id: randomUUID(),
+        type: 'bits',
+        platform: 'twitch',
+        username,
+        message: cheerMsg || `${bits} bits !`,
+        amount: `${bits} bits`
+      }, `bits:${String(event.id ?? username)}:${bits}`)
     }
   }
 
-  private emit(alert: StreamAlert): void {
-    this.onAlert?.(alert)
+  private emit(alert: StreamAlert, dedupeKey?: string): void {
+    this.onAlert?.(alert, dedupeKey)
   }
 }

@@ -7,10 +7,10 @@
       style: 'classic',
       animation: 'pop',
       durationSec: 5,
-      types: { follow: true, sub: true, donation: true, raid: true },
+      types: { follow: true, sub: true, donation: true, raid: true, bits: true },
       soundEnabled: true,
       soundVolume: 80,
-      sounds: { follow: '', sub: '', donation: '', raid: '' }
+      sounds: { follow: '', sub: '', donation: '', raid: '', bits: '' }
     },
     chat: {
       enabled: true,

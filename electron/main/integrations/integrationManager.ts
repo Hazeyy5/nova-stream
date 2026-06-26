@@ -43,6 +43,9 @@ export class IntegrationManager {
   private widgetStatsRefreshDebounce: ReturnType<typeof setTimeout> | null = null
   private activityPollTimer: ReturnType<typeof setInterval> | null = null
   private recentAlertKeys = new Set<string>()
+  private alertQueue: StreamAlert[] = []
+  private alertShowingId: string | null = null
+  private alertDismissTimer: ReturnType<typeof setTimeout> | null = null
   private knownFollowIds = new Set<string>()
   private activityBaselineReady = false
   private lastTwitchAccessToken: string | null = null
@@ -62,7 +65,7 @@ export class IntegrationManager {
     })
 
     this.chat.setOnAlert((alert) => this.showAlert(alert))
-    this.eventSub.setOnAlert((alert) => this.showAlert(alert))
+    this.eventSub.setOnAlert((alert, dedupeKey) => this.showAlert(alert, dedupeKey))
     this.alerts.setDonationSettingsProvider(() => this.getDonationSettings())
     this.eventSub.setOnStatus((status) => {
       if (!status.error) {
@@ -93,32 +96,61 @@ export class IntegrationManager {
     this.recentAlertKeys.add(key)
     setTimeout(() => this.recentAlertKeys.delete(key), 20_000)
 
-    const stamped = { ...alert, shownAt: alert.shownAt ?? Date.now() }
-    this.activeAlerts = [...this.activeAlerts, stamped]
-    const icons = { follow: '💜', sub: '⭐', donation: '💰', raid: '🚀' }
-    const feedType = alert.type === 'follow' || alert.type === 'sub' ? alert.type : 'alert'
-    const labels = {
-      follow: `${alert.username} a suivi la chaîne`,
-      sub: `${alert.username} s'est abonné`,
-      donation: alert.message ?? `${alert.username} a fait un don`,
-      raid: alert.message ?? `${alert.username} raid !`
+    this.alertQueue.push({ ...alert, shownAt: alert.shownAt ?? Date.now() })
+    this.processAlertQueue()
+  }
+
+  private processAlertQueue(): void {
+    if (this.alertShowingId) return
+
+    const next = this.alertQueue.shift()
+    if (!next) {
+      this.activeAlerts = []
+      return
+    }
+
+    const alertSettings = this.widgetModules.getSettings().alert
+    const durationMs = Math.max(3000, (alertSettings?.durationSec ?? 5) * 1000)
+
+    this.alertShowingId = next.id
+    this.activeAlerts = [next]
+
+    const icons: Record<StreamAlert['type'], string> = {
+      follow: '💜',
+      sub: '⭐',
+      donation: '💰',
+      raid: '🚀',
+      bits: '💎'
+    }
+    const feedType = next.type === 'follow' || next.type === 'sub' ? next.type : 'alert'
+    const labels: Record<StreamAlert['type'], string> = {
+      follow: `${next.username} a suivi la chaîne`,
+      sub: `${next.username} s'est abonné`,
+      donation: next.message ?? `${next.username} a fait un don`,
+      raid: next.message ?? `${next.username} raid !`,
+      bits: next.message ?? `${next.username} a cheer !`
     }
     this.addFeedEvent({
-      id: alert.id,
+      id: next.id,
       type: feedType,
-      platform: alert.platform ?? 'twitch',
-      icon: icons[alert.type],
-      text: labels[alert.type],
+      platform: next.platform ?? 'twitch',
+      icon: icons[next.type],
+      text: labels[next.type],
       timestamp: Date.now()
     })
-    this.broadcast('alert:show', stamped)
-    if (alert.type === 'follow' || alert.type === 'sub') {
+    this.broadcast('alert:show', next)
+    if (next.type === 'follow' || next.type === 'sub') {
       this.scheduleWidgetStatsRefresh()
     }
-    setTimeout(() => {
-      this.activeAlerts = this.activeAlerts.filter((a) => a.id !== stamped.id)
-      this.broadcast('alert:dismiss', stamped.id)
-    }, Math.max(3000, (alertSettings?.durationSec ?? 5) * 1000))
+
+    if (this.alertDismissTimer) clearTimeout(this.alertDismissTimer)
+    this.alertDismissTimer = setTimeout(() => {
+      this.broadcast('alert:dismiss', next.id)
+      this.alertShowingId = null
+      this.activeAlerts = []
+      this.alertDismissTimer = null
+      this.processAlertQueue()
+    }, durationMs)
   }
 
   ingestDonation(donation: PendingDonation): void {

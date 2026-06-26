@@ -7,9 +7,8 @@ Bot réservé au **serveur Discord officiel Nova Stream** (modération, `/nova-s
 ```bash
 cd discord-bot
 npm install
-cp .env.example .env
-# Token + DISCORD_GUILD_ID du serveur Nova Stream
-npm start
+npm run register   # enregistre les commandes slash sur Discord
+npm start          # lance le bot (doit rester ouvert)
 ```
 
 ## Portail Discord Developer
@@ -26,6 +25,21 @@ npm start
 |----------|-------------|
 | `/nova-setup` | [Admin] Crée ou complète rôles et salons |
 | `/nova-info` | Liens site, GitHub, rappel des features |
+| `/sondage` ou `/nova-sondage` | Créer un sondage (2 à 5 options, votes par boutons) |
+
+### `/sondage`
+
+Exemple :
+
+```
+/sondage question:Quel widget ajouter en priorité ? option1:Alertes Bits option2:Kick option3:macOS duree:48
+```
+
+- **2 à 5 options** (option1 et option2 obligatoires)
+- **duree** : 1 à 168 heures (défaut 24 h)
+- **multi** : `true` pour autoriser plusieurs votes par personne
+- Les membres votent en cliquant sur les boutons ; les résultats se mettent à jour en direct
+- Le sondage se clôt automatiquement après la durée choisie
 
 ## Lien public sur le site
 

@@ -1,4 +1,4 @@
-/** Montant minimum (EUR ou USD) pour qu'un donateur puisse ajouter un GIF Giphy. */
+/** Montant minimum par défaut (EUR ou USD) pour qu'un donateur puisse ajouter un GIF Giphy. */
 export const DONATION_GIF_MIN_AMOUNT = 25
 
 const GIPHY_HOST_SUFFIX = '.giphy.com'
@@ -16,8 +16,11 @@ export function isValidGiphyUrl(raw) {
   }
 }
 
-export function resolveAlertGifUrl(amount, rawUrl) {
-  if (!Number.isFinite(amount) || amount < DONATION_GIF_MIN_AMOUNT) return ''
+export function resolveAlertGifUrl(amount, rawUrl, options = {}) {
+  const minAmount = Number(options.minAmount) > 0 ? Number(options.minAmount) : DONATION_GIF_MIN_AMOUNT
+  const enabled = options.enabled !== false
+  if (!enabled) return ''
+  if (!Number.isFinite(amount) || amount < minAmount) return ''
   const url = String(rawUrl ?? '').trim()
   return isValidGiphyUrl(url) ? url : ''
 }
