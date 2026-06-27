@@ -2,6 +2,13 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.
 import { runServerSetup } from './setup.js'
 import { WEBSITE_URL, GITHUB_URL, isNovaGuild } from './config.js'
 import { handlePollCommand, handlePollButton } from './polls.js'
+import {
+  handleTicketButton,
+  handleTicketPanelCommand,
+  handleTicketCloseCommand,
+  handleTicketAddCommand,
+  handleTicketRemoveCommand
+} from './tickets.js'
 
 function buildPollSlash(name) {
   return new SlashCommandBuilder()
@@ -48,13 +55,39 @@ export const commands = [
     .setName('nova-info')
     .setDescription('Liens utiles Nova Stream'),
 
+  new SlashCommandBuilder()
+    .setName('ticket-panel')
+    .setDescription('[Admin] Publie le panel d\'ouverture de tickets dans ce salon')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('ticket-close')
+    .setDescription('Fermer le ticket en cours')
+    .addStringOption((o) =>
+      o.setName('raison').setDescription('Raison de la fermeture').setRequired(false).setMaxLength(200)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('ticket-add')
+    .setDescription('[Staff] Ajouter un membre au ticket')
+    .addUserOption((o) => o.setName('membre').setDescription('Membre à ajouter').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  new SlashCommandBuilder()
+    .setName('ticket-remove')
+    .setDescription('[Staff] Retirer un membre du ticket')
+    .addUserOption((o) => o.setName('membre').setDescription('Membre à retirer').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
   buildPollSlash('sondage'),
   buildPollSlash('nova-sondage')
 ].map((c) => c.toJSON())
 
 const POLL_COMMANDS = new Set(['sondage', 'nova-sondage'])
+const TICKET_COMMANDS = new Set(['ticket-panel', 'ticket-close', 'ticket-add', 'ticket-remove'])
 
 export async function handleInteraction(interaction) {
+  if (await handleTicketButton(interaction)) return true
   if (await handlePollButton(interaction)) return true
 
   if (!interaction.isChatInputCommand()) return false
@@ -65,6 +98,19 @@ export async function handleInteraction(interaction) {
 
   if (POLL_COMMANDS.has(interaction.commandName)) {
     return handlePollCommand(interaction)
+  }
+
+  if (TICKET_COMMANDS.has(interaction.commandName)) {
+    switch (interaction.commandName) {
+      case 'ticket-panel':
+        return handleTicketPanelCommand(interaction)
+      case 'ticket-close':
+        return handleTicketCloseCommand(interaction)
+      case 'ticket-add':
+        return handleTicketAddCommand(interaction)
+      case 'ticket-remove':
+        return handleTicketRemoveCommand(interaction)
+    }
   }
 
   if (interaction.commandName === 'nova-setup') {
@@ -78,7 +124,8 @@ export async function handleInteraction(interaction) {
           `• Catégories créées : ${result.categories}`,
           `• Salons créés : ${result.channels}`,
           `• Salons déjà existants (ignorés) : ${result.skipped}`,
-          result.welcomed ? '• Message de bienvenue posté dans `#bienvenue`' : ''
+          result.welcomed ? '• Message de bienvenue posté dans `#bienvenue`' : '',
+          result.ticketPanel ? '• Panel de tickets publié dans `#ouvrir-ticket`' : ''
         ].filter(Boolean).join('\n')
       })
     } catch (err) {
@@ -97,8 +144,9 @@ export async function handleInteraction(interaction) {
       .addFields(
         { name: '🌐 Site', value: WEBSITE_URL },
         { name: '📦 GitHub', value: GITHUB_URL },
-        { name: '💰 Dons', value: 'PayPal OAuth + GIF Giphy (≥ 25 €) via le dashboard web' },
-        { name: '🔔 Alertes', value: 'Follow, sub, raid, don — sons personnalisables' },
+        { name: '🎫 Support', value: 'Ouvrez un ticket dans `#ouvrir-ticket` (salon privé avec l\'équipe)' },
+        { name: '💰 Dons', value: 'PayPal OAuth + GIF Giphy via le dashboard web' },
+        { name: '🔔 Alertes', value: 'Follow, sub, raid, bits, don — sons personnalisables' },
         { name: '📊 Sondages', value: '`/sondage` ou `/nova-sondage` — 2 à 5 options, votes par boutons' }
       )
     await interaction.reply({ embeds: [embed] })

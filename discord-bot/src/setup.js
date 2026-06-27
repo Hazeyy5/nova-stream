@@ -4,6 +4,12 @@ import {
   OverwriteType
 } from 'discord.js'
 import { SETUP_MARKER, WEBSITE_URL, GITHUB_URL } from './config.js'
+import {
+  TICKET_CATEGORY_NAME,
+  TICKET_PANEL_CHANNEL,
+  TICKET_LOGS_CHANNEL,
+  postTicketPanel
+} from './tickets.js'
 
 const ROLE_DEFS = [
   { name: 'Nova Admin', color: 0x7c3aed, hoist: true },
@@ -39,9 +45,25 @@ const STRUCTURE = [
     ]
   },
   {
+    name: TICKET_CATEGORY_NAME,
+    ticketCategory: true,
+    channels: []
+  },
+  {
     name: '🔧 SUPPORT',
     channels: [
-      { name: 'support', type: ChannelType.GuildText, topic: 'Ouvrez un fil pour obtenir de l\'aide' },
+      {
+        name: TICKET_PANEL_CHANNEL,
+        type: ChannelType.GuildText,
+        topic: 'Ouvrez un ticket privé via le bouton ci-dessous',
+        ticketPanel: true
+      },
+      {
+        name: TICKET_LOGS_CHANNEL,
+        type: ChannelType.GuildText,
+        topic: 'Historique des tickets fermés (staff)',
+        staffOnly: true
+      },
       { name: 'bugs', type: ChannelType.GuildText, topic: 'Signalez un bug (version app + étapes)' }
     ]
   },
@@ -89,6 +111,33 @@ function staffOverwrites(everyone, modRole, adminRole) {
   ]
 }
 
+function ticketCategoryOverwrites(everyone, modRole, adminRole) {
+  return [
+    { id: everyone.id, deny: [PermissionFlagsBits.ViewChannel], type: OverwriteType.Role },
+    {
+      id: modRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.ManageMessages
+      ],
+      type: OverwriteType.Role
+    },
+    {
+      id: adminRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.ManageChannels
+      ],
+      type: OverwriteType.Role
+    }
+  ]
+}
+
 async function ensureStructure(guild, roles) {
   const everyone = guild.roles.everyone
   const created = { categories: 0, channels: 0, skipped: 0 }
@@ -98,11 +147,17 @@ async function ensureStructure(guild, roles) {
       (c) => c.type === ChannelType.GuildCategory && c.name === block.name
     )
     if (!category) {
-      category = await guild.channels.create({
+      const categoryOptions = {
         name: block.name,
         type: ChannelType.GuildCategory,
         reason: SETUP_MARKER
-      })
+      }
+
+      if (block.ticketCategory && roles['Modérateur'] && roles['Nova Admin']) {
+        categoryOptions.permissionOverwrites = ticketCategoryOverwrites(everyone, roles['Modérateur'], roles['Nova Admin'])
+      }
+
+      category = await guild.channels.create(categoryOptions)
       created.categories++
     }
 
@@ -160,6 +215,7 @@ async function postWelcomeEmbed(guild) {
         '• `#setup-stream` — conseils de configuration',
         '• `#widgets-dons` — alertes, dons et Giphy',
         '• `#retours-suggestions` — proposez des améliorations',
+        '• `#ouvrir-ticket` — support privé avec l\'équipe',
         '',
         'Utilisez `/nova-info` pour les liens utiles.'
       ].join('\n'),
@@ -188,5 +244,13 @@ export async function runServerSetup(guild) {
   const counts = await ensureStructure(guild, roles)
   const welcomed = await postWelcomeEmbed(guild)
 
-  return { roles: Object.keys(roles).length, ...counts, welcomed }
+  const panelChannel = guild.channels.cache.find(
+    (c) => c.name === TICKET_PANEL_CHANNEL && c.isTextBased()
+  )
+  let ticketPanel = false
+  if (panelChannel) {
+    ticketPanel = await postTicketPanel(panelChannel)
+  }
+
+  return { roles: Object.keys(roles).length, ...counts, welcomed, ticketPanel }
 }

@@ -8,6 +8,7 @@ import {
 } from 'discord.js'
 import { assertConfig, TOKEN, GUILD_ID } from './config.js'
 import { commands, handleInteraction } from './commands.js'
+import { hydrateTicketsFromGuild } from './tickets.js'
 
 assertConfig()
 
@@ -40,6 +41,16 @@ client.once(Events.ClientReady, async (c) => {
     await registerSlashCommands()
   } catch (err) {
     console.error('[Nova Discord] Enregistrement commandes échoué:', err)
+  }
+
+  try {
+    const guild = await c.guilds.fetch(GUILD_ID)
+    const restored = await hydrateTicketsFromGuild(guild)
+    if (restored > 0) {
+      console.log(`[Nova Discord] ${restored} ticket(s) actif(s) restauré(s)`)
+    }
+  } catch (err) {
+    console.warn('[Nova Discord] Hydratation tickets:', err instanceof Error ? err.message : err)
   }
 })
 
