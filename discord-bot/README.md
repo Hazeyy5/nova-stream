@@ -72,12 +72,19 @@ fly deploy
 
 ---
 
-### Option D — Railway (carte bancaire, crédits gratuits)
+### Option D — Railway (recommandé si tu as une carte)
 
-1. [railway.app](https://railway.app) → **New Project** → **GitHub Repo** → `nova-stream`
-2. Root directory : `discord-bot`
-3. Variables : `DISCORD_TOKEN`, `DISCORD_GUILD_ID`
-4. Railway détecte le `Dockerfile` ou `railway.toml` automatiquement
+Guide détaillé : **[RAILWAY.md](./RAILWAY.md)**
+
+Résumé :
+
+1. [railway.app](https://railway.app) → **New Project** → repo `Hazeyy5/nova-stream`
+2. **Settings** → **Root Directory** = `discord-bot`
+3. **Variables** : `DISCORD_TOKEN`, `DISCORD_GUILD_ID` = `1519398606921011231`
+4. **Networking** → **Generate Domain** (health check)
+5. Vérifie les logs : `Connecté en tant que StreamBot#...`
+
+Builder : **Nixpacks** (automatique). En cas d’erreur Docker, ne pas forcer le Dockerfile.
 
 ---
 
