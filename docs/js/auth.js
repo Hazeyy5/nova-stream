@@ -17,16 +17,31 @@ function generateState() {
 
 function getSession() {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = sessionStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        localStorage.setItem(STORAGE_KEY, raw)
+        sessionStorage.removeItem(STORAGE_KEY)
+      }
+    }
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (data.expiresAt && Date.now() > data.expiresAt) {
+      clearSession()
+      return null
+    }
+    return data
   } catch { return null }
 }
 
 function setSession(data) {
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  sessionStorage.removeItem(STORAGE_KEY)
 }
 
 function clearSession() {
+  localStorage.removeItem(STORAGE_KEY)
   sessionStorage.removeItem(STORAGE_KEY)
   sessionStorage.removeItem(STATE_KEY)
 }
@@ -85,6 +100,9 @@ async function handleOAuthCallback() {
   const userData = await userRes.json()
   const user = userData.data[0]
 
+  const expiresIn = Number.parseInt(params.get('expires_in') || '0', 10)
+  const defaultTtl = 4 * 3600 * 1000
+
   setSession({
     platform: 'twitch',
     accessToken,
@@ -92,7 +110,8 @@ async function handleOAuthCallback() {
     username: user.login,
     displayName: user.display_name,
     avatarUrl: user.profile_image_url,
-    connectedAt: Date.now()
+    connectedAt: Date.now(),
+    expiresAt: Date.now() + (expiresIn > 0 ? expiresIn * 1000 : defaultTtl)
   })
 
   location.href = asset('/dashboard.html')

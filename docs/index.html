@@ -19,8 +19,10 @@
       <div class="nav-links">
         <a href="#download">Télécharger</a>
         <a href="#alertes">Alertes</a>
+        <a href="#dons">Dons</a>
         <a href="#chat">Chat</a>
         <a href="#widgets">Widgets</a>
+        <a href="help.html">Aide</a>
         <a href="#discord" data-discord-hidden-without-url hidden>Discord</a>
         <a href="https://github.com/Hazeyy5/nova-stream" target="_blank">GitHub</a>
         <a href="dashboard.html" id="nav-dashboard" style="display:none">Mes widgets</a>
@@ -28,11 +30,11 @@
     </nav>
 
     <section class="hero">
-      <span class="badge" data-version-badge>v0.8.14 — Studio NEXUS</span>
-      <h1>Alertes, chat et widgets<br>pour votre stream Twitch</h1>
+      <span class="badge" data-version-badge>v0.9.0 — Studio NEXUS</span>
+      <h1>Alertes, chat, dons et widgets<br>pour votre stream Twitch</h1>
       <p>
-        Téléchargez Nova Stream sur Windows, connectez-vous sur le web, liez l'app sur votre PC,
-        et profitez d'alertes EventSub, de designs de chat box et de widgets intégrés à vos scènes.
+        Application desktop gratuite + tableau de bord web. Alertes EventSub (follow, sub, raid, bits),
+        dons PayPal vérifiés, sons personnalisables, GIF Giphy et widgets pour OBS ou Nova Stream.
       </p>
       <div class="hero-actions">
         <a
@@ -95,7 +97,7 @@
     <section class="section" id="alertes">
       <div class="section-head">
         <h2>🔔 Alertes Twitch</h2>
-        <p>Follows, subs, dons et raids — déclenchés en temps réel via EventSub et IRC, avec 6 styles visuels et 6 animations.</p>
+        <p>Follows, subs, dons, raids et bits — file d'attente, sons personnalisables, GIF Giphy sur les dons, 6 styles et 6 animations.</p>
       </div>
 
       <div class="demo-grid">
@@ -112,6 +114,7 @@
               <button class="pill" data-alert-type="1">⭐ Sub</button>
               <button class="pill" data-alert-type="2">💰 Don</button>
               <button class="pill" data-alert-type="3">🚀 Raid</button>
+              <button class="pill" data-alert-type="4">💎 Bits</button>
             </div>
           </div>
           <div class="control-group">
@@ -126,10 +129,35 @@
             </div>
           </div>
           <ul class="feature-list">
-            <li>Animations : pop, glissée, rebond, fondu, pulsation</li>
-            <li>Personnalisation dans l'app : durée, style, position sur scène</li>
-            <li>Test d'alerte intégré dans Nova Stream</li>
+            <li>File d'attente : une alerte à la fois, plus de chevauchement</li>
+            <li>Sons par type (follow, sub, don, raid, bits) — site et overlay web</li>
+            <li>Overlays navigateur live synchronisés avec l'app desktop</li>
           </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="dons">
+      <div class="section-head">
+        <h2>💰 Dons PayPal</h2>
+        <p>Comme Streamlabs : page de tip publique, paiement vérifié, alerte live après confirmation — GIF Giphy optionnel.</p>
+      </div>
+      <div class="demo-grid">
+        <div class="demo-controls">
+          <ul class="feature-list">
+            <li>PayPal Standard ou Business (OAuth sandbox ou live)</li>
+            <li>Historique des dons sur le dashboard (D1)</li>
+            <li>Seuil GIF configurable par streamer</li>
+            <li>Texte d'alerte personnalisable ({name}, {amount}, {message})</li>
+          </ul>
+          <a href="donations.html" class="btn btn-primary" style="margin-top:16px">Configurer les dons →</a>
+        </div>
+        <div class="demo-stage">
+          <div class="widget-mock goal-mock sub" style="max-width:320px;margin:0 auto">
+            <span class="widget-label">Don reçu</span>
+            <p style="margin:12px 0;font-size:1.1rem"><strong>GenerousOne</strong> — 10 €</p>
+            <p style="color:#94a3b8;font-size:0.9rem">Merci pour le super stream ! 🎉</p>
+          </div>
         </div>
       </div>
     </section>
@@ -238,6 +266,11 @@
         <p>Mixage micro + bureau avec compresseur et limiteur pour éviter la saturation.</p>
       </div>
       <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>Bot Discord</h3>
+        <p>Serveur communauté : tickets support, sondages, annonces de mises à jour automatiques.</p>
+      </div>
+      <div class="feature-card">
         <div class="feature-icon">🎮</div>
         <h3>Kick (bientôt)</h3>
         <p>La connexion Kick arrive prochainement, comme sur Streamlabs.</p>
@@ -273,13 +306,14 @@
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <p>Connectez-vous avec Twitch sur ce site</p>
+          <p>Connectez Twitch (site ou directement dans l'app)</p>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <p>Lancez l'app et cliquez « Lier à Nova Stream » — chat, alertes et widgets sont actifs !</p>
+          <p>Liez l'app si besoin — chat, alertes, widgets et dons sont actifs !</p>
         </div>
       </div>
+      <p style="margin-top:16px"><a href="help.html">Guide complet utilisateur →</a></p>
     </section>
   </div>
 

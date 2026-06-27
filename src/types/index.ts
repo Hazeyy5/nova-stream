@@ -495,7 +495,7 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   desktopAudioEnabled: true,
   desktopAudioDevice: '',
   webcamDevice: '',
-  recordingEnabled: false,
+  recordingEnabled: true,
   recordAudioEnabled: true,
   recordingPath: '',
   transition: 'fade',

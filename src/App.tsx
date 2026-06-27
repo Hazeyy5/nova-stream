@@ -436,7 +436,15 @@ function AppContent() {
     }
   }, [websiteUrl])
 
-  const handleConnectTwitch = () => {
+  const handleConnectTwitch = async () => {
+    if (integrations.twitchConfigured) {
+      try {
+        await integrations.connectTwitch()
+        return
+      } catch {
+        /* OAuth in-app échoué — repli site web */
+      }
+    }
     void openTwitchConnectWebsite()
   }
 
@@ -832,6 +840,8 @@ function AppContent() {
 
             onConnectTwitch={handleConnectTwitch}
 
+            connecting={integrations.connecting}
+
             onDisconnect={integrations.disconnect}
 
             onTestAlert={() => integrations.testAlert('sub')}
@@ -865,11 +875,7 @@ function AppContent() {
 
           }}
 
-          onConnectTwitch={() => {
-
-            void openTwitchConnectWebsite()
-
-          }}
+          onConnectTwitch={() => { void handleConnectTwitch() }}
 
         />
 

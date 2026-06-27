@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page introuvable — Nova Stream</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap" style="min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px">
+    <img src="assets/logo.png" alt="" width="72" height="72" style="margin-bottom:24px" />
+    <h1 style="font-size:2rem;margin-bottom:12px">404 — Page introuvable</h1>
+    <p style="color:#94a3b8;max-width:420px;margin-bottom:28px">
+      Cette page n'existe pas ou a été déplacée. Retournez à l'accueil ou au tableau de bord.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <a href="index.html" class="btn btn-primary">Accueil</a>
+      <a href="dashboard.html" class="btn btn-outline">Tableau de bord</a>
+      <a href="help.html" class="btn btn-outline">Aide</a>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script>
+    (function () {
+      var base = window.NOVA_CONFIG?.BASE_PATH || ''
+      document.querySelectorAll('a[href]').forEach(function (a) {
+        var href = a.getAttribute('href')
+        if (href && !href.startsWith('http') && href.startsWith('/')) return
+        if (href && !href.startsWith('http') && !href.startsWith('#')) {
+          a.href = base + '/' + href.replace(/^\//, '')
+        }
+      })
+      var img = document.querySelector('img[src="assets/logo.png"]')
+      if (img && base) img.src = base + '/assets/logo.png'
+    })()
+  </script>
+</body>
+</html>

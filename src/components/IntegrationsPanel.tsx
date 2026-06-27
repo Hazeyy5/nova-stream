@@ -4,6 +4,7 @@ import './IntegrationsPanel.css'
 interface IntegrationsPanelProps {
   connections: PlatformConnectionPublic[]
   twitchConfigured: boolean
+  connecting?: boolean
   onConnectTwitch: () => void
   onDisconnect: (platform: 'twitch' | 'kick') => void
   onTestAlert: () => void
@@ -12,6 +13,7 @@ interface IntegrationsPanelProps {
 export default function IntegrationsPanel({
   connections,
   twitchConfigured,
+  connecting = false,
   onConnectTwitch,
   onDisconnect,
   onTestAlert
@@ -23,15 +25,15 @@ export default function IntegrationsPanel({
     <div className="integrations-panel">
       <header className="integrations-header">
         <h1>Connexions & Widgets</h1>
-        <p>Connectez vos comptes pour récupérer le chat, les alertes et le mini flux en direct.</p>
+        <p>Connectez Twitch pour le chat, les alertes EventSub (follow, sub, raid, bits) et la clé stream.</p>
       </header>
 
-      <button type="button" className="web-connect-banner" onClick={onConnectTwitch}>
-        <span className="web-connect-icon">🌐</span>
+      <button type="button" className="web-connect-banner" onClick={onConnectTwitch} disabled={connecting}>
+        <span className="web-connect-icon">{connecting ? '⏳' : '🔗'}</span>
         <div>
-          <strong>Connexion via le site web</strong>
+          <strong>{connecting ? 'Connexion Twitch…' : 'Se connecter avec Twitch'}</strong>
           <p>
-            Connectez-vous sur Twitch, puis cliquez <strong>Lier à Nova Stream</strong> sur le tableau de bord.
+            Connexion directe dans l&apos;app (OAuth). Si ça échoue, le site web s&apos;ouvre pour lier via le tableau de bord.
           </p>
         </div>
         <span className="web-connect-arrow">→</span>
@@ -46,9 +48,10 @@ export default function IntegrationsPanel({
           connected={!!twitch}
           account={twitch}
           configured={twitchConfigured}
+          connecting={connecting}
           onConnect={onConnectTwitch}
           onDisconnect={() => onDisconnect('twitch')}
-          features={['Chat Box', 'Alertes follow/sub/raid', 'EventSub temps réel', 'Clé de stream auto']}
+          features={['Chat Box', 'Alertes follow/sub/raid/bits', 'EventSub temps réel', 'Dons PayPal', 'Clé stream auto']}
         />
 
         <PlatformCard
@@ -59,8 +62,7 @@ export default function IntegrationsPanel({
           connected={!!kick}
           account={kick}
           configured={false}
-          connecting={false}
-          onConnect={() => alert('Connexion Kick — bientôt disponible !')}
+          onConnect={() => {}}
           onDisconnect={() => onDisconnect('kick')}
           features={['Chat Box', 'Alertes', 'Mini flux']}
           comingSoon
@@ -74,14 +76,14 @@ export default function IntegrationsPanel({
             <span className="widget-icon">💬</span>
             <div>
               <strong>Chat Box</strong>
-              <p>Affiche le chat Twitch/Kick en overlay sur votre scène. Ajoutez-le via Sources → Chat Box.</p>
+              <p>Affiche le chat Twitch en overlay sur votre scène. Ajoutez-le via Sources → Chat Box.</p>
             </div>
           </div>
           <div className="widget-card">
             <span className="widget-icon">🔔</span>
             <div>
               <strong>Alert Box</strong>
-              <p>Notifications animées pour follows, subs, dons et raids.</p>
+              <p>Notifications animées pour follows, subs, dons, raids et bits — sons personnalisables.</p>
               <button className="widget-test-btn" onClick={onTestAlert}>Tester une alerte</button>
             </div>
           </div>
@@ -92,10 +94,10 @@ export default function IntegrationsPanel({
         <div className="setup-guide">
           <h3>⚙ Configuration mainteneur requise</h3>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            Les utilisateurs finaux n'ont rien à configurer. En tant que mainteneur du projet :
+            Les utilisateurs finaux n&apos;ont rien à configurer. En tant que mainteneur du projet :
           </p>
           <ol>
-            <li>Créez l'app Twitch officielle « Nova Stream » sur <strong>dev.twitch.tv</strong></li>
+            <li>Créez l&apos;app Twitch officielle « Nova Stream » sur <strong>dev.twitch.tv</strong></li>
             <li>Ajoutez le Client ID dans <code>shared/platform.json</code></li>
             <li>Exécutez <code>npm run sync-config</code> puis redéployez le site</li>
           </ol>
@@ -107,7 +109,7 @@ export default function IntegrationsPanel({
 
 function PlatformCard({
   name, color, gradient, connected, account, configured,
-  onConnect, onDisconnect, features, comingSoon
+  onConnect, onDisconnect, features, comingSoon, connecting
 }: {
   platform: string
   name: string
@@ -120,6 +122,7 @@ function PlatformCard({
   onDisconnect: () => void
   features: string[]
   comingSoon?: boolean
+  connecting?: boolean
 }) {
   return (
     <div className={`platform-card ${connected ? 'connected' : ''}`} style={{ '--brand': color, '--brand-grad': gradient } as React.CSSProperties}>
@@ -147,9 +150,9 @@ function PlatformCard({
           <button
             className="btn-connect"
             onClick={onConnect}
-            disabled={!configured}
+            disabled={!configured || connecting}
           >
-            {`Se connecter avec ${name}`}
+            {connecting ? 'Connexion…' : `Se connecter avec ${name}`}
           </button>
         )}
       </div>

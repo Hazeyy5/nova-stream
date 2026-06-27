@@ -1,7 +1,8 @@
 ;(function () {
   const NAV = [
     { section: null, items: [
-      { id: 'dashboard', label: 'Tableau de bord', href: '/dashboard.html', icon: '▣' }
+      { id: 'dashboard', label: 'Tableau de bord', href: '/dashboard.html', icon: '▣' },
+      { id: 'help', label: 'Aide', href: '/help.html', icon: '📖' }
     ]},
     { section: "L'essentiel du streaming", items: [
       { id: 'alert', label: "Fenêtre d'alerte", href: '/widget-config.html?w=alert', icon: '🔔' },

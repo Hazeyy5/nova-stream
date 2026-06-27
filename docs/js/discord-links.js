@@ -17,10 +17,15 @@
     })
 
     const footerDiscord = document.getElementById('footer-discord')
-    if (footerDiscord && communityUrl) {
-      footerDiscord.href = communityUrl
-      footerDiscord.target = '_blank'
-      footerDiscord.rel = 'noopener'
+    if (footerDiscord) {
+      if (communityUrl) {
+        footerDiscord.href = communityUrl
+        footerDiscord.target = '_blank'
+        footerDiscord.rel = 'noopener'
+        footerDiscord.hidden = false
+      } else {
+        footerDiscord.hidden = true
+      }
     }
   }
 

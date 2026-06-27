@@ -4,8 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nova Stream — Widget overlay</title>
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/dashboard.css" />
+  <script>
+    (function () {
+      var path = location.pathname
+      var overlayIdx = path.indexOf('/overlays/')
+      window.OVERLAY_ASSET_BASE = overlayIdx >= 0 ? path.slice(0, overlayIdx) : ''
+      ;['/css/style.css', '/css/dashboard.css'].forEach(function (href) {
+        var link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = window.OVERLAY_ASSET_BASE + href
+        document.head.appendChild(link)
+      })
+    })()
+  </script>
   <style>
     html, body {
       margin: 0;
@@ -30,8 +41,26 @@
     window.OVERLAY_TOKEN = '__WIDGET_TOKEN__'
     window.OVERLAY_DESKTOP = 'http://127.0.0.1:3847'
   </script>
-  <script src="/js/twitch-live-stats.js"></script>
-  <script src="/js/alert-sounds.js"></script>
-  <script src="/js/overlay-runtime.js"></script>
+  <script>
+    (function () {
+      var base = window.OVERLAY_ASSET_BASE || ''
+      var scripts = [
+        '/js/config.js',
+        '/js/twitch-live-stats.js',
+        '/js/alert-sounds.js',
+        '/js/overlay-runtime.js'
+      ]
+      var i = 0
+      function loadNext() {
+        if (i >= scripts.length) return
+        var s = document.createElement('script')
+        s.src = base + scripts[i++]
+        s.onload = loadNext
+        s.onerror = loadNext
+        document.body.appendChild(s)
+      }
+      loadNext()
+    })()
+  </script>
 </body>
 </html>

@@ -3,7 +3,8 @@
     { type: 'follow', icon: '💜', user: 'NovaFan42', msg: 'Nouveau follower', color: '#9146FF' },
     { type: 'sub', icon: '⭐', user: 'SubLover', msg: 'Merci pour le sub !', color: '#f1c40f' },
     { type: 'donation', icon: '💰', user: 'GenerousOne', msg: '5 € — Super stream !', color: '#2ecc71' },
-    { type: 'raid', icon: '🚀', user: 'RaidSquad', msg: 'Raid avec 128 viewers', color: '#e74c3c' }
+    { type: 'raid', icon: '🚀', user: 'RaidSquad', msg: 'Raid avec 128 viewers', color: '#e74c3c' },
+    { type: 'bits', icon: '💎', user: 'CheerFan', msg: '500 bits — GG !', color: '#9b59b6' }
   ]
 
   const ALERT_STYLES = ['classic', 'minimal', 'neon', 'banner', 'celebration', 'sleek']
@@ -96,16 +97,44 @@
     renderChatPreview(preview)
   }
 
-  function initDashboardStatus() {
+  async function initDashboardStatus() {
     const list = $('integration-list')
     if (!list) return
+
+    const session = window.NovaAuth?.getSession?.()
+    let desktopOnline = false
+    try {
+      if (window.NovaLink?.checkDesktopOnline) {
+        const st = await NovaLink.checkDesktopOnline()
+        desktopOnline = !!st?.online
+      }
+    } catch { /* ignore */ }
+
+    let donationsEnabled = false
+    try {
+      const all = window.NovaWidgetSettings?.loadAll?.()
+      donationsEnabled = !!all?.donations?.enabled
+    } catch { /* ignore */ }
+
     const items = [
-      { icon: '💬', label: 'Chat Twitch', desc: 'Lecture et envoi des messages' },
-      { icon: '🔔', label: 'Alertes EventSub', desc: 'Follows, subs, raids en temps réel' },
-      { icon: '🎨', label: 'Widgets canvas', desc: 'Objectifs, viewers, sondages' },
-      { icon: '📡', label: 'Clé de stream', desc: 'Récupération automatique via Helix' },
-      { icon: '📺', label: 'Go Live', desc: 'Titre et catégorie avant le live' }
+      {
+        icon: desktopOnline ? '🟢' : '⚪',
+        label: 'Nova Stream desktop',
+        desc: desktopOnline ? 'Application détectée sur ce PC' : 'Lancez l\'app et liez depuis le tableau de bord'
+      },
+      {
+        icon: session ? '🟢' : '⚪',
+        label: 'Session Twitch web',
+        desc: session ? `Connecté en tant que @${session.username}` : 'Connectez-vous sur le site'
+      },
+      { icon: '💬', label: 'Chat Twitch', desc: 'Lecture et envoi via l\'app liée' },
+      { icon: '🔔', label: 'Alertes EventSub', desc: 'Follow, sub, raid, bits et dons' },
+      { icon: '🔊', label: 'Sons d\'alerte', desc: 'Personnalisables par type dans le widget alerte' },
+      { icon: '💰', label: 'Dons PayPal', desc: donationsEnabled ? 'Page tip activée — alertes après paiement' : 'Configurez dans Dons' },
+      { icon: '🎨', label: 'Widgets & overlays', desc: 'URL web OBS + liaison desktop temps réel' },
+      { icon: '📊', label: 'Sondages Discord', desc: 'Commande /sondage sur le serveur communauté' }
     ]
+
     list.innerHTML = items
       .map(
         (i) => `<li class="integration-item"><span class="integration-icon">${i.icon}</span><div><strong>${i.label}</strong><span>${i.desc}</span></div></li>`
@@ -116,8 +145,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     initAlertDemo()
     initChatDemo()
-    initDashboardStatus()
+    void initDashboardStatus()
   })
 
-  window.NovaWidgetsDemo = { renderAlertPreview, renderChatPreview }
+  window.NovaWidgetsDemo = { renderAlertPreview, renderChatPreview, initDashboardStatus }
 })()

@@ -130,7 +130,12 @@ export default function ControlsDock({
             >
               Diffuser en direct
             </button>
-            <button className="controls-btn controls-btn-rec" onClick={onStartRecord} disabled={isBusy}>
+            <button
+              className="controls-btn controls-btn-rec"
+              onClick={onStartRecord}
+              disabled={isBusy || !settings.recordingEnabled}
+              title={settings.recordingEnabled ? undefined : 'Activez l\'enregistrement dans Paramètres → Général'}
+            >
               <span className="rec-dot" />
               Enregistrer
             </button>
