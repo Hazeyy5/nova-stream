@@ -1,0 +1,16 @@
+# Déploiement 24/7 sur Fly.io — voir README section « Hébergement »
+app = 'nova-stream-discord'
+primary_region = 'cdg'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  NODE_ENV = 'production'
+  NOVA_WEBSITE_URL = 'https://hazeyy5.github.io/nova-stream'
+  NOVA_GITHUB_URL = 'https://github.com/Hazeyy5/nova-stream'
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
