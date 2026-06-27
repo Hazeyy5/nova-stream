@@ -1,3 +1,4 @@
+import http from 'http'
 import {
   Client,
   GatewayIntentBits,
@@ -9,6 +10,17 @@ import { assertConfig, TOKEN, GUILD_ID } from './config.js'
 import { commands, handleInteraction } from './commands.js'
 
 assertConfig()
+
+/** Port HTTP pour les hébergeurs cloud (health check, évite le « sleep »). */
+const HEALTH_PORT = Number(process.env.PORT) || 8080
+http
+  .createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('Nova Stream Discord bot OK\n')
+  })
+  .listen(HEALTH_PORT, '0.0.0.0', () => {
+    console.log(`[Nova Discord] Health check : http://0.0.0.0:${HEALTH_PORT}`)
+  })
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]

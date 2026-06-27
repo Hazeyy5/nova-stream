@@ -2,7 +2,7 @@
 
 Bot réservé au **serveur Discord officiel Nova Stream** (modération, `/nova-setup` admin, `/nova-info`, `/sondage`).
 
-> **Important :** si le bot tourne sur ton PC (`npm start`), il s’arrête quand tu éteins l’ordinateur. Pour qu’il reste en ligne **24h/24**, déploie-le sur Fly.io (gratuit, ~5 min) — voir [Hébergement 24/7](#hébergement-247-flyio) ci-dessous.
+> **Important :** si le bot tourne sur ton PC (`npm start`), il s’arrête quand tu éteins l’ordinateur. Pour qu’il reste en ligne **24h/24**, héberge-le dans le cloud — voir [Hébergement 24/7](#hébergement-247) ci-dessous.
 
 ## Démarrage local (tests uniquement)
 
@@ -10,81 +10,104 @@ Bot réservé au **serveur Discord officiel Nova Stream** (modération, `/nova-s
 cd discord-bot
 npm install
 npm run register   # enregistre les commandes slash sur Discord
-npm start          # lance le bot (s'arrête si tu fermes le terminal ou éteins le PC)
+npm start          # s'arrête si tu fermes le terminal ou éteins le PC
 ```
 
-## Hébergement 24/7 (Fly.io)
+## Hébergement 24/7
 
-Fly.io permet de faire tourner le bot en permanence **sans laisser ton PC allumé**. Plan gratuit suffisant pour un bot Discord (~256 Mo RAM).
+**Arrête le bot local** avant tout déploiement (un seul processus par token Discord).
 
-### Prérequis
+Variables d'environnement requises partout :
 
-1. Compte gratuit : [fly.io/app/sign-up](https://fly.io/app/sign-up)
-2. CLI Fly : [fly.io/docs/hands-on/install-flyctl](https://fly.io/docs/hands-on/install-flyctl/)  
-   Windows (PowerShell) : `iwr https://fly.io/install.ps1 -useb | iex`
-3. **Arrête le bot local** avant le déploiement (un seul processus par token Discord).
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_TOKEN` | Token du bot (portail Discord Developer) |
+| `DISCORD_GUILD_ID` | ID du serveur Nova Stream (`1519398606921011231`) |
 
-### Déploiement (une fois)
+Optionnelles : `NOVA_WEBSITE_URL`, `NOVA_GITHUB_URL`, `PORT` (défaut `8080`, health check HTTP).
 
-> **Ne pas utiliser `fly launch`** si un `fly.toml` existe déjà — bug connu (`region not found`).
-> Utilise plutôt `fly apps create` + `fly deploy`.
+---
+
+### Option A — JustRunMy.App (recommandé, sans carte bancaire)
+
+[justrunmy.app](https://justrunmy.app/discord-bots) — hébergement bot 24/7, déploiement Docker ou Git, **pas de carte requise** sur le plan gratuit.
+
+1. Crée un compte sur [justrunmy.app](https://justrunmy.app)
+2. **New app** → déploiement **Docker** ou **Git**
+3. Si Git : repo `Hazeyy5/nova-stream`, **root directory** = `discord-bot`
+4. Variables d'environnement :
+   - `DISCORD_TOKEN` = ton token
+   - `DISCORD_GUILD_ID` = `1519398606921011231`
+5. Port exposé : **8080** (health check — le bot Discord tourne en parallèle)
+6. **Deploy** → vérifie les logs : `Connecté en tant que StreamBot#...`
+
+---
+
+### Option B — MonkeyBytes (sans carte bancaire)
+
+[monkey-network.xyz](https://monkey-network.xyz/) — panel type Pterodactyl, Node.js, 24/7 gratuit.
+
+1. Crée un compte et un serveur **Discord bot / Node.js**
+2. Upload le contenu de `discord-bot/` (SFTP ou file manager)
+3. Console : `npm install`
+4. Variables / `.env` : `DISCORD_TOKEN`, `DISCORD_GUILD_ID`
+5. Commande de démarrage : `node src/index.js`
+6. Lance le serveur depuis le panel
+
+---
+
+### Option C — Fly.io (carte bancaire obligatoire)
+
+Fly.io **demande une carte** même pour le quota gratuit (vérification d'identité). Si tu acceptes :
 
 ```bash
 cd discord-bot
 fly auth login
-fly apps create nova-stream-discord
-fly secrets set DISCORD_TOKEN="votre_token" DISCORD_GUILD_ID="1519398606921011231"
+fly apps create nova-stream-discord   # peut exiger la facturation
+fly secrets set DISCORD_TOKEN="..." DISCORD_GUILD_ID="1519398606921011231"
 fly deploy
 ```
 
-Si `fly apps create` dit que l'app existe déjà, passe directement à `fly secrets set` puis `fly deploy`.
+> Ne pas utiliser `fly launch` avec un `fly.toml` existant (bug `region not found`).
 
-Régions valides : `fly platform regions` (Paris = `cdg`, défini dans `fly.toml`).
+---
 
-Après le premier déploiement, optionnel — réduire la RAM :
+### Option D — Railway (carte bancaire, crédits gratuits)
 
-```bash
-fly scale vm memory 256
-```
+1. [railway.app](https://railway.app) → **New Project** → **GitHub Repo** → `nova-stream`
+2. Root directory : `discord-bot`
+3. Variables : `DISCORD_TOKEN`, `DISCORD_GUILD_ID`
+4. Railway détecte le `Dockerfile` ou `railway.toml` automatiquement
 
-Enregistrer les commandes slash (une fois après le premier déploiement) :
+---
 
-```bash
-# En local avec le même .env, ou :
-fly ssh console -C "node src/register-commands.js"
-```
+### Option E — VPS Oracle Cloud (gratuit à vie, carte pour vérification)
 
-*(Les commandes sont aussi ré-enregistrées au démarrage du bot via `index.js`.)*
-
-### Commandes utiles
-
-| Commande | Action |
-|----------|--------|
-| `fly status` | Voir si le bot tourne |
-| `fly logs` | Logs en direct |
-| `fly deploy` | Redéployer après une mise à jour du code |
-| `fly apps restart nova-stream-discord` | Redémarrer |
-| `fly scale count 0` | Arrêter (économiser) |
-| `fly scale count 1` | Relancer |
-
-### Mise à jour du bot
-
-Après un `git pull` sur le repo :
+Oracle Cloud **Always Free** : 1 VM ARM gratuite permanente. Carte demandée pour vérification (pas de débit si tu restes dans le free tier).
 
 ```bash
-cd discord-bot
-fly deploy
+# Sur la VM (Ubuntu)
+git clone https://github.com/Hazeyy5/nova-stream.git
+cd nova-stream/discord-bot
+cp .env.example .env   # puis édite DISCORD_TOKEN et DISCORD_GUILD_ID
+docker build -t nova-discord .
+docker run -d --restart unless-stopped --env-file .env -p 8080:8080 nova-discord
 ```
 
-### Alternative : Railway / VPS
+---
 
-- **Railway** : connecte le repo GitHub, dossier `discord-bot`, variables `DISCORD_TOKEN` + `DISCORD_GUILD_ID`, commande de start `npm start`.
-- **VPS** (Oracle Cloud free, OVH, etc.) : `docker build -t nova-discord . && docker run -d --env-file .env nova-discord`
+### Mise à jour du bot (cloud)
+
+- **JustRunMy.App / Railway / Fly** : redeploy depuis le dashboard ou `git push` si Git connecté
+- **MonkeyBytes** : upload des fichiers modifiés + redémarrage
+- **Docker VPS** : `git pull && docker build ... && docker run ...`
+
+Les commandes slash sont **ré-enregistrées au démarrage** du bot (`index.js`).
 
 ## Portail Discord Developer
 
 1. [discord.com/developers/applications](https://discord.com/developers/applications) → votre app
-2. **Bot** → Reset Token → `.env`
+2. **Bot** → Reset Token → `.env` / variables cloud
 3. **Public Bot** → **Désactivé** (le bot ne doit pas être invitable ailleurs)
 4. **Privileged Gateway Intents** → rien à activer
 5. Invitez le bot **une seule fois** sur le serveur Nova Stream (OAuth2, scope `bot` + `applications.commands`, permission Administrateur pour le setup initial)
