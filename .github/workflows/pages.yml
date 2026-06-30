@@ -3,6 +3,13 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main, master]
+    paths:
+      - 'docs/**'
+      - 'shared/**'
+      - 'scripts/sync-web-config.mjs'
+      - 'scripts/post-site-update-discord.mjs'
+      - 'scripts/lib/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -41,3 +50,24 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Annonce Discord (#mises-a-jour — site web)
+        if: success()
+        shell: bash
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_UPDATES_CHANNEL: mises-a-jour
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          NOVA_WEBSITE_URL: https://hazeyy5.github.io/nova-stream
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED=$(git diff-tree --no-commit-id --name-status -r HEAD)
+          else
+            CHANGED=$(git diff --name-status "$BEFORE" "$GITHUB_SHA" || true)
+          fi
+          export CHANGED_FILES="$CHANGED"
+          export COMMIT_MESSAGE=$(git log -1 --format=%B)
+          node scripts/post-site-update-discord.mjs
