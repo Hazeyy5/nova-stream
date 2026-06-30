@@ -55,6 +55,20 @@
       alertMessageTemplate: '{amount} — {message}',
       donationKey: '',
       paypalUsername: ''
+    },
+    tts: {
+      enabled: false,
+      rewardId: '',
+      rewardTitle: '',
+      voiceName: '',
+      rate: 1,
+      pitch: 1,
+      volume: 85,
+      maxLength: 200,
+      cooldownSec: 15,
+      prefixTemplate: '{name} dit : {message}',
+      blockedWords: [],
+      requireLive: false
     }
   }
 
@@ -89,6 +103,9 @@
         }
         if (Array.isArray(def.options) && Array.isArray(saved[widget].options)) {
           out[widget].options = saved[widget].options
+        }
+        if (Array.isArray(def.blockedWords) && Array.isArray(saved[widget].blockedWords)) {
+          out[widget].blockedWords = saved[widget].blockedWords
         }
       }
     }

@@ -31,6 +31,10 @@
     poll: {
       title: 'Sondage',
       desc: 'Widget sondage avec options et résultats visuels sur scène.'
+    },
+    tts: {
+      title: 'TTS points de chaîne',
+      desc: 'Les viewers dépensent des points de chaîne avec un message — Nova Stream le lit à voix haute sur votre PC.'
     }
   }
 
@@ -165,6 +169,54 @@
     `
   }
 
+  function ttsPreviewText(cfg) {
+    const template = cfg.prefixTemplate?.trim() || '{name} dit : {message}'
+    return template
+      .replace(/\{name\}/gi, 'NovaFan42')
+      .replace(/\{message\}/gi, 'Salut le stream, ceci est un test TTS !')
+  }
+
+  function listBrowserVoices() {
+    return window.speechSynthesis?.getVoices?.() ?? []
+  }
+
+  function speakBrowserTts(text, cfg) {
+    if (!window.speechSynthesis || !text.trim()) return
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(text.trim().slice(0, 280))
+    utter.lang = 'fr-FR'
+    const voices = listBrowserVoices()
+    if (cfg.voiceName) {
+      const voice = voices.find((v) => v.name === cfg.voiceName)
+      if (voice) utter.voice = voice
+    } else {
+      const fr = voices.find((v) => v.lang.startsWith('fr'))
+      if (fr) utter.voice = fr
+    }
+    utter.rate = Math.max(0.5, Math.min(2, cfg.rate ?? 1))
+    utter.pitch = Math.max(0, Math.min(2, cfg.pitch ?? 1))
+    utter.volume = Math.max(0, Math.min(1, (cfg.volume ?? 85) / 100))
+    window.speechSynthesis.speak(utter)
+  }
+
+  function renderTtsPreview(cfg) {
+    const el = document.getElementById('widget-preview')
+    if (!el) return
+    const text = ttsPreviewText(cfg)
+    el.className = 'widget-preview-stage tts-preview'
+    el.innerHTML = `
+      <div class="tts-preview-card">
+        <span class="tts-preview-badge">🔊 TTS</span>
+        <p class="tts-preview-text">${esc(text)}</p>
+        <p class="tts-preview-meta">
+          ${cfg.enabled !== false ? 'Activé' : 'Désactivé'}
+          · ${cfg.rewardId?.trim() ? `Récompense ${esc(cfg.rewardId)}` : 'Toute récompense avec message'}
+          · Cooldown ${cfg.cooldownSec ?? 15}s
+        </p>
+      </div>
+    `
+  }
+
   function renderPollPreview(cfg) {
     const el = document.getElementById('widget-preview')
     if (!el) return
@@ -210,6 +262,7 @@
       case 'subGoal': renderGoalPreview(cfg, 'subGoal'); break
       case 'viewerCount': renderViewerPreview(cfg); break
       case 'poll': renderPollPreview(cfg); break
+      case 'tts': renderTtsPreview(cfg); break
     }
   }
 
@@ -419,6 +472,27 @@
             { value: 'classic', label: 'Classique' }
           ], cfg.style)}
         `
+      case 'tts':
+        return `
+          ${fieldToggle('cfg-enabled', 'Activer le TTS via points de chaîne', cfg.enabled === true)}
+          <div class="cfg-subsection">
+            <p class="cfg-subtitle">Récompense Twitch</p>
+            <p class="cfg-hint">Créez une récompense avec « Demander au spectateur de saisir du texte ». Laissez l'ID vide pour accepter toute récompense avec message.</p>
+            ${fieldText('cfg-reward-id', 'ID récompense (optionnel)', cfg.rewardId ?? '', 'UUID de la récompense')}
+            ${fieldText('cfg-reward-title', 'Nom affiché (info)', cfg.rewardTitle ?? '', 'Ex. Lire mon message')}
+          </div>
+          <div class="cfg-subsection">
+            <p class="cfg-subtitle">Voix et message</p>
+            ${fieldSelect('cfg-voice', 'Voix', [{ value: '', label: 'Voix française par défaut' }], cfg.voiceName ?? '')}
+            ${fieldText('cfg-prefix', 'Modèle ({name}, {message})', cfg.prefixTemplate ?? '{name} dit : {message}')}
+            ${fieldRange('cfg-rate', 'Vitesse', 0.5, 1.8, cfg.rate ?? 1, '')}
+            ${fieldRange('cfg-volume', 'Volume', 10, 100, cfg.volume ?? 85, '%')}
+            ${fieldNumber('cfg-max-length', 'Longueur max (car.)', cfg.maxLength ?? 200, 20, 280)}
+            ${fieldNumber('cfg-cooldown', 'Cooldown par viewer (sec.)', cfg.cooldownSec ?? 15, 0, 120)}
+          </div>
+          ${fieldText('cfg-blocked', 'Mots bloqués (virgules)', (cfg.blockedWords ?? []).join(', '))}
+          ${fieldToggle('cfg-require-live', 'Uniquement pendant le live', cfg.requireLive === true)}
+        `
       default:
         return '<p>Widget inconnu.</p>'
     }
@@ -468,6 +542,21 @@
           options: [0, 1, 2].map((i) => g(`cfg-opt${i}`)?.value?.trim()).filter(Boolean),
           style: g('cfg-style')?.value || 'bars'
         }
+      case 'tts':
+        return {
+          enabled: g('cfg-enabled')?.checked === true,
+          rewardId: g('cfg-reward-id')?.value?.trim() || '',
+          rewardTitle: g('cfg-reward-title')?.value?.trim() || '',
+          voiceName: g('cfg-voice')?.value || '',
+          prefixTemplate: g('cfg-prefix')?.value?.trim() || '{name} dit : {message}',
+          rate: parseFloat(g('cfg-rate')?.value || '1'),
+          pitch: 1,
+          volume: parseInt(g('cfg-volume')?.value || '85', 10),
+          maxLength: parseInt(g('cfg-max-length')?.value || '200', 10),
+          cooldownSec: parseInt(g('cfg-cooldown')?.value || '15', 10),
+          blockedWords: (g('cfg-blocked')?.value || '').split(',').map((w) => w.trim()).filter(Boolean),
+          requireLive: g('cfg-require-live')?.checked === true
+        }
       default:
         return {}
     }
@@ -487,7 +576,10 @@
         if (window.NovaDesktopSync) window.NovaDesktopSync.scheduleAutoSync()
         if (el.type === 'range') {
           const out = el.parentElement?.querySelector('output')
-          if (out) out.textContent = el.value + (el.id === 'cfg-duration' ? 's' : '')
+          if (out) {
+            const suffix = el.id === 'cfg-duration' ? 's' : (el.id === 'cfg-volume' ? '%' : '')
+            out.textContent = el.value + suffix
+          }
         }
       })
       el.addEventListener('change', () => {
@@ -511,6 +603,48 @@
           updatePreview(widgetId, readForm(widgetId), alertTypeRef.current)
         })
       })
+    }
+  }
+
+  function populateTtsVoiceSelect(selected) {
+    const sel = document.getElementById('cfg-voice')
+    if (!sel) return
+    const voices = listBrowserVoices()
+    const fr = voices.filter((v) => v.lang.startsWith('fr'))
+    const list = fr.length ? fr : voices
+    sel.innerHTML = `<option value="">Voix française par défaut</option>${list.map((v) =>
+      `<option value="${esc(v.name)}"${v.name === selected ? ' selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`
+    ).join('')}`
+  }
+
+  function configureTtsPage() {
+    const moduleCard = document.querySelector('.module-url-card')
+    if (moduleCard) {
+      moduleCard.classList.add('tts-info-card')
+      moduleCard.innerHTML = `
+        <h3>Comment ça marche</h3>
+        <p class="module-url-hint">
+          Le TTS se lit dans <strong>Nova Stream sur votre PC</strong> — pas de source navigateur à ajouter.
+          Liez l'app pour appliquer vos réglages automatiquement.
+        </p>
+        <ol class="tts-setup-steps">
+          <li>Créez une récompense Twitch avec « message utilisateur » activé</li>
+          <li>Configurez les paramètres ci-dessous et enregistrez</li>
+          <li>Liez Nova Stream depuis la barre latérale ou le tableau de bord</li>
+          <li>Activez la capture <strong>audio bureau</strong> dans l'app pour l'envoyer sur le stream</li>
+        </ol>
+        <p class="module-url-hint cfg-hint warn">Reconnectez Twitch après la v1.0 pour le scope points de chaîne.</p>
+        <div class="module-url-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-preview">▶ Aperçu texte</button>
+          <button type="button" class="btn btn-twitch btn-sm" id="btn-test-app">Test dans l'app</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-tts-test-local">Tester la voix (navigateur)</button>
+        </div>
+        <div id="test-msg" class="test-msg" style="display:none"></div>
+      `
+    }
+    const previewHint = document.querySelector('.preview-hint')
+    if (previewHint) {
+      previewHint.textContent = 'Aperçu du message lu — la voix réelle est jouée par Nova Stream sur votre PC.'
     }
   }
 
@@ -540,6 +674,17 @@
       ).join('')
       tabs.style.display = 'flex'
       setDonationAlertFieldsVisible(false)
+    }
+
+    if (widgetId === 'tts') {
+      configureTtsPage()
+      populateTtsVoiceSelect(cfg.voiceName ?? '')
+      if (window.speechSynthesis) {
+        window.speechSynthesis.getVoices()
+        window.speechSynthesis.onvoiceschanged = () => {
+          populateTtsVoiceSelect(readForm('tts').voiceName)
+        }
+      }
     }
 
     updatePreview(widgetId, cfg, alertTypeRef.current)
@@ -643,6 +788,11 @@
       } finally {
         btn.disabled = false
       }
+    })
+    document.getElementById('btn-tts-test-local')?.addEventListener('click', () => {
+      const cfg = readForm('tts')
+      speakBrowserTts(ttsPreviewText(cfg), cfg)
+      showTestMsg('Lecture dans le navigateur (aperçu voix locale).', true)
     })
   }
 

@@ -513,6 +513,24 @@ export class IntegrationManager {
           timestamp: Date.now()
         })
         break
+      case 'tts': {
+        const tts = this.widgetModules.getSettings().tts
+        const template = tts?.prefixTemplate?.trim() || '{name} dit : {message}'
+        const text = template
+          .replace(/\{name\}/gi, 'TestViewer')
+          .replace(/\{message\}/gi, 'Ceci est un test TTS depuis le tableau de bord.')
+        this.broadcast('tts:speak', {
+          text,
+          blockedWords: tts?.blockedWords ?? [],
+          options: {
+            voiceName: tts?.voiceName,
+            rate: tts?.rate ?? 1,
+            pitch: tts?.pitch ?? 1,
+            volume: tts?.volume ?? 85
+          }
+        })
+        break
+      }
     }
   }
 

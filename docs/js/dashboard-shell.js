@@ -7,7 +7,8 @@
     { section: "L'essentiel du streaming", items: [
       { id: 'alert', label: "Fenêtre d'alerte", href: '/widget-config.html?w=alert', icon: '🔔' },
       { id: 'chat', label: 'Fenêtre de chat', href: '/widget-config.html?w=chat', icon: '💬' },
-      { id: 'donations', label: 'Dons', href: '/donations.html', icon: '💰' }
+      { id: 'donations', label: 'Dons', href: '/donations.html', icon: '💰' },
+      { id: 'tts', label: 'TTS points de chaîne', href: '/widget-config.html?w=tts', icon: '🔊' }
     ]},
     { section: 'Widgets canvas', items: [
       { id: 'followerGoal', label: 'Objectif followers', href: '/widget-config.html?w=followerGoal', icon: '🎯' },
