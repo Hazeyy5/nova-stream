@@ -14,43 +14,50 @@ export interface SceneTemplate {
   description: string
   icon: string
   collectionName: string
+  /** Scènes incluses dans le pack live. */
+  liveScenes: string[]
 }
 
 export const SCENE_TEMPLATES: SceneTemplate[] = [
   {
     id: 'gaming',
     name: 'Gaming',
-    description: 'Jeu plein écran, facecam, chat, alertes et compteur de spectateurs.',
+    description: 'Pack live complet : Starting Soon, gaming, chat, BRB et fin de stream.',
     icon: '🎮',
-    collectionName: 'Gaming'
+    collectionName: 'Pack Gaming',
+    liveScenes: ['Starting Soon', 'GAMING', 'Just Chatting', 'BRB', 'Fin de stream']
   },
   {
     id: 'just-chatting',
     name: 'Just Chatting',
-    description: 'Webcam mise en avant, chat en bulles et objectif followers.',
+    description: 'Discussion, invité/colab, pauses et clôture — idéal talk show.',
     icon: '💬',
-    collectionName: 'Just Chatting'
+    collectionName: 'Pack Just Chatting',
+    liveScenes: ['Starting Soon', 'Discussion', 'Invité / Colab', 'BRB', 'Fin de stream']
   },
   {
     id: 'irl',
     name: 'IRL',
-    description: 'Webcam portrait, chat minimal — idéal pour les streams mobiles.',
+    description: 'Mobile / extérieur avec webcam portrait et compteur viewers.',
     icon: '📱',
-    collectionName: 'IRL'
+    collectionName: 'Pack IRL',
+    liveScenes: ['Starting Soon', 'IRL Live', 'BRB', 'Fin de stream']
   },
   {
     id: 'creative',
     name: 'Créatif',
-    description: 'Navigateur ou canvas, petite webcam et chat pour l\'art ou la musique.',
+    description: 'Canvas navigateur, webcam et chat pour art, musique ou dev.',
     icon: '🎨',
-    collectionName: 'Créatif'
+    collectionName: 'Pack Créatif',
+    liveScenes: ['Starting Soon', 'Création', 'BRB', 'Fin de stream']
   },
   {
     id: 'minimal',
     name: 'Minimal',
-    description: 'Une scène vide et une webcam — à personnaliser vous-même.',
+    description: 'Scènes essentielles à personnaliser — Starting Soon et fin inclus.',
     icon: '✨',
-    collectionName: 'Minimal'
+    collectionName: 'Pack Minimal',
+    liveScenes: ['Starting Soon', 'Live', 'BRB', 'Fin de stream']
   }
 ]
 
@@ -105,7 +112,43 @@ function buildCollection(id: string, name: string, sceneDefs: SceneDef[]): Scene
   }
 }
 
+const STARTING_SOON_SCENE: SceneDef = {
+  name: 'Starting Soon',
+  sources: [
+    {
+      type: 'text',
+      overrides: {
+        name: 'Compte à rebours',
+        textContent: '🔴 LIVE dans quelques instants…',
+        transform: { x: 10, y: 32, width: 80, height: 28, zIndex: 10 }
+      }
+    },
+    {
+      type: 'followerGoal',
+      overrides: {
+        widgetLabel: 'Objectif followers',
+        transform: { x: 30, y: 62, width: 40, height: 12, zIndex: 12 }
+      }
+    }
+  ]
+}
+
+const ENDING_SCENE: SceneDef = {
+  name: 'Fin de stream',
+  sources: [
+    {
+      type: 'text',
+      overrides: {
+        name: 'Merci',
+        textContent: 'Merci pour le stream ! À bientôt 💜',
+        transform: { x: 10, y: 35, width: 80, height: 30, zIndex: 10 }
+      }
+    }
+  ]
+}
+
 const GAMING_SCENES: SceneDef[] = [
+  STARTING_SOON_SCENE,
   {
     name: 'GAMING',
     sources: [
@@ -131,15 +174,11 @@ const GAMING_SCENES: SceneDef[] = [
       { type: 'text', overrides: { name: 'Pause', textContent: '⏸ Pause — je reviens bientôt !', transform: { x: 15, y: 38, width: 70, height: 24, zIndex: 10 } } }
     ]
   },
-  {
-    name: 'Fin de stream',
-    sources: [
-      { type: 'text', overrides: { name: 'Merci', textContent: 'Merci pour le stream ! À bientôt 💜', transform: { x: 10, y: 35, width: 80, height: 30, zIndex: 10 } } }
-    ]
-  }
+  ENDING_SCENE
 ]
 
 const JUST_CHATTING_SCENES: SceneDef[] = [
+  STARTING_SOON_SCENE,
   {
     name: 'Discussion',
     sources: [
@@ -161,10 +200,12 @@ const JUST_CHATTING_SCENES: SceneDef[] = [
     sources: [
       { type: 'text', overrides: { name: 'Pause', textContent: '⏸ Je reviens dans un instant…', transform: { x: 15, y: 38, width: 70, height: 24, zIndex: 10 } } }
     ]
-  }
+  },
+  ENDING_SCENE
 ]
 
 const IRL_SCENES: SceneDef[] = [
+  STARTING_SOON_SCENE,
   {
     name: 'IRL Live',
     sources: [
@@ -178,10 +219,12 @@ const IRL_SCENES: SceneDef[] = [
     sources: [
       { type: 'text', overrides: { name: 'Pause', textContent: '⏸ Pause IRL', transform: { x: 20, y: 40, width: 60, height: 20, zIndex: 10 } } }
     ]
-  }
+  },
+  ENDING_SCENE
 ]
 
 const CREATIVE_SCENES: SceneDef[] = [
+  STARTING_SOON_SCENE,
   {
     name: 'Création',
     sources: [
@@ -195,20 +238,25 @@ const CREATIVE_SCENES: SceneDef[] = [
     sources: [
       { type: 'text', overrides: { name: 'Pause', textContent: '🎨 Pause créative — retour bientôt', transform: { x: 12, y: 38, width: 76, height: 24, zIndex: 10 } } }
     ]
-  }
+  },
+  ENDING_SCENE
 ]
 
 const MINIMAL_SCENES: SceneDef[] = [
+  STARTING_SOON_SCENE,
   {
-    name: 'Scène vide',
-    sources: []
-  },
-  {
-    name: 'Webcam',
+    name: 'Live',
     sources: [
       { type: 'webcam', overrides: { name: 'CAM', transform: { x: 72, y: 68, width: 26, height: 28, zIndex: 5 } }, webcamAnchor: 'bottom-right' }
     ]
-  }
+  },
+  {
+    name: 'BRB',
+    sources: [
+      { type: 'text', overrides: { name: 'Pause', textContent: '⏸ Pause', transform: { x: 20, y: 40, width: 60, height: 20, zIndex: 10 } } }
+    ]
+  },
+  ENDING_SCENE
 ]
 
 const TEMPLATE_SCENE_DEFS: Record<SceneTemplateId, SceneDef[]> = {

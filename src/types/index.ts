@@ -257,6 +257,25 @@ export interface WebWidgetSettings {
     options?: string[]
   }
   donations?: DonationSettings
+  /** Text-to-speech via points de chaîne Twitch. */
+  tts?: TtsSettings
+}
+
+export interface TtsSettings {
+  enabled?: boolean
+  /** ID de la récompense Twitch (vide = toute récompense avec message utilisateur). */
+  rewardId?: string
+  /** Nom affiché de la récompense (info UI). */
+  rewardTitle?: string
+  voiceName?: string
+  rate?: number
+  pitch?: number
+  volume?: number
+  maxLength?: number
+  cooldownSec?: number
+  prefixTemplate?: string
+  blockedWords?: string[]
+  requireLive?: boolean
 }
 
 /** Paramètres de la page de dons (synchronisés site ↔ app). */
@@ -285,6 +304,8 @@ export interface DonationSettings {
   /** Désactiver les GIF donateurs sur les alertes. */
   donationGifEnabled?: boolean
 }
+
+export type AppThemeId = 'nova' | 'midnight' | 'ocean' | 'forest' | 'custom'
 
 export interface StreamSettings {
   rtmpUrl: string
@@ -324,6 +345,10 @@ export interface StreamSettings {
   audioSyncOffsetMs: number
   /** Synchro automatique par horloge commune (recommandé). */
   audioSyncAuto?: boolean
+  /** Thème visuel de l'application. */
+  appThemeId?: AppThemeId
+  /** Couleur accent (#RRGGBB) si appThemeId === custom. */
+  appAccentColor?: string
 }
 
 export type AudioChannelId = 'mic' | 'desktop'
@@ -501,5 +526,7 @@ export const DEFAULT_STREAM_SETTINGS: StreamSettings = {
   transition: 'fade',
   transitionDuration: 300,
   audioSyncOffsetMs: 0,
-  audioSyncAuto: true
+  audioSyncAuto: true,
+  appThemeId: 'nova',
+  appAccentColor: '#a78bfa'
 }

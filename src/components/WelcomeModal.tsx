@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { UserMode } from '../types'
-import { SCENE_TEMPLATES, type SceneTemplateId } from '../lib/sceneTemplates'
+import { type SceneTemplateId } from '../lib/sceneTemplates'
+import TemplateGallery from './TemplateGallery'
 import logoUrl from '../assets/logo.png'
 import './WelcomeModal.css'
 
@@ -43,7 +44,7 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
           <p>
             {step === 'account'
               ? 'Comment souhaitez-vous utiliser l\'application ?'
-              : 'Choisissez un modèle de scènes, ou partez d\'une scène vide'}
+              : 'Choisissez un pack de scènes live, ou partez d\'une scène vide'}
           </p>
         </div>
 
@@ -74,20 +75,7 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
 
         {step === 'template' && (
           <>
-            <div className="welcome-template-grid">
-              {SCENE_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className={`welcome-template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedTemplate(template.id)}
-                >
-                  <span className="welcome-template-icon">{template.icon}</span>
-                  <strong>{template.name}</strong>
-                  <p>{template.description}</p>
-                </button>
-              ))}
-            </div>
+            <TemplateGallery selectedId={selectedTemplate} onSelect={setSelectedTemplate} />
 
             <div className="welcome-actions welcome-actions-row">
               <button type="button" className="welcome-btn ghost" onClick={() => setStep('account')}>
@@ -97,7 +85,7 @@ export default function WelcomeModal({ onComplete, onConnectTwitch }: WelcomeMod
                 Commencer sans modèle
               </button>
               <button type="button" className="welcome-btn primary" onClick={() => finish(selectedTemplate)}>
-                Appliquer le modèle →
+                Appliquer le pack live →
               </button>
             </div>
           </>

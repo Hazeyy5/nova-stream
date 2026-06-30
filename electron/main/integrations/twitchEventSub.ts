@@ -55,7 +55,14 @@ export class TwitchEventSubService {
   private sessionId: string | null = null
   private broadcasterId = ''
   private moderatorId = ''
-  private onAlert?: (alert: StreamAlert) => void
+  private onAlert?: (alert: StreamAlert, dedupeKey?: string) => void
+  private onChannelPoints?: (payload: {
+    id: string
+    username: string
+    userInput: string
+    rewardId: string
+    rewardTitle: string
+  }) => void
   private onStatus?: (status: { connected: boolean; subscribed: boolean; error?: string }) => void
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private stopped = true
@@ -63,6 +70,16 @@ export class TwitchEventSubService {
 
   setOnAlert(callback: (alert: StreamAlert, dedupeKey?: string) => void): void {
     this.onAlert = callback
+  }
+
+  setOnChannelPointsRedemption(callback: (payload: {
+    id: string
+    username: string
+    userInput: string
+    rewardId: string
+    rewardTitle: string
+  }) => void): void {
+    this.onChannelPoints = callback
   }
 
   setOnStatus(callback: (status: { connected: boolean; subscribed: boolean; error?: string }) => void): void {
@@ -244,6 +261,11 @@ export class TwitchEventSubService {
         type: 'channel.cheer',
         version: '1',
         condition: { broadcaster_user_id: this.broadcasterId }
+      },
+      {
+        type: 'channel.channel_points_custom_reward_redemption.add',
+        version: '1',
+        condition: { broadcaster_user_id: this.broadcasterId }
       }
     ]
 
@@ -344,6 +366,19 @@ export class TwitchEventSubService {
         message: cheerMsg || `${bits} bits !`,
         amount: `${bits} bits`
       }, `bits:${String(event.id ?? username)}:${bits}`)
+      return
+    }
+
+    if (subType === 'channel.channel_points_custom_reward_redemption.add') {
+      const userInput = String(event.user_input ?? '').trim()
+      if (!userInput) return
+      this.onChannelPoints?.({
+        id: String(event.id ?? randomUUID()),
+        username: String(event.user_name ?? event.user_login ?? 'Viewer'),
+        userInput,
+        rewardId: String(event.reward?.id ?? event.reward_id ?? ''),
+        rewardTitle: String(event.reward?.title ?? event.reward_title ?? 'Points de chaîne')
+      })
     }
   }
 

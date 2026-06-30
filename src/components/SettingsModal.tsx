@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
-import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult, EncoderRecommendation, VideoEncoder } from '../types'
-import { SCENE_TEMPLATES, type SceneTemplateId } from '../lib/sceneTemplates'
+import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult, EncoderRecommendation, VideoEncoder, AppThemeId } from '../types'
+import { type SceneTemplateId } from '../lib/sceneTemplates'
+import TemplateGallery from './TemplateGallery'
+import { APP_THEME_PRESETS, DEFAULT_CUSTOM_ACCENT } from '../lib/appThemes'
+import TemplateGallery from './TemplateGallery'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -30,7 +33,7 @@ const PLATFORMS = [
   { name: 'Personnalisé', url: '' }
 ]
 
-const TABS = ['Stream', 'Vidéo', 'Audio', 'Enregistrement', 'Scènes', 'Avancé'] as const
+const TABS = ['Stream', 'Vidéo', 'Audio', 'Enregistrement', 'Scènes', 'Apparence', 'Avancé'] as const
 type Tab = typeof TABS[number]
 
 const RESOLUTIONS = ['1920x1080', '1280x720', '2560x1440', '854x480']
@@ -568,30 +571,18 @@ export default function SettingsModal({
 
               <hr className="settings-hr" />
 
-              <label className="settings-field">
-                Appliquer un modèle
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value as SceneTemplateId)}
-                >
-                  {SCENE_TEMPLATES.map((t) => (
-                    <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
-                  ))}
-                </select>
-              </label>
-              <p className="settings-hint">
-                {SCENE_TEMPLATES.find((t) => t.id === selectedTemplate)?.description}
-              </p>
-              <div className="settings-scenes-actions">
+              <p className="settings-hint">Packs live — Starting Soon, scène principale, BRB et fin de stream.</p>
+              <TemplateGallery selectedId={selectedTemplate} onSelect={setSelectedTemplate} />
+              <div className="settings-scenes-actions" style={{ marginTop: 12 }}>
                 <button
                   type="button"
-                  className="settings-scenes-btn"
+                  className="settings-scenes-btn primary"
                   onClick={() => void onApplyTemplate?.(selectedTemplate, 'replace', {
                     webcamDevice: form.webcamDevice,
                     streamResolution: form.resolution
                   })}
                 >
-                  Remplacer la collection active
+                  Appliquer le pack live (remplacer)
                 </button>
                 <button
                   type="button"
@@ -601,12 +592,51 @@ export default function SettingsModal({
                     streamResolution: form.resolution
                   })}
                 >
-                  Créer une nouvelle collection
+                  Nouvelle collection
                 </button>
               </div>
               <p className="settings-hint warn">
-                « Remplacer » écrase les scènes de la collection active. Utilisez l&apos;export avant si besoin.
+                « Remplacer » écrase la collection active — exportez avant si besoin.
               </p>
+            </>
+          )}
+
+          {tab === 'Apparence' && (
+            <>
+              <p className="settings-hint">Personnalisez les couleurs de l&apos;interface Nova Stream.</p>
+              <div className="settings-theme-grid">
+                {APP_THEME_PRESETS.filter((t) => t.id !== 'custom').map((theme) => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={`settings-theme-card${form.appThemeId === theme.id ? ' selected' : ''}`}
+                    onClick={() => setForm((f) => ({ ...f, appThemeId: theme.id as AppThemeId }))}
+                  >
+                    <span className="settings-theme-swatch" style={{ background: theme.swatch }} />
+                    <strong>{theme.name}</strong>
+                    <span>{theme.description}</span>
+                  </button>
+                ))}
+              </div>
+              <label className="settings-field" style={{ marginTop: 16 }}>
+                <input
+                  type="radio"
+                  name="theme"
+                  checked={(form.appThemeId ?? 'nova') === 'custom'}
+                  onChange={() => setForm((f) => ({ ...f, appThemeId: 'custom' as AppThemeId }))}
+                />
+                {' '}Accent personnalisé
+              </label>
+              {(form.appThemeId ?? 'nova') === 'custom' && (
+                <label className="settings-field">
+                  Couleur accent
+                  <input
+                    type="color"
+                    value={form.appAccentColor ?? DEFAULT_CUSTOM_ACCENT}
+                    onChange={(e) => setForm((f) => ({ ...f, appAccentColor: e.target.value }))}
+                  />
+                </label>
+              )}
             </>
           )}
 

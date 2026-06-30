@@ -21,7 +21,7 @@ import { loadWidgetSettings, saveWidgetSettings } from '../widgetSettingsStore'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import { DonationPoller, type PendingDonation } from '../donationPoller'
 import { formatDonationAlertMessage } from '../../../src/lib/donationAlertText'
-import type { ChatMessage, DonationSettings, FeedEvent, PlatformConnectionPublic, StreamAlert, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
+import type { ChatMessage, DonationSettings, FeedEvent, PlatformConnectionPublic, StreamAlert, TtsSettings, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
   private chat = new TwitchChatService()
@@ -49,6 +49,8 @@ export class IntegrationManager {
   private knownFollowIds = new Set<string>()
   private activityBaselineReady = false
   private lastTwitchAccessToken: string | null = null
+  private ttsUserCooldown = new Map<string, number>()
+  private ttsSeenIds = new Set<string>()
 
   private lastEventSubError = ''
 
@@ -66,6 +68,7 @@ export class IntegrationManager {
 
     this.chat.setOnAlert((alert) => this.showAlert(alert))
     this.eventSub.setOnAlert((alert, dedupeKey) => this.showAlert(alert, dedupeKey))
+    this.eventSub.setOnChannelPointsRedemption((payload) => this.handleChannelPointsTts(payload))
     this.alerts.setDonationSettingsProvider(() => this.getDonationSettings())
     this.eventSub.setOnStatus((status) => {
       if (!status.error) {
@@ -98,6 +101,58 @@ export class IntegrationManager {
 
     this.alertQueue.push({ ...alert, shownAt: alert.shownAt ?? Date.now() })
     this.processAlertQueue()
+  }
+
+  private handleChannelPointsTts(payload: {
+    id: string
+    username: string
+    userInput: string
+    rewardId: string
+    rewardTitle: string
+  }): void {
+    const tts = this.widgetModules.getSettings().tts
+    if (!tts?.enabled) return
+    if (tts.rewardId?.trim() && tts.rewardId.trim() !== payload.rewardId) return
+    if (tts.requireLive && !this.widgetLiveData.live) return
+
+    const userKey = payload.username.toLowerCase()
+    const cooldownMs = Math.max(0, (tts.cooldownSec ?? 15) * 1000)
+    const lastAt = this.ttsUserCooldown.get(userKey) ?? 0
+    if (Date.now() - lastAt < cooldownMs) return
+    this.ttsUserCooldown.set(userKey, Date.now())
+
+    if (this.ttsSeenIds.has(payload.id)) return
+    this.ttsSeenIds.add(payload.id)
+    setTimeout(() => this.ttsSeenIds.delete(payload.id), 120_000)
+
+    const maxLen = Math.max(20, Math.min(280, tts.maxLength ?? 200))
+    const message = payload.userInput.trim().slice(0, maxLen)
+    if (!message) return
+
+    const template = tts.prefixTemplate?.trim() || '{name} dit : {message}'
+    const text = template
+      .replace(/\{name\}/gi, payload.username)
+      .replace(/\{message\}/gi, message)
+
+    this.broadcast('tts:speak', {
+      text,
+      blockedWords: tts.blockedWords ?? [],
+      options: {
+        voiceName: tts.voiceName,
+        rate: tts.rate ?? 1,
+        pitch: tts.pitch ?? 1,
+        volume: tts.volume ?? 85
+      }
+    })
+
+    this.addFeedEvent({
+      id: `tts-${payload.id}`,
+      type: 'system',
+      platform: 'twitch',
+      icon: '🔊',
+      text: `TTS — ${payload.username} (${payload.rewardTitle})`,
+      timestamp: Date.now()
+    }, false)
   }
 
   private processAlertQueue(): void {
@@ -185,6 +240,13 @@ export class IntegrationManager {
     const current = this.widgetModules.getSettings()
     const donations = { ...current.donations, ...partial }
     this.applyWebWidgetSettings({ ...current, donations })
+    return this.widgetModules.getSettings()
+  }
+
+  patchTtsSettings(partial: Partial<TtsSettings>): WebWidgetSettings {
+    const current = this.widgetModules.getSettings()
+    const tts = { ...current.tts, ...partial }
+    this.applyWebWidgetSettings({ ...current, tts })
     return this.widgetModules.getSettings()
   }
 

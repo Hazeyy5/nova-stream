@@ -5,7 +5,12 @@ Application de streaming desktop + site web — alternative à Streamlabs OBS.
 🌐 **Site web** : [hazeyy5.github.io/nova-stream](https://hazeyy5.github.io/nova-stream)  
 📦 **Repo** : [github.com/Hazeyy5/nova-stream](https://github.com/Hazeyy5/nova-stream)
 
-## Fonctionnalités (v0.9)
+## Fonctionnalités (v1.0)
+
+### Nouveautés v1.0
+- **Thèmes d'application** — Nova, Midnight, Ocean, Forest ou accent personnalisé (Paramètres → Apparence)
+- **Packs scènes live** — Starting Soon, scène principale, BRB et fin de stream (Gaming, Just Chatting, IRL, Creative, Minimal)
+- **TTS points de chaîne Twitch** — lecture vocale des messages via EventSub (Apps → TTS, capture audio bureau pour le stream)
 
 ### Alertes & widgets
 - File d'attente d'alertes (affichage séquentiel)
@@ -22,7 +27,7 @@ Application de streaming desktop + site web — alternative à Streamlabs OBS.
 - Page tip publique partageable
 
 ### Intégrations
-- Twitch EventSub (follow, sub, raid, cheer/bits)
+- Twitch EventSub (follow, sub, raid, cheer/bits, **points de chaîne TTS**)
 - Chat Twitch, objectifs followers/subs, compteur viewers, sondages
 - Connexion Twitch **in-app** ou via le site web
 - Bot Discord Nova Stream (`/nova-setup`, `/nova-status`, tickets, sondages)
@@ -30,6 +35,7 @@ Application de streaming desktop + site web — alternative à Streamlabs OBS.
 
 ### Interface
 - Layout studio professionnel (scènes, sources, aperçu, mixeur)
+- Thèmes d'interface (5 presets + couleur accent personnalisée)
 - Thème sombre moderne avec panneaux latéraux
 - Aperçu multi-sources sur canvas (composition en temps réel)
 - Glisser-déposer des sources dans l'aperçu
@@ -55,6 +61,7 @@ Application de streaming desktop + site web — alternative à Streamlabs OBS.
 - Détection automatique des périphériques
 
 ### Scènes
+- Packs live prêts à l'emploi (galerie à l'accueil et dans Paramètres → Scènes)
 - Création, suppression, renommage (double-clic)
 - Réordonnancement des sources
 - Transitions (coupe / fondu)

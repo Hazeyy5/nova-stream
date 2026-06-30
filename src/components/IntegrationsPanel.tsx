@@ -1,5 +1,6 @@
-import type { PlatformConnectionPublic } from '../types'
+import type { PlatformConnectionPublic, TtsSettings } from '../types'
 import './IntegrationsPanel.css'
+import TtsPanel from './TtsPanel'
 
 interface IntegrationsPanelProps {
   connections: PlatformConnectionPublic[]
@@ -8,6 +9,8 @@ interface IntegrationsPanelProps {
   onConnectTwitch: () => void
   onDisconnect: (platform: 'twitch' | 'kick') => void
   onTestAlert: () => void
+  ttsSettings?: TtsSettings
+  onSaveTts: (partial: Partial<TtsSettings>) => void | Promise<void>
 }
 
 export default function IntegrationsPanel({
@@ -16,7 +19,9 @@ export default function IntegrationsPanel({
   connecting = false,
   onConnectTwitch,
   onDisconnect,
-  onTestAlert
+  onTestAlert,
+  ttsSettings,
+  onSaveTts
 }: IntegrationsPanelProps) {
   const twitch = connections.find((c) => c.platform === 'twitch')
   const kick = connections.find((c) => c.platform === 'kick')
@@ -51,7 +56,7 @@ export default function IntegrationsPanel({
           connecting={connecting}
           onConnect={onConnectTwitch}
           onDisconnect={() => onDisconnect('twitch')}
-          features={['Chat Box', 'Alertes follow/sub/raid/bits', 'EventSub temps réel', 'Dons PayPal', 'Clé stream auto']}
+          features={['Chat Box', 'Alertes follow/sub/raid/bits', 'EventSub temps réel', 'TTS points de chaîne', 'Dons PayPal', 'Clé stream auto']}
         />
 
         <PlatformCard
@@ -89,6 +94,12 @@ export default function IntegrationsPanel({
           </div>
         </div>
       </section>
+
+      <TtsPanel
+        settings={ttsSettings}
+        twitchConnected={!!twitch}
+        onSave={onSaveTts}
+      />
 
       {!twitchConfigured && (
         <div className="setup-guide">

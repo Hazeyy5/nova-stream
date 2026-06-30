@@ -41,6 +41,8 @@ import { useSceneCapture } from './hooks/useSceneCapture'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useSceneTransition } from './hooks/useSceneTransition'
 import { useAppBootstrap } from './hooks/useAppBootstrap'
+import { useAppTheme } from './hooks/useAppTheme'
+import { enqueueTtsSpeech, initTtsVoices, filterTtsText } from './lib/ttsPlayer'
 
 import LoadingScreen from './components/LoadingScreen'
 import WelcomeModal from './components/WelcomeModal'
@@ -126,6 +128,17 @@ function AppContent() {
     }
 
   })
+
+  useAppTheme(settings)
+
+  useEffect(() => {
+    initTtsVoices()
+    return window.novaStream.integrations.onTtsSpeak(({ text, blockedWords, options }) => {
+      const filtered = filterTtsText(text, blockedWords ?? [])
+      if (!filtered) return
+      enqueueTtsSpeech(filtered, options ?? {})
+    })
+  }, [])
 
   const [showSettings, setShowSettings] = useState(false)
   const [showGoLive, setShowGoLive] = useState(false)
@@ -845,6 +858,10 @@ function AppContent() {
             onDisconnect={integrations.disconnect}
 
             onTestAlert={() => integrations.testAlert('sub')}
+
+            ttsSettings={webWidgetSettings.tts}
+
+            onSaveTts={(partial) => void window.novaStream.integrations.patchTtsSettings(partial)}
 
           />
 

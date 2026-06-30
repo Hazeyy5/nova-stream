@@ -19,6 +19,7 @@ import type {
   TwitchChannelInfo,
   WebWidgetSettings,
   DonationSettings,
+  TtsSettings,
   EncoderRecommendation
 } from '../../src/types'
 import type { AudioChannelId, AudioChannelPropsPayload } from '../../src/types'
@@ -192,7 +193,22 @@ const api = {
     getWebWidgetSettings: () =>
       ipcRenderer.invoke('integrations:getWebWidgetSettings') as Promise<WebWidgetSettings>,
     patchDonationSettings: (partial: Partial<DonationSettings>) =>
-      ipcRenderer.invoke('integrations:patchDonationSettings', partial) as Promise<WebWidgetSettings>
+      ipcRenderer.invoke('integrations:patchDonationSettings', partial) as Promise<WebWidgetSettings>,
+    patchTtsSettings: (partial: Partial<TtsSettings>) =>
+      ipcRenderer.invoke('integrations:patchTtsSettings', partial) as Promise<WebWidgetSettings>,
+    onTtsSpeak: (callback: (payload: {
+      text: string
+      blockedWords?: string[]
+      options?: { voiceName?: string; rate?: number; pitch?: number; volume?: number }
+    }) => void) => {
+      const handler = (_: unknown, data: {
+        text: string
+        blockedWords?: string[]
+        options?: { voiceName?: string; rate?: number; pitch?: number; volume?: number }
+      }) => callback(data)
+      ipcRenderer.on('tts:speak', handler)
+      return () => ipcRenderer.removeListener('tts:speak', handler)
+    }
   },
   sourceProps: {
     open: (source: Source) => ipcRenderer.invoke('sourceProps:open', source),
