@@ -350,6 +350,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('integrations:patchTtsSettings', (_e, partial: Partial<TtsSettings>) =>
     integrations.patchTtsSettings(partial)
   )
+  ipcMain.handle('integrations:listCustomRewards', () => integrations.listTwitchCustomRewards())
+  ipcMain.handle('integrations:createTtsReward', (_e, input: { title: string; cost: number; prompt?: string }) =>
+    integrations.createTwitchTtsReward(input)
+  )
+  ipcMain.handle('integrations:updateCustomReward', (
+    _e,
+    rewardId: string,
+    partial: { title?: string; cost?: number; prompt?: string; is_enabled?: boolean }
+  ) => integrations.updateTwitchCustomReward(rewardId, partial)
+  )
 
   ipcMain.handle('integrations:getChatStatus', () => integrations.getChatStatus())
 

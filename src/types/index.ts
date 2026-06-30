@@ -267,6 +267,8 @@ export interface TtsSettings {
   rewardId?: string
   /** Nom affiché de la récompense (info UI). */
   rewardTitle?: string
+  /** Coût en points de chaîne (affichage + sync Twitch). */
+  rewardCost?: number
   voiceName?: string
   rate?: number
   pitch?: number

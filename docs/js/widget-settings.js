@@ -60,6 +60,7 @@
       enabled: false,
       rewardId: '',
       rewardTitle: '',
+      rewardCost: 500,
       voiceName: '',
       rate: 1,
       pitch: 1,

@@ -6,7 +6,7 @@ window.NOVA_CONFIG = {
   WEBSITE_URL: 'https://hazeyy5.github.io/nova-stream',
   GITHUB_URL: 'https://github.com/Hazeyy5/nova-stream',
   GITHUB_REPO: 'Hazeyy5/nova-stream',
-  APP_VERSION: '0.9.0',
+  APP_VERSION: '1.0.0',
   DESKTOP_LINK_URL: 'http://127.0.0.1:3847',
   DONATIONS_API_URL: 'https://nova-stream-donations.contact-delaplacetheo.workers.dev',
   DISCORD_COMMUNITY_URL: 'https://discord.gg/TAUH4uxESd',
@@ -19,6 +19,7 @@ window.NOVA_CONFIG = {
     'moderator:read:followers',
     'channel:read:stream_key',
     'channel:manage:broadcast',
-    'channel:read:redemptions'
+    'channel:read:redemptions',
+    'channel:manage:redemptions'
   ].join(' ')
 }

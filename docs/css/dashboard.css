@@ -817,6 +817,27 @@
   margin: 0;
 }
 
+.tts-reward-toolbar {
+  margin: 8px 0 12px;
+}
+
+.tts-cost-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tts-cost-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.tts-create-reward {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #30363d;
+}
+
 @media (max-width: 900px) {
   .dash-sidebar {
     position: relative;

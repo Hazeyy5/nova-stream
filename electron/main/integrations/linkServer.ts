@@ -28,7 +28,7 @@ export class LinkServer {
       const pathname = rawUrl.split('?')[0]
 
       res.setHeader('Access-Control-Allow-Origin', corsOrigin)
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
       res.setHeader('Vary', 'Origin')
 
@@ -109,6 +109,74 @@ export class LinkServer {
             res.writeHead(500, { 'Content-Type': 'application/json' })
             res.end(JSON.stringify({ success: false, message }))
           }
+        })
+        return
+      }
+
+      if (req.method === 'GET' && pathname === '/api/twitch/custom-rewards') {
+        void this.integrations.listTwitchCustomRewards()
+          .then((rewards) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ success: true, rewards }))
+          })
+          .catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Erreur Twitch'
+            res.writeHead(500, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ success: false, message }))
+          })
+        return
+      }
+
+      if (req.method === 'POST' && pathname === '/api/twitch/custom-rewards') {
+        let body = ''
+        req.on('data', (chunk) => { body += chunk })
+        req.on('end', () => {
+          void (async () => {
+            try {
+              const data = JSON.parse(body)
+              const reward = await this.integrations.createTwitchTtsReward({
+                title: data.title,
+                cost: data.cost,
+                prompt: data.prompt
+              })
+              res.writeHead(200, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ success: true, reward }))
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Erreur Twitch'
+              res.writeHead(500, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ success: false, message }))
+            }
+          })()
+        })
+        return
+      }
+
+      if (req.method === 'PATCH' && pathname === '/api/twitch/custom-rewards') {
+        let body = ''
+        req.on('data', (chunk) => { body += chunk })
+        req.on('end', () => {
+          void (async () => {
+            try {
+              const data = JSON.parse(body)
+              if (!data.id) {
+                res.writeHead(400, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ success: false, message: 'ID récompense requis' }))
+                return
+              }
+              const reward = await this.integrations.updateTwitchCustomReward(data.id, {
+                title: data.title,
+                cost: data.cost,
+                prompt: data.prompt,
+                is_enabled: data.is_enabled
+              })
+              res.writeHead(200, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ success: true, reward }))
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Erreur Twitch'
+              res.writeHead(500, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ success: false, message }))
+            }
+          })()
         })
         return
       }

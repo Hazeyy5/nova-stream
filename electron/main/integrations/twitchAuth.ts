@@ -15,7 +15,8 @@ const SCOPES = [
   'moderator:read:followers',
   'channel:read:stream_key',
   'channel:manage:broadcast',
-  'channel:read:redemptions'
+  'channel:read:redemptions',
+  'channel:manage:redemptions'
 ].join(' ')
 
 function requireClientId(): string {

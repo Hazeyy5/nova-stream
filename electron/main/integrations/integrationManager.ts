@@ -21,6 +21,11 @@ import { loadWidgetSettings, saveWidgetSettings } from '../widgetSettingsStore'
 import { WidgetModuleStore, createDemoWidgetStats, createTestChatMessage } from '../widgetModuleStore'
 import { DonationPoller, type PendingDonation } from '../donationPoller'
 import { formatDonationAlertMessage } from '../../../src/lib/donationAlertText'
+import {
+  createTtsReward,
+  listCustomRewards,
+  updateCustomReward
+} from './twitchChannelPoints'
 import type { ChatMessage, DonationSettings, FeedEvent, PlatformConnectionPublic, StreamAlert, TtsSettings, WidgetLiveData, WebWidgetSettings } from '../../../src/types'
 
 export class IntegrationManager {
@@ -248,6 +253,21 @@ export class IntegrationManager {
     const tts = { ...current.tts, ...partial }
     this.applyWebWidgetSettings({ ...current, tts })
     return this.widgetModules.getSettings()
+  }
+
+  listTwitchCustomRewards(): Promise<Awaited<ReturnType<typeof listCustomRewards>>> {
+    return listCustomRewards()
+  }
+
+  createTwitchTtsReward(input: { title: string; cost: number; prompt?: string }) {
+    return createTtsReward(input)
+  }
+
+  updateTwitchCustomReward(
+    rewardId: string,
+    partial: { title?: string; cost?: number; prompt?: string; is_enabled?: boolean }
+  ) {
+    return updateCustomReward(rewardId, partial)
   }
 
   getDonationSettings(): DonationSettings | undefined {

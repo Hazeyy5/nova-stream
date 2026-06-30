@@ -210,7 +210,8 @@
         <p class="tts-preview-text">${esc(text)}</p>
         <p class="tts-preview-meta">
           ${cfg.enabled !== false ? 'Activé' : 'Désactivé'}
-          · ${cfg.rewardId?.trim() ? `Récompense ${esc(cfg.rewardId)}` : 'Toute récompense avec message'}
+          · ${cfg.rewardId?.trim() ? `Récompense ${esc(cfg.rewardTitle || cfg.rewardId)}` : 'Toute récompense avec message'}
+          · ${cfg.rewardCost ? `${cfg.rewardCost} pts` : 'coût non défini'}
           · Cooldown ${cfg.cooldownSec ?? 15}s
         </p>
       </div>
@@ -475,15 +476,41 @@
       case 'tts':
         return `
           ${fieldToggle('cfg-enabled', 'Activer le TTS via points de chaîne', cfg.enabled === true)}
-          <div class="cfg-subsection">
-            <p class="cfg-subtitle">Récompense Twitch</p>
-            <p class="cfg-hint">Créez une récompense avec « Demander au spectateur de saisir du texte ». Laissez l'ID vide pour accepter toute récompense avec message.</p>
-            ${fieldText('cfg-reward-id', 'ID récompense (optionnel)', cfg.rewardId ?? '', 'UUID de la récompense')}
-            ${fieldText('cfg-reward-title', 'Nom affiché (info)', cfg.rewardTitle ?? '', 'Ex. Lire mon message')}
+          <div class="cfg-subsection" id="tts-reward-section">
+            <p class="cfg-subtitle">Récompense points de chaîne</p>
+            <p class="cfg-hint">Créez ou sélectionnez une récompense Twitch avec saisie de texte. Le coût en points est modifiable directement ici.</p>
+            <p id="tts-reward-status" class="cfg-hint">Chargement des récompenses Twitch…</p>
+            <div class="tts-reward-toolbar">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-tts-refresh-rewards">↻ Actualiser</button>
+            </div>
+            <label class="cfg-field">
+              <span>Récompense TTS</span>
+              <select id="cfg-reward-select">
+                <option value="">— Chargement… —</option>
+              </select>
+            </label>
+            <label class="cfg-field">
+              <span>Coût (points de chaîne)</span>
+              <div class="tts-cost-row">
+                <input type="number" id="cfg-reward-cost" min="1" max="999999" value="${cfg.rewardCost ?? 500}" />
+                <button type="button" class="btn btn-outline btn-sm" id="btn-tts-update-cost">Mettre à jour sur Twitch</button>
+              </div>
+            </label>
+            <div class="cfg-subsection tts-create-reward">
+              <p class="cfg-subtitle">Créer une nouvelle récompense</p>
+              ${fieldText('cfg-new-title', 'Titre', cfg.rewardTitle || 'Lire mon message', 'Lire mon message')}
+              ${fieldNumber('cfg-new-cost', 'Coût en points', cfg.rewardCost ?? 500, 1, 999999)}
+              ${fieldText('cfg-new-prompt', 'Invite saisie viewer', 'Votre message TTS', 'Votre message TTS')}
+              <button type="button" class="btn btn-twitch btn-sm" id="btn-tts-create-reward">+ Créer sur Twitch</button>
+            </div>
           </div>
           <div class="cfg-subsection">
             <p class="cfg-subtitle">Voix et message</p>
-            ${fieldSelect('cfg-voice', 'Voix', [{ value: '', label: 'Voix française par défaut' }], cfg.voiceName ?? '')}
+            <p class="cfg-hint">Les voix Windows sont utilisées par Nova Stream sur PC. Le navigateur sert à l'aperçu local.</p>
+            <label class="cfg-field">
+              <span>Voix</span>
+              <select id="cfg-voice"></select>
+            </label>
             ${fieldText('cfg-prefix', 'Modèle ({name}, {message})', cfg.prefixTemplate ?? '{name} dit : {message}')}
             ${fieldRange('cfg-rate', 'Vitesse', 0.5, 1.8, cfg.rate ?? 1, '')}
             ${fieldRange('cfg-volume', 'Volume', 10, 100, cfg.volume ?? 85, '%')}
@@ -542,11 +569,14 @@
           options: [0, 1, 2].map((i) => g(`cfg-opt${i}`)?.value?.trim()).filter(Boolean),
           style: g('cfg-style')?.value || 'bars'
         }
-      case 'tts':
+      case 'tts': {
+        const rewardId = g('cfg-reward-select')?.value?.trim() || ''
+        const selected = ttsRewardsCache.find((r) => r.id === rewardId)
         return {
           enabled: g('cfg-enabled')?.checked === true,
-          rewardId: g('cfg-reward-id')?.value?.trim() || '',
-          rewardTitle: g('cfg-reward-title')?.value?.trim() || '',
+          rewardId,
+          rewardTitle: selected?.title || g('cfg-new-title')?.value?.trim() || '',
+          rewardCost: parseInt(g('cfg-reward-cost')?.value || '0', 10) || undefined,
           voiceName: g('cfg-voice')?.value || '',
           prefixTemplate: g('cfg-prefix')?.value?.trim() || '{name} dit : {message}',
           rate: parseFloat(g('cfg-rate')?.value || '1'),
@@ -557,6 +587,7 @@
           blockedWords: (g('cfg-blocked')?.value || '').split(',').map((w) => w.trim()).filter(Boolean),
           requireLive: g('cfg-require-live')?.checked === true
         }
+      }
       default:
         return {}
     }
@@ -606,15 +637,116 @@
     }
   }
 
-  function populateTtsVoiceSelect(selected) {
-    const sel = document.getElementById('cfg-voice')
-    if (!sel) return
-    const voices = listBrowserVoices()
-    const fr = voices.filter((v) => v.lang.startsWith('fr'))
-    const list = fr.length ? fr : voices
-    sel.innerHTML = `<option value="">Voix française par défaut</option>${list.map((v) =>
-      `<option value="${esc(v.name)}"${v.name === selected ? ' selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`
-    ).join('')}`
+  let ttsRewardsCache = []
+
+  function setTtsRewardStatus(text, isError = false) {
+    const el = document.getElementById('tts-reward-status')
+    if (!el) return
+    el.textContent = text
+    el.className = isError ? 'cfg-hint warn' : 'cfg-hint'
+  }
+
+  function renderTtsRewardSelect(selectedId) {
+    const select = document.getElementById('cfg-reward-select')
+    if (!select) return
+    const compatible = window.NovaTtsRewards?.ttsCompatible?.(ttsRewardsCache) ?? []
+    const options = [
+      `<option value="">— Choisir une récompense —</option>`,
+      ...compatible.map((r) =>
+        `<option value="${esc(r.id)}"${r.id === selectedId ? ' selected' : ''}>${esc(r.title)} (${r.cost} pts)</option>`
+      )
+    ]
+    if (!compatible.length) {
+      options.push('<option value="" disabled>Aucune récompense avec saisie texte</option>')
+    }
+    select.innerHTML = options.join('')
+  }
+
+  function syncTtsRewardCostFromSelection() {
+    const select = document.getElementById('cfg-reward-select')
+    const costEl = document.getElementById('cfg-reward-cost')
+    if (!select || !costEl) return
+    const reward = ttsRewardsCache.find((r) => r.id === select.value)
+    if (reward) costEl.value = String(reward.cost)
+  }
+
+  async function loadTtsRewards(selectedId) {
+    if (!window.NovaTtsRewards?.listRewards) {
+      setTtsRewardStatus('Module récompenses indisponible.', true)
+      return
+    }
+    setTtsRewardStatus('Chargement des récompenses Twitch…')
+    try {
+      ttsRewardsCache = await NovaTtsRewards.listRewards()
+      renderTtsRewardSelect(selectedId)
+      syncTtsRewardCostFromSelection()
+      const count = NovaTtsRewards.ttsCompatible(ttsRewardsCache).length
+      setTtsRewardStatus(`${count} récompense(s) compatible(s) TTS trouvée(s).`)
+    } catch (err) {
+      setTtsRewardStatus(err instanceof Error ? err.message : 'Impossible de charger les récompenses.', true)
+      renderTtsRewardSelect(selectedId)
+    }
+  }
+
+  function saveTtsFormAndPreview(alertTypeRef) {
+    const next = readForm('tts')
+    NovaWidgetSettings.saveWidget('tts', next)
+    updatePreview('tts', next, alertTypeRef.current)
+    if (window.NovaDesktopSync) window.NovaDesktopSync.scheduleAutoSync()
+  }
+
+  function bindTtsRewardEvents(alertTypeRef) {
+    document.getElementById('btn-tts-refresh-rewards')?.addEventListener('click', () => {
+      const current = document.getElementById('cfg-reward-select')?.value
+      void loadTtsRewards(current || undefined)
+    })
+
+    document.getElementById('cfg-reward-select')?.addEventListener('change', () => {
+      syncTtsRewardCostFromSelection()
+      saveTtsFormAndPreview(alertTypeRef)
+    })
+
+    document.getElementById('btn-tts-update-cost')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-tts-update-cost')
+      const rewardId = document.getElementById('cfg-reward-select')?.value
+      const cost = parseInt(document.getElementById('cfg-reward-cost')?.value || '0', 10)
+      if (!rewardId) {
+        setTtsRewardStatus('Sélectionnez d\'abord une récompense.', true)
+        return
+      }
+      btn.disabled = true
+      try {
+        await NovaTtsRewards.updateReward(rewardId, { cost })
+        setTtsRewardStatus(`Coût mis à jour : ${cost} points.`)
+        await loadTtsRewards(rewardId)
+        saveTtsFormAndPreview(alertTypeRef)
+      } catch (err) {
+        setTtsRewardStatus(err instanceof Error ? err.message : 'Mise à jour échouée.', true)
+      } finally {
+        btn.disabled = false
+      }
+    })
+
+    document.getElementById('btn-tts-create-reward')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-tts-create-reward')
+      const title = document.getElementById('cfg-new-title')?.value?.trim() || 'Lire mon message'
+      const cost = parseInt(document.getElementById('cfg-new-cost')?.value || '500', 10)
+      const prompt = document.getElementById('cfg-new-prompt')?.value?.trim() || 'Votre message TTS'
+      btn.disabled = true
+      try {
+        const reward = await NovaTtsRewards.createReward({ title, cost, prompt })
+        setTtsRewardStatus(`Récompense « ${reward.title} » créée (${reward.cost} pts).`)
+        await loadTtsRewards(reward.id)
+        const select = document.getElementById('cfg-reward-select')
+        if (select) select.value = reward.id
+        syncTtsRewardCostFromSelection()
+        saveTtsFormAndPreview(alertTypeRef)
+      } catch (err) {
+        setTtsRewardStatus(err instanceof Error ? err.message : 'Création échouée.', true)
+      } finally {
+        btn.disabled = false
+      }
+    })
   }
 
   function configureTtsPage() {
@@ -628,12 +760,11 @@
           Liez l'app pour appliquer vos réglages automatiquement.
         </p>
         <ol class="tts-setup-steps">
-          <li>Créez une récompense Twitch avec « message utilisateur » activé</li>
-          <li>Configurez les paramètres ci-dessous et enregistrez</li>
-          <li>Liez Nova Stream depuis la barre latérale ou le tableau de bord</li>
-          <li>Activez la capture <strong>audio bureau</strong> dans l'app pour l'envoyer sur le stream</li>
+          <li>Créez ou sélectionnez une récompense points de chaîne ci-dessous</li>
+          <li>Choisissez la voix et enregistrez — sync auto vers l'app</li>
+          <li>Activez la capture <strong>audio bureau</strong> dans Nova Stream pour le stream</li>
         </ol>
-        <p class="module-url-hint cfg-hint warn">Reconnectez Twitch après la v1.0 pour le scope points de chaîne.</p>
+        <p class="module-url-hint cfg-hint warn">Reconnectez Twitch pour le scope <code>channel:manage:redemptions</code> (création / modification des récompenses).</p>
         <div class="module-url-actions">
           <button type="button" class="btn btn-outline btn-sm" id="btn-preview">▶ Aperçu texte</button>
           <button type="button" class="btn btn-twitch btn-sm" id="btn-test-app">Test dans l'app</button>
@@ -678,13 +809,12 @@
 
     if (widgetId === 'tts') {
       configureTtsPage()
-      populateTtsVoiceSelect(cfg.voiceName ?? '')
-      if (window.speechSynthesis) {
-        window.speechSynthesis.getVoices()
-        window.speechSynthesis.onvoiceschanged = () => {
-          populateTtsVoiceSelect(readForm('tts').voiceName)
-        }
+      const voiceSel = document.getElementById('cfg-voice')
+      if (voiceSel && window.NovaTtsVoices) {
+        NovaTtsVoices.initVoiceSelect(voiceSel, cfg.voiceName ?? '', () => saveTtsFormAndPreview(alertTypeRef))
       }
+      bindTtsRewardEvents(alertTypeRef)
+      void loadTtsRewards(cfg.rewardId || undefined)
     }
 
     updatePreview(widgetId, cfg, alertTypeRef.current)

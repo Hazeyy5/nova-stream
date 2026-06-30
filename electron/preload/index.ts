@@ -196,6 +196,29 @@ const api = {
       ipcRenderer.invoke('integrations:patchDonationSettings', partial) as Promise<WebWidgetSettings>,
     patchTtsSettings: (partial: Partial<TtsSettings>) =>
       ipcRenderer.invoke('integrations:patchTtsSettings', partial) as Promise<WebWidgetSettings>,
+    listCustomRewards: () =>
+      ipcRenderer.invoke('integrations:listCustomRewards') as Promise<Array<{
+        id: string
+        title: string
+        cost: number
+        prompt: string
+        is_user_input_required: boolean
+      }>>,
+    createTtsReward: (input: { title: string; cost: number; prompt?: string }) =>
+      ipcRenderer.invoke('integrations:createTtsReward', input) as Promise<{
+        id: string
+        title: string
+        cost: number
+      }>,
+    updateCustomReward: (
+      rewardId: string,
+      partial: { title?: string; cost?: number; prompt?: string; is_enabled?: boolean }
+    ) =>
+      ipcRenderer.invoke('integrations:updateCustomReward', rewardId, partial) as Promise<{
+        id: string
+        title: string
+        cost: number
+      }>,
     onTtsSpeak: (callback: (payload: {
       text: string
       blockedWords?: string[]
