@@ -71,19 +71,42 @@
   }
 
   function mountLayout(options) {
-    const session = requireAuth()
-    if (!session) return null
+    const session = window.NovaAuth?.getSession() || null
+    const needsAuth = options.requireAuth !== false
 
-    document.body.classList.add('dash-app')
-    const sidebar = document.createElement('aside')
-    sidebar.className = 'dash-sidebar'
-    sidebar.innerHTML = renderSidebar(options.activeId)
-    document.body.prepend(sidebar)
+    if (needsAuth && !session) {
+      location.href = NovaAuth.asset('/index.html')
+      return null
+    }
 
     const main = document.querySelector('[data-dash-main]')
-    if (main) main.classList.add('dash-main')
 
-    document.getElementById('dash-logout')?.addEventListener('click', () => NovaAuth.logout())
+    if (session) {
+      document.body.classList.add('dash-app')
+      const sidebar = document.createElement('aside')
+      sidebar.className = 'dash-sidebar'
+      sidebar.innerHTML = renderSidebar(options.activeId)
+      document.body.prepend(sidebar)
+      if (main) main.classList.add('dash-main')
+      document.getElementById('dash-logout')?.addEventListener('click', () => NovaAuth.logout())
+    } else if (options.publicShell) {
+      document.body.classList.add('help-public')
+      const nav = document.createElement('header')
+      nav.className = 'help-public-nav'
+      nav.innerHTML = `
+        <a href="${NovaAuth.asset('/index.html')}" class="help-public-brand">
+          <img src="${NovaAuth.asset('/assets/logo.png')}" alt="" width="28" height="28" />
+          <span>Nova Stream</span>
+        </a>
+        <div class="help-public-links">
+          <a href="${NovaAuth.asset('/index.html')}" class="btn btn-outline">Accueil</a>
+          <button type="button" class="btn btn-primary" id="help-connect-twitch">Connexion Twitch</button>
+        </div>
+      `
+      document.body.prepend(nav)
+      if (main) main.classList.add('help-public-main')
+      document.getElementById('help-connect-twitch')?.addEventListener('click', () => NovaAuth.startTwitchLogin())
+    }
 
     if (window.NovaDesktopSync?.initDashboardAutoSync) {
       window.NovaDesktopSync.initDashboardAutoSync()

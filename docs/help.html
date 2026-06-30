@@ -7,70 +7,281 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/help.css" />
 </head>
 <body>
-  <div data-dash-main class="dash-main">
-    <header class="dash-hub-header">
+  <div data-dash-main>
+    <header class="dash-hub-header help-hero">
       <h1>📖 Guide utilisateur</h1>
-      <p>Tout ce qu'il faut pour installer Nova Stream, connecter Twitch, configurer widgets et dons.</p>
+      <p>Installation, connexion Twitch, widgets, dons et dépannage — tout pour démarrer avec Nova Stream.</p>
+      <div class="help-hero-meta">
+        <span class="help-badge">Windows 10/11</span>
+        <span class="help-badge">Twitch</span>
+        <span class="help-badge">OBS compatible</span>
+      </div>
     </header>
 
-    <section class="dashboard-panel help-panel" style="max-width:820px">
-      <h2>Installation</h2>
-      <ol class="help-steps">
-        <li>Téléchargez <strong>Nova Stream</strong> depuis la <a href="index.html#download">page d'accueil</a> ou <a href="https://github.com/Hazeyy5/nova-stream/releases" target="_blank" rel="noopener">GitHub Releases</a>.</li>
-        <li>Installez <strong>Nova-Stream-Setup-x.x.x.exe</strong> et lancez l'application.</li>
-        <li>Connectez Twitch (voir ci-dessous).</li>
-        <li>Configurez votre clé stream dans <strong>Paramètres</strong> (récupération auto si Twitch connecté).</li>
-        <li>Activez l'enregistrement local dans Paramètres → Général si besoin, puis <strong>Diffuser</strong> ou <strong>Enregistrer</strong>.</li>
-      </ol>
+    <div class="help-layout">
+      <nav class="help-toc" aria-label="Sommaire du guide">
+        <p class="help-toc-title">Sommaire</p>
+        <ul>
+          <li><a href="#demarrage">Démarrage rapide</a></li>
+          <li><a href="#installation">Installation</a></li>
+          <li><a href="#twitch">Connexion Twitch</a></li>
+          <li><a href="#liaison">Liaison site ↔ app</a></li>
+          <li><a href="#diffusion">Première diffusion</a></li>
+          <li><a href="#widgets">Widgets &amp; alertes</a></li>
+          <li><a href="#obs">OBS &amp; overlays</a></li>
+          <li><a href="#dons">Dons PayPal</a></li>
+          <li><a href="#mises-a-jour">Mises à jour</a></li>
+          <li><a href="#depannage">Dépannage</a></li>
+          <li><a href="#communaute">Communauté</a></li>
+        </ul>
+      </nav>
 
-      <h2>Connexion Twitch</h2>
-      <h3>Option A — Directement dans l'app (recommandé)</h3>
-      <p>Onglet <strong>Apps</strong> → <strong>Se connecter avec Twitch</strong>. Une fenêtre OAuth s'ouvre dans le navigateur.</p>
+      <article class="help-content">
 
-      <h3>Option B — Via le site web</h3>
-      <ol class="help-steps">
-        <li>Connectez-vous sur ce site avec Twitch.</li>
-        <li>Lancez Nova Stream sur votre PC.</li>
-        <li>Tableau de bord → <strong>Lier à Nova Stream</strong>.</li>
-      </ol>
+        <section id="demarrage" class="help-section">
+          <h2>Démarrage rapide</h2>
+          <p class="help-section-lead">En trois étapes, vous êtes prêt à streamer avec alertes, chat et widgets synchronisés.</p>
+          <ol class="help-steps">
+            <li><strong>Téléchargez</strong> Nova Stream depuis la <a href="index.html#download">page d'accueil</a> et installez l'application sur Windows.</li>
+            <li><strong>Connectez Twitch</strong> directement dans l'app (recommandé) ou via ce site, puis liez l'app au tableau de bord.</li>
+            <li><strong>Configurez</strong> vos widgets sur le site — les changements s'appliquent automatiquement dans Nova Stream si l'app est ouverte.</li>
+          </ol>
+          <div class="help-callout help-callout-tip">
+            <span class="help-callout-icon" aria-hidden="true">💡</span>
+            <div>Vous pouvez lire ce guide sans être connecté. Pour configurer vos widgets, connectez-vous avec Twitch depuis le <a href="dashboard.html">tableau de bord</a>.</div>
+          </div>
+        </section>
 
-      <h2>Widgets & alertes</h2>
-      <ul class="feature-list">
-        <li>Configurez chaque widget depuis le <a href="dashboard.html">tableau de bord</a>.</li>
-        <li>Les modifications se synchronisent automatiquement si l'app est ouverte.</li>
-        <li>URL overlay web pour OBS : copiez l'URL depuis la page de configuration du widget.</li>
-        <li>Types d'alertes : follow, sub, raid, bits, don — sons personnalisables par type.</li>
-      </ul>
+        <section id="installation" class="help-section">
+          <h2>Installation</h2>
+          <p class="help-section-lead">Nova Stream est une application desktop Windows. Aucune installation serveur n'est nécessaire de votre côté.</p>
+          <ol class="help-steps">
+            <li>Rendez-vous sur la <a href="index.html#download">page d'accueil</a> ou sur <a href="https://github.com/Hazeyy5/nova-stream/releases" target="_blank" rel="noopener">GitHub Releases</a> pour télécharger la dernière version.</li>
+            <li>Exécutez le fichier <code class="help-inline">Nova-Stream-Setup-x.x.x.exe</code> et suivez l'assistant d'installation.</li>
+            <li>Au premier lancement, acceptez les autorisations réseau si Windows vous le demande (liaison avec le site et Twitch).</li>
+            <li>Ouvrez <strong>Paramètres</strong> dans l'app pour vérifier le dossier d'enregistrement et les options audio.</li>
+          </ol>
+          <div class="help-callout help-callout-info">
+            <span class="help-callout-icon" aria-hidden="true">ℹ️</span>
+            <div>L'application se met à jour automatiquement lorsqu'une nouvelle version est publiée, si Nova Stream est ouverte au moment de la release.</div>
+          </div>
+        </section>
 
-      <h2>Dons PayPal</h2>
-      <ol class="help-steps">
-        <li>Page <a href="donations.html">Dons</a> → activez les dons.</li>
-        <li>Connectez PayPal Standard ou Business.</li>
-        <li>Partagez votre lien public <code>tip.html?u=votre_pseudo</code>.</li>
-        <li>L'alerte live n'apparaît qu'<strong>après paiement confirmé</strong>.</li>
-      </ol>
+        <section id="twitch" class="help-section">
+          <h2>Connexion Twitch</h2>
+          <p class="help-section-lead">La connexion Twitch active le chat, les alertes EventSub (follow, sub, raid, bits) et la récupération automatique de votre clé stream.</p>
 
-      <h2>Dépannage</h2>
-      <ul class="feature-list">
-        <li><strong>App non détectée</strong> — Lancez Nova Stream avant de cliquer « Lier ». Vérifiez le pare-feu Windows (port 3847).</li>
-        <li><strong>Chat / alertes inactifs</strong> — Reconnectez Twitch. Déconnectez puis reconnectez dans Apps.</li>
-        <li><strong>Session web expirée</strong> — Reconnectez-vous sur le site (session conservée ~4 h).</li>
-        <li><strong>Overlay OBS vide</strong> — L'app doit tourner pour les données live ; vérifiez l'URL avec token.</li>
-      </ul>
+          <div class="help-cards">
+            <div class="help-card">
+              <span class="help-card-badge">Recommandé</span>
+              <h4>Option A — Dans l'application</h4>
+              <p>Onglet <strong>Apps</strong> → <strong>Se connecter avec Twitch</strong>. Une fenêtre OAuth s'ouvre dans votre navigateur ; validez, puis revenez à l'app.</p>
+            </div>
+            <div class="help-card">
+              <h4>Option B — Via le site web</h4>
+              <p>Connectez-vous sur ce site avec Twitch, ouvrez Nova Stream sur votre PC, puis utilisez <strong>Lier à Nova Stream</strong> depuis le tableau de bord.</p>
+            </div>
+          </div>
 
-      <h2>Communauté</h2>
-      <p>Serveur Discord Nova Stream : support, tickets, sondages et annonces de version (<code>#mises-a-jour</code>).</p>
-      <p><a href="index.html" class="btn btn-outline">← Retour à l'accueil</a>
-         <a href="dashboard.html" class="btn btn-primary" style="margin-left:8px">Tableau de bord</a></p>
-    </section>
+          <h3>Après la connexion</h3>
+          <ul class="help-checklist">
+            <li>Votre pseudo et avatar apparaissent dans la barre latérale du tableau de bord.</li>
+            <li>La clé stream RTMP peut être récupérée automatiquement (Paramètres → Stream).</li>
+            <li>Les intégrations Twitch (chat, alertes, objectifs) sont disponibles dans l'app et sur le site.</li>
+          </ul>
+        </section>
+
+        <section id="liaison" class="help-section">
+          <h2>Liaison site ↔ application</h2>
+          <p class="help-section-lead">Le site sert de panneau de configuration à distance. La liaison envoie vos réglages et votre session Twitch à Nova Stream sur votre PC.</p>
+          <ol class="help-steps">
+            <li>Lancez <strong>Nova Stream</strong> sur votre ordinateur (l'app doit rester ouverte).</li>
+            <li>Connectez-vous sur ce site et ouvrez le <a href="dashboard.html">tableau de bord</a>.</li>
+            <li>Descendez jusqu'à la section <strong>Lier à Nova Stream</strong> — le statut doit passer au vert si l'app est détectée.</li>
+            <li>Cliquez sur <strong>Lier à Nova Stream</strong>. La première liaison transmet aussi votre compte Twitch à l'application.</li>
+          </ol>
+          <div class="help-callout help-callout-warn">
+            <span class="help-callout-icon" aria-hidden="true">⚠️</span>
+            <div>La liaison utilise le port local <code class="help-inline">3847</code>. Si l'app n'est pas détectée, vérifiez que Nova Stream est lancé et que le pare-feu Windows autorise les connexions entrantes.</div>
+          </div>
+          <h3>Synchronisation automatique</h3>
+          <p class="help-section-lead" style="margin-bottom:0">Une fois lié, chaque modification sur le site (widgets, alertes, dons) est envoyée à l'app en environ une demi-seconde, sans recliquer sur « Lier ».</p>
+        </section>
+
+        <section id="diffusion" class="help-section">
+          <h2>Première diffusion</h2>
+          <p class="help-section-lead">Nova Stream gère la capture, le mixage audio et l'envoi vers Twitch.</p>
+          <ol class="help-steps">
+            <li>Ajoutez vos sources (écran, fenêtre, webcam, micro) dans la scène active.</li>
+            <li>Dans <strong>Paramètres → Stream</strong>, vérifiez la clé Twitch (récupérée automatiquement si connecté).</li>
+            <li>Définissez le titre et la catégorie via <strong>Go Live</strong> avant de passer en direct.</li>
+            <li>Activez l'enregistrement local dans <strong>Paramètres → Général</strong> si vous souhaitez aussi enregistrer sur disque.</li>
+            <li>Cliquez sur <strong>Diffuser</strong> pour lancer le live, ou <strong>Enregistrer</strong> pour une session locale uniquement.</li>
+          </ol>
+        </section>
+
+        <section id="widgets" class="help-section">
+          <h2>Widgets &amp; alertes</h2>
+          <p class="help-section-lead">Chaque widget se configure depuis le tableau de bord ou sa page dédiée. Un aperçu en direct vous montre le rendu avant diffusion.</p>
+
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr>
+                  <th>Widget</th>
+                  <th>Rôle</th>
+                  <th>Configuration</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>🔔 Fenêtre d'alerte</td>
+                  <td>Follow, abonnement, raid, bits, don — avec son et animation personnalisables.</td>
+                  <td><a href="widget-config.html?w=alert">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>💬 Fenêtre de chat</td>
+                  <td>Affichage du chat Twitch sur scène (style, nombre de messages).</td>
+                  <td><a href="widget-config.html?w=chat">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>🎯 Objectif followers</td>
+                  <td>Barre de progression vers un objectif de followers.</td>
+                  <td><a href="widget-config.html?w=followerGoal">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>⭐ Objectif abonnés</td>
+                  <td>Suivi des abonnements en direct sur votre scène.</td>
+                  <td><a href="widget-config.html?w=subGoal">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>👁 Spectateurs</td>
+                  <td>Compteur de viewers en temps réel.</td>
+                  <td><a href="widget-config.html?w=viewerCount">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>📊 Sondage</td>
+                  <td>Question et options affichées pendant le live.</td>
+                  <td><a href="widget-config.html?w=poll">Configurer</a></td>
+                </tr>
+                <tr>
+                  <td>💰 Dons</td>
+                  <td>Page de tip publique et alertes après paiement confirmé.</td>
+                  <td><a href="donations.html">Configurer</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Types d'alertes Twitch</h3>
+          <ul class="help-checklist">
+            <li><strong>Follow</strong> — nouveau follower</li>
+            <li><strong>Abonnement</strong> — sub et resub</li>
+            <li><strong>Raid</strong> — arrivée d'un autre streamer</li>
+            <li><strong>Bits / Cheers</strong> — dons de bits Twitch</li>
+            <li><strong>Don</strong> — paiement PayPal via votre page de tip</li>
+          </ul>
+        </section>
+
+        <section id="obs" class="help-section">
+          <h2>OBS &amp; overlays</h2>
+          <p class="help-section-lead">Nova Stream intègre nativement les widgets dans ses scènes. Vous pouvez aussi utiliser les URLs overlay dans OBS Studio.</p>
+          <ol class="help-steps">
+            <li>Ouvrez la page de configuration du widget souhaité sur ce site.</li>
+            <li>Copiez l'<strong>URL overlay</strong> fournie (elle contient un token unique).</li>
+            <li>Dans OBS : <strong>Sources → Navigateur (Browser Source)</strong> → collez l'URL.</li>
+            <li>Ajustez largeur et hauteur selon l'aperçu du widget (souvent 800×600 ou selon le widget).</li>
+          </ol>
+          <div class="help-callout help-callout-warn">
+            <span class="help-callout-icon" aria-hidden="true">⚠️</span>
+            <div>Les données live (chat, viewers, alertes) nécessitent que <strong>Nova Stream soit lancé</strong> sur votre PC. Un overlay OBS vide indique souvent une app fermée ou une URL expirée.</div>
+          </div>
+        </section>
+
+        <section id="dons" class="help-section">
+          <h2>Dons PayPal</h2>
+          <p class="help-section-lead">Recevez des pourboires via une page publique, avec alerte en direct dans Nova Stream après confirmation du paiement.</p>
+          <ol class="help-steps">
+            <li>Allez sur la page <a href="donations.html">Dons</a> et activez les dons.</li>
+            <li>Connectez votre compte PayPal (Standard ou Business).</li>
+            <li>Copiez votre lien public du type <code class="help-inline">tip.html?u=votre_pseudo</code> et partagez-le (chat, panneau Twitch, bio).</li>
+            <li>Personnalisez montants suggérés, devise, message et GIF d'alerte si besoin.</li>
+            <li>L'alerte live n'apparaît qu'<strong>après paiement confirmé</strong> par PayPal — pas à la simple ouverture de la page.</li>
+          </ol>
+        </section>
+
+        <section id="mises-a-jour" class="help-section">
+          <h2>Mises à jour</h2>
+          <p class="help-section-lead">Nova Stream évolue régulièrement. Voici comment rester informé.</p>
+          <ul class="help-checklist">
+            <li><strong>Application</strong> — mise à jour automatique au lancement ou en arrière-plan si l'app est ouverte.</li>
+            <li><strong>Site web</strong> — déployé automatiquement à chaque modification ; aucune action de votre part.</li>
+            <li><strong>Discord</strong> — annonces dans le salon <code class="help-inline">#mises-a-jour</code> (releases app et déploiements site).</li>
+          </ul>
+        </section>
+
+        <section id="depannage" class="help-section">
+          <h2>Dépannage</h2>
+          <p class="help-section-lead">Solutions aux problèmes les plus fréquents.</p>
+          <div class="help-faq">
+            <div class="help-faq-item">
+              <strong>L'application n'est pas détectée lors de la liaison</strong>
+              <p>Vérifiez que Nova Stream est ouvert avant de cliquer « Lier ». Autorisez l'app dans le pare-feu Windows (port 3847). Redémarrez l'application si le statut reste gris.</p>
+            </div>
+            <div class="help-faq-item">
+              <strong>Chat ou alertes inactifs</strong>
+              <p>Déconnectez puis reconnectez Twitch dans l'onglet <strong>Apps</strong> de l'application. Vérifiez que la liaison site ↔ app est active sur le tableau de bord.</p>
+            </div>
+            <div class="help-faq-item">
+              <strong>Session web expirée</strong>
+              <p>Reconnectez-vous sur le site avec Twitch. La session est conservée environ 4 heures, puis une nouvelle connexion est demandée.</p>
+            </div>
+            <div class="help-faq-item">
+              <strong>Overlay OBS vide ou figé</strong>
+              <p>Lancez Nova Stream, vérifiez l'URL overlay (token valide) et actualisez la source navigateur dans OBS (clic droit → Actualiser).</p>
+            </div>
+            <div class="help-faq-item">
+              <strong>Les widgets ne se synchronisent pas</strong>
+              <p>Assurez-vous que l'app est liée et ouverte. Modifiez un réglage sur le site et attendez une seconde — le statut de sync apparaît dans la barre latérale du tableau de bord.</p>
+            </div>
+            <div class="help-faq-item">
+              <strong>Don reçu mais pas d'alerte</strong>
+              <p>Seuls les paiements <em>confirmés</em> déclenchent l'alerte. Vérifiez l'historique sur la page Dons et que PayPal est bien connecté.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="communaute" class="help-section">
+          <h2>Communauté &amp; support</h2>
+          <p class="help-section-lead">Besoin d'aide humaine, d'un retour sur une fonctionnalité ou d'une annonce de version ?</p>
+          <p style="font-size:14px;line-height:1.55;color:#c9d1d9;margin:0 0 16px">
+            Rejoignez le serveur Discord officiel Nova Stream : entraide entre streamers, tickets support, sondages et annonces dans <code class="help-inline">#mises-a-jour</code>.
+          </p>
+          <div class="help-footer-actions">
+            <a href="index.html" class="btn btn-outline">← Accueil</a>
+            <a href="dashboard.html" class="btn btn-primary">Tableau de bord</a>
+            <a href="#" class="btn btn-discord" data-discord-community target="_blank" rel="noopener" data-discord-hidden-without-url hidden>Rejoindre le Discord</a>
+          </div>
+        </section>
+
+      </article>
+    </div>
   </div>
 
   <script src="js/config.js"></script>
   <script src="js/discord-links.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/dashboard-shell.js"></script>
-  <script>NovaDash.mountLayout({ activeId: 'help' })</script>
+  <script>
+    const session = NovaAuth.getSession()
+    NovaDash.mountLayout({
+      activeId: 'help',
+      requireAuth: false,
+      publicShell: !session
+    })
+  </script>
 </body>
 </html>

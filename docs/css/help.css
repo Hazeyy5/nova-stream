@@ -1,0 +1,397 @@
+/* Guide utilisateur — mise en page et composants */
+
+.help-hero {
+  margin-bottom: 28px;
+}
+
+.help-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.help-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(145, 70, 255, 0.12);
+  border: 1px solid rgba(145, 70, 255, 0.28);
+  color: #c084fc;
+}
+
+.help-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+  max-width: 960px;
+}
+
+.help-toc {
+  position: sticky;
+  top: 24px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+}
+
+.help-toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6e7681;
+  margin: 0 0 10px;
+}
+
+.help-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.help-toc a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #c9d1d9;
+  text-decoration: none;
+  line-height: 1.35;
+  transition: background 0.15s, color 0.15s;
+}
+
+.help-toc a:hover {
+  background: rgba(145, 70, 255, 0.12);
+  color: #fff;
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.help-section {
+  padding: 24px 26px;
+  border-radius: 14px;
+  background: #161b22;
+  border: 1px solid #30363d;
+}
+
+.help-section h2 {
+  font-size: 18px;
+  margin: 0 0 6px;
+  color: #f0f6fc;
+  scroll-margin-top: 24px;
+}
+
+.help-section-lead {
+  font-size: 14px;
+  color: #8b949e;
+  margin: 0 0 18px;
+  line-height: 1.55;
+}
+
+.help-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e6edf3;
+  margin: 20px 0 10px;
+}
+
+.help-section h3:first-of-type {
+  margin-top: 0;
+}
+
+.help-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: help-step;
+}
+
+.help-steps > li {
+  position: relative;
+  padding: 0 0 18px 44px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #c9d1d9;
+}
+
+.help-steps > li:last-child {
+  padding-bottom: 0;
+}
+
+.help-steps > li::before {
+  counter-increment: help-step;
+  content: counter(help-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #c084fc;
+  background: rgba(145, 70, 255, 0.15);
+  border: 1px solid rgba(145, 70, 255, 0.35);
+}
+
+.help-steps > li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: #30363d;
+}
+
+.help-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.help-checklist li {
+  position: relative;
+  padding: 7px 0 7px 22px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #c9d1d9;
+}
+
+.help-checklist li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.help-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.help-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #30363d;
+}
+
+.help-card-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4ade80;
+  margin-bottom: 8px;
+}
+
+.help-card h4 {
+  font-size: 14px;
+  margin: 0 0 6px;
+  color: #f0f6fc;
+}
+
+.help-card p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8b949e;
+  margin: 0;
+}
+
+.help-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.help-table th,
+.help-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #30363d;
+  vertical-align: top;
+}
+
+.help-table th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6e7681;
+}
+
+.help-table td {
+  color: #c9d1d9;
+  line-height: 1.45;
+}
+
+.help-table tr:last-child td {
+  border-bottom: none;
+}
+
+.help-table a {
+  color: #c084fc;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.help-table a:hover {
+  text-decoration: underline;
+}
+
+.help-callout {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 14px;
+}
+
+.help-callout-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.help-callout-tip {
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  color: #bbf7d0;
+}
+
+.help-callout-warn {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  color: #fde68a;
+}
+
+.help-callout-info {
+  background: rgba(88, 101, 242, 0.1);
+  border: 1px solid rgba(88, 101, 242, 0.25);
+  color: #c7d2fe;
+}
+
+.help-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-faq-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid #30363d;
+}
+
+.help-faq-item strong {
+  display: block;
+  font-size: 14px;
+  color: #f0f6fc;
+  margin-bottom: 6px;
+}
+
+.help-faq-item p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8b949e;
+  margin: 0;
+}
+
+.help-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.help-public .help-public-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.help-public-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 15px;
+  color: #f0f6fc;
+  text-decoration: none;
+}
+
+.help-public-brand img {
+  border-radius: 8px;
+}
+
+.help-public-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.help-public-links .btn {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.help-public-main {
+  margin-left: 0 !important;
+  max-width: 1040px;
+  margin-inline: auto;
+}
+
+code.help-inline {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid #30363d;
+  color: #e6edf3;
+}
+
+@media (max-width: 900px) {
+  .help-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .help-toc {
+    position: static;
+  }
+
+  .help-cards {
+    grid-template-columns: 1fr;
+  }
+}
