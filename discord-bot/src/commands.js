@@ -2,6 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.
 import { runServerSetup } from './setup.js'
 import { WEBSITE_URL, GITHUB_URL, isNovaGuild } from './config.js'
 import { handlePollCommand, handlePollButton } from './polls.js'
+import { handleNovaStatusCommand } from './status.js'
 import {
   handleTicketButton,
   handleTicketPanelCommand,
@@ -54,6 +55,10 @@ export const commands = [
   new SlashCommandBuilder()
     .setName('nova-info')
     .setDescription('Liens utiles Nova Stream'),
+
+  new SlashCommandBuilder()
+    .setName('nova-status')
+    .setDescription('Statut des services Nova Stream (site, API dons, version)'),
 
   new SlashCommandBuilder()
     .setName('ticket-panel')
@@ -147,10 +152,15 @@ export async function handleInteraction(interaction) {
         { name: '🎫 Support', value: 'Ouvrez un ticket dans `#ouvrir-ticket` (salon privé avec l\'équipe)' },
         { name: '💰 Dons', value: 'PayPal OAuth + GIF Giphy via le dashboard web' },
         { name: '🔔 Alertes', value: 'Follow, sub, raid, bits, don — sons personnalisables' },
-        { name: '📊 Sondages', value: '`/sondage` ou `/nova-sondage` — 2 à 5 options, votes par boutons' }
+        { name: '📊 Sondages', value: '`/sondage` ou `/nova-sondage` — 2 à 5 options, votes par boutons' },
+        { name: '📡 Statut', value: 'Utilisez `/nova-status` pour l\'état des services' }
       )
     await interaction.reply({ embeds: [embed] })
     return true
+  }
+
+  if (interaction.commandName === 'nova-status') {
+    return handleNovaStatusCommand(interaction)
   }
 
   return false

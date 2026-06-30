@@ -9,6 +9,8 @@ on:
       - 'scripts/sync-web-config.mjs'
       - 'scripts/post-site-update-discord.mjs'
       - 'scripts/lib/**'
+      - 'workers/donations/**'
+      - 'README.md'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

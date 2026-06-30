@@ -95,10 +95,13 @@
     return out
   }
 
-  function saveAll(settings) {
+  function saveAll(settings, opts = {}) {
     const key = storageKey()
     if (!key) throw new Error('Session requise')
     localStorage.setItem(key, JSON.stringify(settings))
+    if (!opts.skipCloud && window.NovaWidgetCloud?.schedulePush) {
+      window.NovaWidgetCloud.schedulePush(settings)
+    }
     if (window.NovaDesktopSync?.scheduleAutoSync) {
       window.NovaDesktopSync.scheduleAutoSync()
     }

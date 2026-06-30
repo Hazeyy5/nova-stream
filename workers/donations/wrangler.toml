@@ -5,6 +5,7 @@ compatibility_date = "2024-01-01"
 [vars]
 PAYPAL_MODE = "live"
 PAYPAL_REDIRECT_URI = "https://nova-stream-donations.contact-delaplacetheo.workers.dev/v1/paypal/callback"
+TWITCH_CLIENT_ID = "fuyhtssyr56gtacm8ehit09i4q252b"
 
 [[d1_databases]]
 binding = "DB"

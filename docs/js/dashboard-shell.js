@@ -112,6 +112,10 @@
       window.NovaDesktopSync.initDashboardAutoSync()
     }
 
+    if (session && window.NovaWidgetCloud?.init) {
+      void window.NovaWidgetCloud.init()
+    }
+
     return session
   }
 

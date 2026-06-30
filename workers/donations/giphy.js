@@ -16,6 +16,21 @@ export function isValidGiphyUrl(raw) {
   }
 }
 
+/** Extrait l'ID Giphy depuis une URL media.giphy.com ou giphy.com/gifs/... */
+export function extractGiphyId(raw) {
+  const url = String(raw ?? '').trim()
+  if (!url) return ''
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname
+    const mediaMatch = path.match(/\/media\/([^/]+)\//)
+    if (mediaMatch) return mediaMatch[1]
+    const gifMatch = path.match(/\/gifs\/(?:[^/]+-)?([a-zA-Z0-9]+)/)
+    if (gifMatch) return gifMatch[1]
+  } catch { /* ignore */ }
+  return ''
+}
+
 export function resolveAlertGifUrl(amount, rawUrl, options = {}) {
   const minAmount = Number(options.minAmount) > 0 ? Number(options.minAmount) : DONATION_GIF_MIN_AMOUNT
   const enabled = options.enabled !== false

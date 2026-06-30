@@ -42,6 +42,7 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
           DISCORD_UPDATES_CHANNEL: mises-a-jour
+          DISCORD_ANNOUNCE_ROLE_ID: ${{ secrets.DISCORD_ANNOUNCE_ROLE_ID }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -21,7 +21,7 @@
     <section class="link-card" id="link">
       <h3>Lier à Nova Stream</h3>
       <p>Assurez-vous que l'application Nova Stream est ouverte sur votre PC. La première liaison envoie aussi votre compte Twitch.</p>
-      <p class="donations-hint" style="margin-top:8px">Une fois lié, chaque modification sur le site est envoyée automatiquement à l'app (≈0,5 s).</p>
+      <p class="donations-hint" style="margin-top:8px">Une fois lié, chaque modification sur le site est envoyée automatiquement à l'app (≈0,5 s). Vos réglages sont aussi sauvegardés dans le cloud.</p>
 
       <div class="status-dot offline" id="desktop-status">
         Nova Stream : vérification...
@@ -59,14 +59,22 @@
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/site-meta.js"></script>
   <script src="js/discord-links.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/link.js"></script>
   <script src="js/desktop-sync.js"></script>
   <script src="js/widget-settings.js"></script>
+  <script src="js/widget-cloud.js"></script>
+  <script src="js/donations.js"></script>
   <script src="js/dashboard-shell.js"></script>
   <script src="js/widgets-demo.js"></script>
   <script>
+    NovaSiteMeta.applyPageMeta({
+      title: 'Tableau de bord — Nova Stream',
+      description: 'Configurez alertes, chat, widgets et dons. Liaison et sauvegarde cloud vers Nova Stream.',
+      path: '/dashboard.html'
+    })
     NovaDash.mountLayout({ activeId: 'dashboard' })
 
     const WIDGET_CARDS = [

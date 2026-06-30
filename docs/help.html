@@ -53,6 +53,20 @@
             <span class="help-callout-icon" aria-hidden="true">💡</span>
             <div>Vous pouvez lire ce guide sans être connecté. Pour configurer vos widgets, connectez-vous avec Twitch depuis le <a href="dashboard.html">tableau de bord</a>.</div>
           </div>
+          <div class="help-visual" aria-hidden="true">
+            <div class="help-visual-window">
+              <div class="help-visual-bar"><span></span><span></span><span></span></div>
+              <div class="help-visual-body">
+                <div class="help-visual-sidebar"></div>
+                <div class="help-visual-main">
+                  <div class="help-visual-line wide"></div>
+                  <div class="help-visual-line"></div>
+                  <div class="help-visual-line short"></div>
+                </div>
+              </div>
+            </div>
+            <p class="help-visual-caption">Tableau de bord → widgets → sync automatique vers l'app</p>
+          </div>
         </section>
 
         <section id="installation" class="help-section">
@@ -108,7 +122,17 @@
             <div>La liaison utilise le port local <code class="help-inline">3847</code>. Si l'app n'est pas détectée, vérifiez que Nova Stream est lancé et que le pare-feu Windows autorise les connexions entrantes.</div>
           </div>
           <h3>Synchronisation automatique</h3>
-          <p class="help-section-lead" style="margin-bottom:0">Une fois lié, chaque modification sur le site (widgets, alertes, dons) est envoyée à l'app en environ une demi-seconde, sans recliquer sur « Lier ».</p>
+          <p class="help-section-lead" style="margin-bottom:12px">Une fois lié, chaque modification sur le site (widgets, alertes, dons) est envoyée à l'app en environ une demi-seconde, sans recliquer sur « Lier ».</p>
+          <div class="help-visual help-visual-compact" aria-hidden="true">
+            <div class="help-visual-flow">
+              <span class="help-visual-node">🌐 Site</span>
+              <span class="help-visual-arrow">→</span>
+              <span class="help-visual-node accent">☁️ Cloud</span>
+              <span class="help-visual-arrow">→</span>
+              <span class="help-visual-node">🖥️ App</span>
+            </div>
+            <p class="help-visual-caption">Sauvegarde cloud + synchronisation locale (port 3847)</p>
+          </div>
         </section>
 
         <section id="diffusion" class="help-section">
@@ -272,10 +296,17 @@
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/site-meta.js"></script>
   <script src="js/discord-links.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/dashboard-shell.js"></script>
   <script>
+    NovaSiteMeta.applyPageMeta({
+      title: 'Aide — Nova Stream',
+      description: 'Guide utilisateur : installation, Twitch, widgets, dons PayPal, OBS et dépannage.',
+      path: '/help.html'
+    })
+
     const session = NovaAuth.getSession()
     NovaDash.mountLayout({
       activeId: 'help',

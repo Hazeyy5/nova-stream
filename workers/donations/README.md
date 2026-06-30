@@ -109,8 +109,21 @@ Si PayPal n'est pas connecté, le streamer peut encore renseigner **PayPal.me** 
 | `POST /v1/donate` | Legacy (alerte sans vérif) |
 | `GET /v1/giphy/search` | Recherche / trending Giphy (page de don) |
 | `GET /v1/giphy/config` | Seuil GIF (25) + statut API |
+| `GET /v1/stats` | Statistiques dons (total, mois, top donateurs, 7 jours) |
+| `GET /v1/widget-settings` | Sauvegarde cloud réglages widgets (auth Bearer Twitch) |
+| `PUT /v1/widget-settings` | Enregistrer réglages widgets dans le cloud |
+| `GET /v1/gif-blocklist` | Liste des GIF bloqués (streamer) |
+| `POST /v1/gif-blocklist` | Bloquer un GIF |
+| `DELETE /v1/gif-blocklist` | Débloquer un GIF |
 
-Les donateurs peuvent ajouter un **GIF Giphy** sur la page de tip pour les dons **≥ 25 €** (ou USD). L'URL est stockée en base (`alert_gif_url`) et affichée sur l'alerte live.
+Les donateurs peuvent ajouter un **GIF Giphy** sur la page de tip pour les dons **≥ 25 €** (ou USD). L'URL est stockée en base (`alert_gif_url`) et affichée sur l'alerte live. Les streamers peuvent **bloquer** des GIF via le dashboard (blocklist D1).
+
+### Migration 0006 (cloud widgets + modération GIF)
+
+```bash
+npx wrangler d1 migrations apply nova-donations --remote
+npx wrangler deploy
+```
 
 ## Statuts don
 

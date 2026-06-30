@@ -293,6 +293,8 @@ async function closeTicket(channel, closedBy, reason = 'Résolu') {
   }
 
   const type = TICKET_TYPES[ticket?.type ?? 'other']
+  const transcript = await buildTicketTranscript(channel)
+
   const logEmbed = new EmbedBuilder()
     .setTitle(`🔒 Ticket #${String(ticket?.number ?? '?').padStart(3, '0')} fermé`)
     .setColor(0x64748b)
@@ -301,13 +303,21 @@ async function closeTicket(channel, closedBy, reason = 'Résolu') {
       { name: 'Auteur', value: ownerTag, inline: true },
       { name: 'Fermé par', value: closedBy.tag, inline: true },
       { name: 'Salon', value: `#${channel.name}`, inline: true },
-      { name: 'Raison', value: reason.slice(0, 1024) }
+      { name: 'Raison', value: reason.slice(0, 1024) },
+      { name: 'Messages', value: String(transcript.messageCount), inline: true }
     )
     .setTimestamp()
 
   const logs = await findLogsChannel(channel.guild)
   if (logs?.isTextBased()) {
-    await logs.send({ embeds: [logEmbed] }).catch(() => {})
+    const payload = { embeds: [logEmbed] }
+    if (transcript.text) {
+      payload.files = [{
+        attachment: Buffer.from(transcript.text, 'utf-8'),
+        name: `${channel.name}-transcript.txt`
+      }]
+    }
+    await logs.send(payload).catch(() => {})
   }
 
   unregisterTicket(channel.id)
@@ -323,6 +333,48 @@ async function closeTicket(channel, closedBy, reason = 'Résolu') {
   setTimeout(() => {
     channel.delete('Ticket fermé').catch(() => {})
   }, 5000).unref?.()
+}
+
+async function buildTicketTranscript(channel) {
+  try {
+    const collected = []
+    let lastId
+    for (let i = 0; i < 5; i++) {
+      const batch = await channel.messages.fetch({ limit: 100, ...(lastId ? { before: lastId } : {}) })
+      if (!batch.size) break
+      collected.push(...batch.values())
+      lastId = batch.last()?.id
+      if (batch.size < 100) break
+    }
+
+    const sorted = collected.sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+    const lines = sorted.map((m) => {
+      const ts = new Date(m.createdTimestamp).toISOString()
+      const author = m.author?.tag || 'Inconnu'
+      const content = m.content || (m.embeds.length ? `[embed: ${m.embeds[0]?.title || 'sans titre'}]` : '')
+      const attachments = m.attachments.size
+        ? ` [fichiers: ${[...m.attachments.values()].map((a) => a.name).join(', ')}]`
+        : ''
+      return `[${ts}] ${author}: ${content}${attachments}`
+    })
+
+    const header = [
+      `Transcript — #${channel.name}`,
+      `Serveur: ${channel.guild?.name || '?'}`,
+      `Fermé: ${new Date().toISOString()}`,
+      `Messages: ${lines.length}`,
+      '—'.repeat(48),
+      ''
+    ].join('\n')
+
+    const text = header + lines.join('\n')
+    return {
+      messageCount: lines.length,
+      text: text.slice(0, 900_000)
+    }
+  } catch {
+    return { messageCount: 0, text: '' }
+  }
 }
 
 export async function handleTicketOpenButton(interaction) {

@@ -17,11 +17,18 @@ import {
   verifyAndParseWebhook
 } from './paypal.js'
 import { DONATION_GIF_MIN_AMOUNT, resolveAlertGifUrl, searchGiphy } from './giphy.js'
+import { requireStreamerAuth } from './twitchAuth.js'
+import {
+  addBlockedGif,
+  filterBlockedGif,
+  listBlockedGifs,
+  removeBlockedGif
+} from './gifModeration.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 }
 
 function json(data, status = 200) {
@@ -125,6 +132,76 @@ async function verifyStreamerKey(db, streamerId, key) {
 async function streamerHasPayPal(db, streamerId) {
   const row = await getPayPalAccount(db, streamerId)
   return !!(row?.refresh_token_enc || row?.access_token_enc)
+}
+
+function monthStartTs() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+}
+
+async function buildDonationStats(db, streamerId, currency) {
+  const paidFilter = `streamer_id = ? AND status IN ('alerted', 'pending_alert') AND payment_provider != 'manual'`
+  const monthStart = monthStartTs()
+  const day7 = Date.now() - 7 * 24 * 3600 * 1000
+
+  const totalRow = await db
+    .prepare(`SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total FROM donations WHERE ${paidFilter}`)
+    .bind(streamerId)
+    .first()
+
+  const monthRow = await db
+    .prepare(`SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total FROM donations WHERE ${paidFilter} AND created_at >= ?`)
+    .bind(streamerId, monthStart)
+    .first()
+
+  const avgRow = await db
+    .prepare(`SELECT COALESCE(AVG(amount), 0) AS avg FROM donations WHERE ${paidFilter}`)
+    .bind(streamerId)
+    .first()
+
+  const { results: topDonors } = await db
+    .prepare(`
+      SELECT donor_name, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+      FROM donations
+      WHERE ${paidFilter}
+      GROUP BY donor_name
+      ORDER BY total DESC
+      LIMIT 5
+    `)
+    .bind(streamerId)
+    .all()
+
+  const { results: dailyRows } = await db
+    .prepare(`
+      SELECT (created_at / 86400000) AS day_bucket, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+      FROM donations
+      WHERE ${paidFilter} AND created_at >= ?
+      GROUP BY day_bucket
+      ORDER BY day_bucket ASC
+    `)
+    .bind(streamerId, day7)
+    .all()
+
+  const daily = (dailyRows ?? []).map((row) => ({
+    date: new Date(Number(row.day_bucket) * 86400000).toISOString().slice(0, 10),
+    count: row.count,
+    total: row.total
+  }))
+
+  return {
+    count: totalRow?.count ?? 0,
+    totalAmount: totalRow?.total ?? 0,
+    monthCount: monthRow?.count ?? 0,
+    monthTotal: monthRow?.total ?? 0,
+    averageAmount: avgRow?.avg ?? 0,
+    currency,
+    topDonors: (topDonors ?? []).map((r) => ({
+      name: r.donor_name,
+      count: r.count,
+      total: r.total
+    })),
+    daily
+  }
 }
 
 export default {
@@ -274,10 +351,14 @@ export default {
         return json({ success: false, message: `Montant minimum : ${settings.minAmount} ${currency}` }, 400)
       }
 
-      const alertGifUrl = resolveAlertGifUrl(amount, body?.alertGifUrl, {
-        minAmount: settings.donationGifMinAmount,
-        enabled: settings.donationGifEnabled
-      })
+      const alertGifUrl = await filterBlockedGif(
+        db,
+        streamerId,
+        resolveAlertGifUrl(amount, body?.alertGifUrl, {
+          minAmount: settings.donationGifMinAmount,
+          enabled: settings.donationGifEnabled
+        })
+      )
 
       const hasPayPal = await streamerHasPayPal(db, streamerId)
       if (!hasPayPal) {
@@ -650,24 +731,166 @@ export default {
         .all()
 
       const donations = (results ?? []).map(rowToDonation)
-      const totalRow = await db
-        .prepare(`
-          SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
-          FROM donations
-          WHERE streamer_id = ? AND status IN ('alerted', 'pending_alert') AND payment_provider != 'manual'
-        `)
-        .bind(streamerId)
-        .first()
+      const stats = await buildDonationStats(db, streamerId, settings.currency)
 
       return json({
         success: true,
         donations,
-        stats: {
-          count: totalRow?.count ?? 0,
-          totalAmount: totalRow?.total ?? 0,
-          currency: settings.currency
-        }
+        stats
       })
+    }
+
+    if (path === '/v1/stats' && request.method === 'GET') {
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+
+      if (!streamerId || !key) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const stats = await buildDonationStats(db, streamerId, settings.currency)
+      return json({ success: true, stats })
+    }
+
+    if (path === '/v1/widget-settings' && request.method === 'GET') {
+      const streamerId = url.searchParams.get('streamerId')
+      if (!streamerId) {
+        return json({ success: false, message: 'streamerId requis' }, 400)
+      }
+
+      const user = await requireStreamerAuth(request, env, streamerId)
+      if (!user) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const row = await db
+        .prepare('SELECT settings_json, updated_at FROM widget_settings_cloud WHERE streamer_id = ?')
+        .bind(streamerId)
+        .first()
+
+      if (!row) {
+        return json({ success: true, settings: null, updatedAt: 0 })
+      }
+
+      let settings = null
+      try {
+        settings = JSON.parse(row.settings_json)
+      } catch {
+        settings = null
+      }
+
+      return json({
+        success: true,
+        settings,
+        updatedAt: row.updated_at
+      })
+    }
+
+    if (path === '/v1/widget-settings' && request.method === 'PUT') {
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ success: false, message: 'JSON invalide' }, 400)
+      }
+
+      const streamerId = String(body?.streamerId ?? '')
+      const settings = body?.settings
+      if (!streamerId || !settings || typeof settings !== 'object') {
+        return json({ success: false, message: 'Données invalides' }, 400)
+      }
+
+      const user = await requireStreamerAuth(request, env, streamerId)
+      if (!user) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const now = Date.now()
+      const jsonStr = JSON.stringify(settings)
+      if (jsonStr.length > 512_000) {
+        return json({ success: false, message: 'Réglages trop volumineux' }, 413)
+      }
+
+      await db
+        .prepare(`
+          INSERT INTO widget_settings_cloud (streamer_id, username, settings_json, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(streamer_id) DO UPDATE SET
+            username = excluded.username,
+            settings_json = excluded.settings_json,
+            updated_at = excluded.updated_at
+        `)
+        .bind(streamerId, user.login, jsonStr, now)
+        .run()
+
+      return json({ success: true, updatedAt: now })
+    }
+
+    if (path === '/v1/gif-blocklist' && request.method === 'GET') {
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+      if (!streamerId || !key) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const blocked = await listBlockedGifs(db, streamerId)
+      return json({ success: true, blocked })
+    }
+
+    if (path === '/v1/gif-blocklist' && request.method === 'POST') {
+      let body
+      try {
+        body = await request.json()
+      } catch {
+        return json({ success: false, message: 'JSON invalide' }, 400)
+      }
+
+      const streamerId = String(body?.streamerId ?? '')
+      const key = String(body?.key ?? '')
+      const gifUrl = String(body?.gifUrl ?? '')
+      const reason = String(body?.reason ?? 'Bloqué par le streamer')
+
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      try {
+        const entry = await addBlockedGif(db, streamerId, gifUrl, reason)
+        return json({ success: true, entry })
+      } catch (err) {
+        return json({
+          success: false,
+          message: err instanceof Error ? err.message : 'Blocage échoué'
+        }, 400)
+      }
+    }
+
+    if (path === '/v1/gif-blocklist' && request.method === 'DELETE') {
+      const streamerId = url.searchParams.get('streamerId')
+      const key = url.searchParams.get('key')
+      const entryId = url.searchParams.get('id')
+      if (!streamerId || !key || !entryId) {
+        return json({ success: false, message: 'Paramètres manquants' }, 400)
+      }
+
+      const settings = await verifyStreamerKey(db, streamerId, key)
+      if (!settings) {
+        return json({ success: false, message: 'Non autorisé' }, 403)
+      }
+
+      const removed = await removeBlockedGif(db, streamerId, entryId)
+      return json({ success: removed })
     }
 
     return json({ success: false, message: 'Route introuvable' }, 404)

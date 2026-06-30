@@ -241,6 +241,75 @@
     return data
   }
 
+  function authQueryParams() {
+    const session = window.NovaAuth.getSession()
+    if (!session) throw new Error('Connectez-vous avec Twitch')
+    const d = load()
+    return { streamerId: session.userId, key: d.donationKey }
+  }
+
+  async function fetchStats() {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const { streamerId, key } = authQueryParams()
+    const url = new URL(`${base}/v1/stats`)
+    url.searchParams.set('streamerId', streamerId)
+    url.searchParams.set('key', key)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Statistiques indisponibles')
+    }
+    return data.stats
+  }
+
+  async function fetchGifBlocklist() {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const { streamerId, key } = authQueryParams()
+    const url = new URL(`${base}/v1/gif-blocklist`)
+    url.searchParams.set('streamerId', streamerId)
+    url.searchParams.set('key', key)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Liste de blocage indisponible')
+    }
+    return data.blocked || []
+  }
+
+  async function blockGif(gifUrl, reason = 'Bloqué par le streamer') {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const { streamerId, key } = authQueryParams()
+    const res = await fetch(`${base}/v1/gif-blocklist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ streamerId, key, gifUrl, reason })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Blocage échoué')
+    }
+    return data.entry
+  }
+
+  async function unblockGif(entryId) {
+    const base = apiUrl()
+    if (!base) throw new Error('Service de dons non configuré')
+    const { streamerId, key } = authQueryParams()
+    const url = new URL(`${base}/v1/gif-blocklist`)
+    url.searchParams.set('streamerId', streamerId)
+    url.searchParams.set('key', key)
+    url.searchParams.set('id', entryId)
+    const res = await fetch(url.toString(), { method: 'DELETE', signal: AbortSignal.timeout(10000) })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message ?? 'Déblocage échoué')
+    }
+    return true
+  }
+
   window.NovaDonations = {
     DEFAULTS,
     load,
@@ -257,6 +326,10 @@
     capturePayPalOrder,
     submitTip,
     fetchStreamer,
-    fetchHistory
+    fetchHistory,
+    fetchStats,
+    fetchGifBlocklist,
+    blockGif,
+    unblockGif
   }
 })()

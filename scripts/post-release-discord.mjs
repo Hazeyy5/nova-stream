@@ -10,6 +10,17 @@ const VERSION = process.env.VERSION?.trim() || REF.replace(/^refs\/tags\//, '') 
 const RELEASE_BODY = process.env.RELEASE_BODY?.trim() || ''
 const REPO = process.env.GITHUB_REPOSITORY?.trim() || 'Hazeyy5/nova-stream'
 const WEBSITE = process.env.NOVA_WEBSITE_URL?.trim() || 'https://hazeyy5.github.io/nova-stream'
+const ANNOUNCE_ROLE_ID = process.env.DISCORD_ANNOUNCE_ROLE_ID?.trim() || ''
+
+function isMajorRelease(version) {
+  const m = String(version).match(/^v?(\d+)\.0\.0$/i)
+  return !!m
+}
+
+function buildPingContent() {
+  if (!ANNOUNCE_ROLE_ID || !isMajorRelease(VERSION)) return undefined
+  return `<@&${ANNOUNCE_ROLE_ID}> Nouvelle version majeure disponible !`
+}
 
 function buildEmbed() {
   const releaseUrl = `https://github.com/${REPO}/releases/tag/${encodeURIComponent(VERSION)}`
@@ -31,7 +42,7 @@ function buildEmbed() {
   }]
 }
 
-postEmbed(buildEmbed()).catch((err) => {
+postEmbed(buildEmbed(), { content: buildPingContent() }).catch((err) => {
   console.error('[post-release]', err.message || err)
   process.exit(1)
 })

@@ -34,7 +34,7 @@ export async function resolveChannelId() {
   return ch.id
 }
 
-export async function postEmbed(embeds) {
+export async function postEmbed(embeds, options = {}) {
   if (!TOKEN) {
     console.error('[discord-notify] DISCORD_BOT_TOKEN manquant — annonce ignorée.')
     process.exit(0)
@@ -44,9 +44,11 @@ export async function postEmbed(embeds) {
     process.exit(0)
   }
   const channelId = await resolveChannelId()
+  const body = { embeds }
+  if (options.content) body.content = options.content
   await discordFetch(`/channels/${channelId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ embeds })
+    body: JSON.stringify(body)
   })
   console.info(`[discord-notify] Message publié dans #${CHANNEL} (${channelId})`)
 }

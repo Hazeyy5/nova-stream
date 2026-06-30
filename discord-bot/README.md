@@ -125,6 +125,7 @@ Les commandes slash sont **ré-enregistrées au démarrage** du bot (`index.js`)
 |----------|-------------|
 | `/nova-setup` | [Admin] Crée ou complète rôles et salons |
 | `/nova-info` | Liens site, GitHub, rappel des features |
+| `/nova-status` | Statut services (site, API dons, version app, dernière release GitHub) |
 | `/ticket-panel` | [Admin] Publie le panel d'ouverture de tickets |
 | `/ticket-close` | Fermer le ticket (auteur ou staff) |
 | `/ticket-add` | [Staff] Ajouter un membre au ticket |
@@ -136,7 +137,8 @@ Les commandes slash sont **ré-enregistrées au démarrage** du bot (`index.js`)
 1. Les membres vont dans **`#ouvrir-ticket`** et cliquent sur une catégorie (Application, Bug, Widgets & Dons, Autre).
 2. Un salon privé **`ticket-XXX-pseudo`** est créé — visible par l'auteur et le staff (`Modérateur`, `Nova Admin`).
 3. **Fermer** : bouton 🔒 dans le ticket ou `/ticket-close [raison]`.
-4. Les fermetures sont archivées dans **`#logs-tickets`** (staff).
+4. Un **transcript** `.txt` est archivé dans **`#logs-tickets`** à chaque fermeture.
+5. Les fermetures sont aussi résumées dans **`#logs-tickets`** (staff).
 
 Pour installer sur un serveur déjà configuré : `/nova-setup` (ajoute la catégorie 🎫 TICKETS et `#ouvrir-ticket`) ou `/ticket-panel` dans un salon de votre choix.
 
