@@ -1,6 +1,6 @@
 .nav-rail {
   width: var(--nav-width);
-  background: linear-gradient(180deg, rgba(15, 15, 24, 0.98) 0%, rgba(22, 22, 37, 0.95) 100%);
+  background: var(--nav-rail-gradient);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -24,7 +24,7 @@
   display: block;
   border-radius: 14px;
   object-fit: cover;
-  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.45);
+  box-shadow: var(--shadow-accent-md);
 }
 
 .nav-rail-items {
@@ -44,13 +44,13 @@
 .nav-status-card {
   background: var(--bg-glass);
   backdrop-filter: var(--glass-blur);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   border-radius: 12px;
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: 0 0 20px rgba(167, 139, 250, 0.08);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.08);
 }
 
 .nav-status-label {
@@ -95,11 +95,11 @@
 
 .nav-item:hover {
   color: var(--text-secondary);
-  background: rgba(167, 139, 250, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 .nav-item.active {
-  color: #ede9fe;
+  color: var(--nav-active-text);
   background: var(--purple-bg);
 }
 

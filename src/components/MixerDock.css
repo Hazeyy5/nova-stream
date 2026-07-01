@@ -135,8 +135,8 @@
   border-radius: 3px;
   background: linear-gradient(
     90deg,
-    #34d399 0%,
-    #2dd4bf var(--vol, 50%),
+    var(--accent) 0%,
+    var(--accent-hover) var(--vol, 50%),
     rgba(255, 255, 255, 0.1) var(--vol, 50%)
   );
 }
@@ -157,8 +157,8 @@
   border-radius: 3px;
   background: linear-gradient(
     90deg,
-    #34d399 0%,
-    #2dd4bf var(--vol, 50%),
+    var(--accent) 0%,
+    var(--accent-hover) var(--vol, 50%),
     rgba(255, 255, 255, 0.1) var(--vol, 50%)
   );
 }

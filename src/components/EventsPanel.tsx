@@ -18,7 +18,7 @@ function timeAgo(ts: number, now: number): string {
 const PLATFORM_COLORS: Record<string, string> = {
   twitch: '#9146FF',
   kick: '#53FC18',
-  system: '#c084fc'
+  system: 'var(--accent)'
 }
 
 const TYPE_ICONS: Partial<Record<FeedEvent['type'], string>> = {

@@ -30,6 +30,7 @@
 .chat-panel-user {
   font-weight: 700;
   margin-right: 6px;
+  color: var(--accent);
 }
 
 .chat-panel-text {
@@ -84,11 +85,11 @@
   font-weight: 600;
   background: var(--purple-bg);
   color: var(--purple);
-  border: 1px solid rgba(167, 139, 250, 0.35);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
 }
 
 .chat-panel-send-btn:hover:not(:disabled) {
-  background: rgba(167, 139, 250, 0.22);
+  background: rgba(var(--accent-rgb), 0.22);
 }
 
 .chat-panel-send-btn:disabled {

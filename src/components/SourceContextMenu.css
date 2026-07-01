@@ -37,7 +37,7 @@
 
 .source-ctx-item:hover:not(.disabled),
 .source-ctx-item.open:not(.disabled) {
-  background: rgba(167, 139, 250, 0.18);
+  background: rgba(var(--accent-rgb), 0.18);
   color: #fff;
 }
 

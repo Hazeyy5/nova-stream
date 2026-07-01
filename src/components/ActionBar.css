@@ -98,7 +98,7 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--accent) 0%, #00a88e 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--purple-deep) 100%);
   color: #041a16;
   letter-spacing: 0.02em;
   transition: all 0.15s;

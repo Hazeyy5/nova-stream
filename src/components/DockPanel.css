@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: linear-gradient(180deg, rgba(36, 36, 56, 0.9) 0%, rgba(28, 28, 46, 0.4) 100%);
+  background: var(--dock-header-gradient);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
@@ -67,7 +67,7 @@
 .dock-add-btn:hover {
   background: var(--purple-bg);
   color: var(--purple);
-  box-shadow: 0 0 12px rgba(167, 139, 250, 0.2);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.2);
 }
 
 .dock-add-wrap {
@@ -145,7 +145,7 @@
 }
 
 .dock-list li:hover {
-  background: rgba(167, 139, 250, 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .dock-list li.active {
@@ -167,8 +167,8 @@
 }
 
 .dock-list li.selected {
-  background: rgba(167, 139, 250, 0.1);
-  outline: 1px solid rgba(167, 139, 250, 0.35);
+  background: rgba(var(--accent-rgb), 0.1);
+  outline: 1px solid rgba(var(--accent-rgb), 0.35);
   outline-offset: -1px;
 }
 
@@ -220,7 +220,7 @@
 
 .dock-item-action:hover {
   color: var(--purple);
-  background: rgba(167, 139, 250, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 .dock-item-action.danger:hover {

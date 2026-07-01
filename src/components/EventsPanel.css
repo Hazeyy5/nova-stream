@@ -26,7 +26,7 @@
 
 .events-panel-item:hover {
   border-color: color-mix(in srgb, var(--evt-color) 40%, transparent);
-  background: rgba(167, 139, 250, 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .events-panel-icon {

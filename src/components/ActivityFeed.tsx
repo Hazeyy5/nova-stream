@@ -15,7 +15,7 @@ function timeAgo(ts: number): string {
 const PLATFORM_COLORS: Record<string, string> = {
   twitch: '#9146FF',
   kick: '#53FC18',
-  system: '#00d4b8'
+  system: 'var(--accent)'
 }
 
 export default function ActivityFeed({ events }: ActivityFeedProps) {

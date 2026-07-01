@@ -94,13 +94,13 @@
   background: var(--gradient-purple);
   color: white;
   box-shadow:
-    0 4px 20px rgba(139, 92, 246, 0.35),
+    var(--shadow-accent-lg),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .controls-btn-rec:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 28px rgba(139, 92, 246, 0.45);
+  box-shadow: var(--shadow-accent-xl);
 }
 
 .controls-btn-rec:disabled {
@@ -125,7 +125,7 @@
 .controls-btn-stop-rec {
   background: var(--gradient-purple);
   color: white;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+  box-shadow: var(--shadow-accent-lg);
 }
 
 .controls-btn-stop {
@@ -140,7 +140,7 @@
 }
 
 .controls-btn-secondary:hover {
-  border-color: rgba(167, 139, 250, 0.3);
+  border-color: rgba(var(--accent-rgb), 0.3);
   color: var(--text-primary);
   background: rgba(54, 54, 78, 0.8);
 }

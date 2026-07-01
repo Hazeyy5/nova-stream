@@ -284,7 +284,7 @@
 }
 
 .settings-scenes-btn.primary {
-  background: linear-gradient(135deg, var(--accent), #00a88e);
+  background: linear-gradient(135deg, var(--accent), var(--purple-deep));
   color: #041a16;
   border-color: transparent;
 }

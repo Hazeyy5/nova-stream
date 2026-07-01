@@ -3,7 +3,7 @@
   align-items: center;
   height: 50px;
   padding: 0 18px;
-  background: rgba(22, 22, 37, 0.85);
+  background: var(--header-bg);
   backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
@@ -33,7 +33,7 @@
   flex-shrink: 0;
   border-radius: 8px;
   object-fit: cover;
-  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.35);
+  box-shadow: var(--shadow-accent-sm);
 }
 
 .header-brand-text {
@@ -54,7 +54,7 @@
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 45%, #7c3aed 100%);
+  background: var(--gradient-brand);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -105,8 +105,8 @@
 
 .status-badge.record {
   color: var(--record);
-  background: rgba(192, 132, 252, 0.14);
-  border: 1px solid rgba(192, 132, 252, 0.35);
+  background: var(--record-badge-bg);
+  border: 1px solid var(--record-badge-border);
 }
 
 @keyframes livePulse {

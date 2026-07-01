@@ -25,6 +25,24 @@
   --accent-dim: rgba(167, 139, 250, 0.5);
   --accent-bg: rgba(139, 92, 246, 0.14);
   --accent-glow: rgba(167, 139, 250, 0.4);
+  --accent-rgb: 167, 139, 250;
+  --purple-deep-rgb: 124, 58, 237;
+  --record-rgb: 192, 132, 252;
+  --nav-active-text: #ede9fe;
+  --header-bg: rgba(22, 22, 37, 0.85);
+  --status-bar-bg: rgba(12, 12, 20, 0.95);
+  --nav-rail-gradient: linear-gradient(180deg, rgba(15, 15, 24, 0.98) 0%, rgba(22, 22, 37, 0.95) 100%);
+  --dock-header-gradient: linear-gradient(180deg, rgba(36, 36, 56, 0.9) 0%, rgba(28, 28, 46, 0.4) 100%);
+  --shadow-accent-sm: 0 2px 12px rgba(139, 92, 246, 0.35);
+  --shadow-accent-md: 0 4px 24px rgba(139, 92, 246, 0.45);
+  --shadow-accent-lg: 0 4px 20px rgba(139, 92, 246, 0.35);
+  --shadow-accent-xl: 0 8px 28px rgba(139, 92, 246, 0.45);
+  --record-badge-bg: rgba(192, 132, 252, 0.14);
+  --record-badge-border: rgba(192, 132, 252, 0.35);
+  --bg-glow-1: rgba(139, 92, 246, 0.12);
+  --bg-glow-2: rgba(251, 113, 133, 0.08);
+  --bg-glow-3: rgba(124, 58, 237, 0.06);
+  --gradient-accent: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
   --accent-teal: #2dd4bf;
   --gradient-rose: linear-gradient(135deg, #fb7185 0%, #f97316 100%);
   --gradient-purple: linear-gradient(135deg, #a855f7 0%, #4c1d95 100%);
@@ -108,12 +126,12 @@ input:disabled, select:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 250, 0.25);
+  background: rgba(var(--accent-rgb), 0.25);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(167, 139, 250, 0.45);
+  background: rgba(var(--accent-rgb), 0.45);
 }
 
 body.preview-resizing {

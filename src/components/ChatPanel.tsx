@@ -12,7 +12,7 @@ interface ChatPanelProps {
 const ChatLine = memo(function ChatLine({ msg }: { msg: ChatMessage }) {
   return (
     <div className="chat-panel-line">
-      <span className="chat-panel-user" style={{ color: msg.color ?? '#a78bfa' }}>
+      <span className="chat-panel-user" style={msg.color ? { color: msg.color } : undefined}>
         {msg.username}
       </span>
       <span className="chat-panel-text">{msg.message}</span>

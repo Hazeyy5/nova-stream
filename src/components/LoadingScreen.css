@@ -5,8 +5,8 @@
   width: 100%;
   height: 100vh;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
-    #161625;
+    radial-gradient(ellipse 80% 60% at 50% 0%, var(--bg-glow-1), transparent 60%),
+    var(--bg-primary);
 }
 
 .loading-screen-card {
@@ -17,14 +17,14 @@
   padding: 36px 44px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(28, 28, 46, 0.72);
+  background: var(--bg-dock);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
   min-width: 280px;
 }
 
 .loading-screen-logo {
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+  box-shadow: var(--shadow-accent-sm);
 }
 
 .loading-screen-title {
@@ -32,22 +32,22 @@
   font-size: 1.35rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #f4f4fa;
+  color: var(--text-primary);
 }
 
 .loading-screen-spinner {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 3px solid rgba(167, 139, 250, 0.2);
-  border-top-color: #a78bfa;
+  border: 3px solid rgba(var(--accent-rgb), 0.2);
+  border-top-color: var(--accent);
   animation: loading-spin 0.85s linear infinite;
 }
 
 .loading-screen-message {
   margin: 0;
   font-size: 0.9rem;
-  color: #b4b4cc;
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -56,7 +56,7 @@
   max-width: 320px;
   font-size: 0.9rem;
   line-height: 1.45;
-  color: #fb7185;
+  color: var(--pink);
   text-align: center;
 }
 
@@ -64,7 +64,7 @@
   margin-top: 4px;
   padding: 8px 18px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  background: var(--gradient-purple);
   color: #fff;
   font-size: 0.88rem;
   font-weight: 600;

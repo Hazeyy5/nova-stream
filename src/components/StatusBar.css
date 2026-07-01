@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: rgba(12, 12, 20, 0.95);
+  background: var(--status-bar-bg);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
   font-size: 10px;
@@ -39,7 +39,7 @@
   width: 100px;
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(90deg, transparent, #a855f7, #c084fc, transparent);
+  background: linear-gradient(90deg, transparent, var(--accent), var(--record), transparent);
   opacity: 0.6;
   animation: wavePulse 2.5s ease-in-out infinite;
 }
