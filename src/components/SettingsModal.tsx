@@ -3,7 +3,7 @@ import type { SceneCollection, StreamSettings, MediaDevice, SpeedtestResult, Enc
 import { type SceneTemplateId } from '../lib/sceneTemplates'
 import TemplateGallery from './TemplateGallery'
 import { APP_THEME_PRESETS, DEFAULT_CUSTOM_ACCENT } from '../lib/appThemes'
-import TemplateGallery from './TemplateGallery'
+import { applyThemeFromSettings } from '../hooks/useAppTheme'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -187,12 +187,21 @@ export default function SettingsModal({
     if (speedtestResult) update({ videoBitrate: speedtestResult.recommendedVideoBitrate })
   }
 
+  const previewTheme = (partial: Pick<StreamSettings, 'appThemeId' | 'appAccentColor'>) => {
+    applyThemeFromSettings({ ...form, ...partial })
+  }
+
+  const handleClose = () => {
+    applyThemeFromSettings(settings)
+    onClose()
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleClose}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Paramètres</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={handleClose}>✕</button>
         </div>
 
         <div className="settings-tabs">
@@ -610,7 +619,11 @@ export default function SettingsModal({
                     key={theme.id}
                     type="button"
                     className={`settings-theme-card${form.appThemeId === theme.id ? ' selected' : ''}`}
-                    onClick={() => setForm((f) => ({ ...f, appThemeId: theme.id as AppThemeId }))}
+                    onClick={() => {
+                      const next = { ...form, appThemeId: theme.id as AppThemeId }
+                      setForm(next)
+                      previewTheme({ appThemeId: theme.id as AppThemeId })
+                    }}
                   >
                     <span className="settings-theme-swatch" style={{ background: theme.swatch }} />
                     <strong>{theme.name}</strong>
@@ -623,7 +636,10 @@ export default function SettingsModal({
                   type="radio"
                   name="theme"
                   checked={(form.appThemeId ?? 'nova') === 'custom'}
-                  onChange={() => setForm((f) => ({ ...f, appThemeId: 'custom' as AppThemeId }))}
+                  onChange={() => {
+                    setForm((f) => ({ ...f, appThemeId: 'custom' as AppThemeId }))
+                    previewTheme({ appThemeId: 'custom' })
+                  }}
                 />
                 {' '}Accent personnalisé
               </label>
@@ -633,7 +649,11 @@ export default function SettingsModal({
                   <input
                     type="color"
                     value={form.appAccentColor ?? DEFAULT_CUSTOM_ACCENT}
-                    onChange={(e) => setForm((f) => ({ ...f, appAccentColor: e.target.value }))}
+                    onChange={(e) => {
+                      const accent = e.target.value
+                      setForm((f) => ({ ...f, appThemeId: 'custom' as AppThemeId, appAccentColor: accent }))
+                      previewTheme({ appThemeId: 'custom', appAccentColor: accent })
+                    }}
                   />
                 </label>
               )}
@@ -706,7 +726,7 @@ export default function SettingsModal({
         </div>
 
         <div className="modal-footer">
-          <button className="modal-btn secondary" onClick={onClose}>Annuler</button>
+          <button className="modal-btn secondary" onClick={handleClose}>Annuler</button>
           <button className="modal-btn primary" onClick={() => onSave(form)}>Enregistrer</button>
         </div>
       </div>

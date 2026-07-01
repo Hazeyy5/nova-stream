@@ -278,7 +278,11 @@ export interface TtsSettings {
   prefixTemplate?: string
   blockedWords?: string[]
   requireLive?: boolean
+  /** Style visuel de l’aperçu / overlay TTS. */
+  style?: TtsStyle
 }
+
+export type TtsStyle = 'classic' | 'neon' | 'minimal' | 'banner' | 'bubble'
 
 /** Paramètres de la page de dons (synchronisés site ↔ app). */
 export interface DonationSettings {

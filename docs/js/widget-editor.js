@@ -199,21 +199,104 @@
     window.speechSynthesis.speak(utter)
   }
 
+  const TTS_SPEED_OPTIONS = [
+    { value: '0.5', label: '×0.50 — Très lent' },
+    { value: '0.65', label: '×0.65 — Lent' },
+    { value: '0.75', label: '×0.75 — Modéré' },
+    { value: '0.85', label: '×0.85' },
+    { value: '1', label: '×1.00 — Normal' },
+    { value: '1.15', label: '×1.15' },
+    { value: '1.25', label: '×1.25 — Rapide' },
+    { value: '1.35', label: '×1.35' },
+    { value: '1.5', label: '×1.50' },
+    { value: '1.65', label: '×1.65' },
+    { value: '1.8', label: '×1.80 — Très rapide' },
+    { value: '2', label: '×2.00 — Maximum' }
+  ]
+
+  const TTS_STYLE_OPTIONS = [
+    { value: 'classic', label: 'Classique' },
+    { value: 'neon', label: 'Néon' },
+    { value: 'minimal', label: 'Minimal' },
+    { value: 'banner', label: 'Bannière' },
+    { value: 'bubble', label: 'Bulle' }
+  ]
+
+  function normalizeTtsRate(rate) {
+    const v = Number(rate) || 1
+    let closest = TTS_SPEED_OPTIONS[0].value
+    let minDiff = Infinity
+    for (const opt of TTS_SPEED_OPTIONS) {
+      const diff = Math.abs(parseFloat(opt.value) - v)
+      if (diff < minDiff) {
+        minDiff = diff
+        closest = opt.value
+      }
+    }
+    return closest
+  }
+
+  function ttsPreviewMeta(cfg) {
+    return `${cfg.enabled !== false ? 'Activé' : 'Désactivé'} · ${
+      cfg.rewardId?.trim() ? `Récompense ${cfg.rewardTitle || cfg.rewardId}` : 'Toute récompense avec message'
+    } · ${cfg.rewardCost ? `${cfg.rewardCost} pts` : 'coût non défini'} · ×${cfg.rate ?? 1} · Cooldown ${cfg.cooldownSec ?? 15}s`
+  }
+
   function renderTtsPreview(cfg) {
     const el = document.getElementById('widget-preview')
     if (!el) return
     const text = ttsPreviewText(cfg)
-    el.className = 'widget-preview-stage tts-preview'
+    const style = cfg.style || 'classic'
+    const meta = esc(ttsPreviewMeta(cfg))
+    el.className = `widget-preview-stage tts-preview tts-style-${style}`
+
+    const badge = `<span class="tts-preview-badge">🔊 TTS</span>`
+    const message = `<p class="tts-preview-text">${esc(text)}</p>`
+    const footer = `<p class="tts-preview-meta">${meta}</p>`
+
+    if (style === 'minimal') {
+      el.innerHTML = `
+        <div class="tts-preview-card">
+          <p class="tts-preview-minimal-line"><span class="tts-preview-icon">🔊</span> ${esc(text)}</p>
+          ${footer}
+        </div>
+      `
+      return
+    }
+
+    if (style === 'banner') {
+      el.innerHTML = `
+        <div class="tts-preview-card tts-preview-banner">
+          <div class="tts-preview-banner-accent"></div>
+          <div class="tts-preview-banner-body">
+            ${badge}
+            ${message}
+            ${footer}
+          </div>
+        </div>
+      `
+      return
+    }
+
+    if (style === 'bubble') {
+      el.innerHTML = `
+        <div class="tts-preview-card tts-preview-bubble-wrap">
+          <div class="tts-preview-bubble">
+            ${badge}
+            ${message}
+          </div>
+          <span class="tts-preview-bubble-tail"></span>
+          ${footer}
+        </div>
+      `
+      return
+    }
+
     el.innerHTML = `
       <div class="tts-preview-card">
-        <span class="tts-preview-badge">🔊 TTS</span>
-        <p class="tts-preview-text">${esc(text)}</p>
-        <p class="tts-preview-meta">
-          ${cfg.enabled !== false ? 'Activé' : 'Désactivé'}
-          · ${cfg.rewardId?.trim() ? `Récompense ${esc(cfg.rewardTitle || cfg.rewardId)}` : 'Toute récompense avec message'}
-          · ${cfg.rewardCost ? `${cfg.rewardCost} pts` : 'coût non défini'}
-          · Cooldown ${cfg.cooldownSec ?? 15}s
-        </p>
+        ${badge}
+        ${message}
+        ${footer}
       </div>
     `
   }
@@ -501,8 +584,14 @@
               ${fieldText('cfg-new-title', 'Titre', cfg.rewardTitle || 'Lire mon message', 'Lire mon message')}
               ${fieldNumber('cfg-new-cost', 'Coût en points', cfg.rewardCost ?? 500, 1, 999999)}
               ${fieldText('cfg-new-prompt', 'Invite saisie viewer', 'Votre message TTS', 'Votre message TTS')}
-              <button type="button" class="btn btn-twitch btn-sm" id="btn-tts-create-reward">+ Créer sur Twitch</button>
+              <div class="tts-create-reward-actions">
+                <button type="button" class="btn btn-twitch btn-sm" id="btn-tts-create-reward">+ Créer sur Twitch</button>
+              </div>
             </div>
+          </div>
+          <div class="cfg-subsection">
+            <p class="cfg-subtitle">Apparence</p>
+            ${fieldSelect('cfg-tts-style', 'Style visuel TTS', TTS_STYLE_OPTIONS, cfg.style || 'classic')}
           </div>
           <div class="cfg-subsection">
             <p class="cfg-subtitle">Voix et message</p>
@@ -512,7 +601,7 @@
               <select id="cfg-voice"></select>
             </label>
             ${fieldText('cfg-prefix', 'Modèle ({name}, {message})', cfg.prefixTemplate ?? '{name} dit : {message}')}
-            ${fieldRange('cfg-rate', 'Vitesse', 0.5, 1.8, cfg.rate ?? 1, '')}
+            ${fieldSelect('cfg-rate', 'Vitesse de lecture', TTS_SPEED_OPTIONS, normalizeTtsRate(cfg.rate))}
             ${fieldRange('cfg-volume', 'Volume', 10, 100, cfg.volume ?? 85, '%')}
             ${fieldNumber('cfg-max-length', 'Longueur max (car.)', cfg.maxLength ?? 200, 20, 280)}
             ${fieldNumber('cfg-cooldown', 'Cooldown par viewer (sec.)', cfg.cooldownSec ?? 15, 0, 120)}
@@ -579,6 +668,7 @@
           rewardCost: parseInt(g('cfg-reward-cost')?.value || '0', 10) || undefined,
           voiceName: g('cfg-voice')?.value || '',
           prefixTemplate: g('cfg-prefix')?.value?.trim() || '{name} dit : {message}',
+          style: g('cfg-tts-style')?.value || 'classic',
           rate: parseFloat(g('cfg-rate')?.value || '1'),
           pitch: 1,
           volume: parseInt(g('cfg-volume')?.value || '85', 10),

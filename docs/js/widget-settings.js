@@ -69,7 +69,8 @@
       cooldownSec: 15,
       prefixTemplate: '{name} dit : {message}',
       blockedWords: [],
-      requireLive: false
+      requireLive: false,
+      style: 'classic'
     }
   }
 
